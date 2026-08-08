@@ -1,0 +1,20 @@
+services:
+  db:
+    image: postgres:17.6-alpine
+    container_name: capi-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: capi
+      POSTGRES_PASSWORD: capi_local
+      POSTGRES_DB: capi
+    ports:
+      - "5432:5432"
+    volumes:
+      - capi-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capi"]
+      interval: 5s
+      retries: 5
+
+volumes:
+  capi-db-data:
