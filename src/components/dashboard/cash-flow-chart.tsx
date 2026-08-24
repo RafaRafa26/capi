@@ -12,14 +12,15 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { fluxoCaixaDiario } from "@/lib/mock-data/fluxo-caixa";
 
-const SALDO_INICIAL = 9854000;
-
 const chartConfig = {
+  saldo: {
+    label: "Saldo",
+    color: "#2563eb",
+  },
   entradas: {
     label: "Entradas",
     color: "#0d9488",
@@ -41,31 +42,29 @@ function formatTooltipDate(value: string) {
 }
 
 export function CashFlowChart() {
-  const [activeSerie, setActiveSerie] = useState<keyof typeof chartConfig>("entradas");
+  const [activeSerie, setActiveSerie] = useState<keyof typeof chartConfig>("saldo");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date("2026-08-01T00:00:00"),
     to: new Date("2026-08-17T00:00:00"),
   });
 
   const filteredData = useMemo(() => {
-    if (!dateRange?.from) return fluxoCaixaDiario;
-    const from = dateRange.from.getTime();
-    const to = (dateRange.to ?? dateRange.from).getTime();
-    return fluxoCaixaDiario.filter((day) => {
-      const time = new Date(`${day.date}T00:00:00`).getTime();
-      return time >= from && time <= to;
-    });
+    const range = !dateRange?.from
+      ? fluxoCaixaDiario
+      : fluxoCaixaDiario.filter((day) => {
+          const from = dateRange.from!.getTime();
+          const to = (dateRange.to ?? dateRange.from!).getTime();
+          const time = new Date(`${day.date}T00:00:00`).getTime();
+          return time >= from && time <= to;
+        });
+    return range.map((day) => ({ ...day, saldo: day.entradas - day.saidas }));
   }, [dateRange]);
 
-  const totals = useMemo(
-    () => ({
-      entradas: filteredData.reduce((sum, day) => sum + day.entradas, 0),
-      saidas: filteredData.reduce((sum, day) => sum + day.saidas, 0),
-    }),
-    [filteredData],
-  );
-
-  const resultado = totals.entradas - totals.saidas;
+  const totals = useMemo(() => {
+    const entradas = filteredData.reduce((sum, day) => sum + day.entradas, 0);
+    const saidas = filteredData.reduce((sum, day) => sum + day.saidas, 0);
+    return { entradas, saidas, saldo: entradas - saidas };
+  }, [filteredData]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
@@ -77,27 +76,6 @@ export function CashFlowChart() {
           <p className="text-sm font-semibold">Fluxo de caixa</p>
         </div>
         <DateRangePicker value={dateRange} onChange={setDateRange} />
-      </div>
-
-      <div className="border-border flex w-full gap-4 border-t border-b py-2.5">
-        <div className="flex-1">
-          <p className="text-muted-foreground text-xs">Saldo inicial</p>
-          <p className="text-sm font-medium">{formatMoney(SALDO_INICIAL)}</p>
-        </div>
-        <div className="flex-1">
-          <p className="text-muted-foreground text-xs">Entradas no período</p>
-          <p className="text-sm font-medium text-[#0d9488]">{formatMoney(totals.entradas)}</p>
-        </div>
-        <div className="flex-1">
-          <p className="text-muted-foreground text-xs">Saídas no período</p>
-          <p className="text-sm font-medium text-[#e5484d]">{formatMoney(totals.saidas)}</p>
-        </div>
-        <div className="flex-1">
-          <p className="text-muted-foreground text-xs">Resultado</p>
-          <p className={cn("text-sm font-medium", resultado >= 0 ? "text-[#0d9488]" : "text-[#e5484d]")}>
-            {formatMoney(resultado)}
-          </p>
-        </div>
       </div>
 
       <div className="border-border overflow-hidden rounded-lg border">
