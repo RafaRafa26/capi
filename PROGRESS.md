@@ -32,7 +32,7 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 |---|-------|--------|--------|
 | 1 | Fundação: shadcn/ui manual (registry `new-york-v4`), design tokens do Figma, `AppSidebar`, layout `(app)`, tela de login, dashboard (Visão geral) | `feature/shadcn-foundation` | ✅ Concluída |
 | 2 | Contatos: listagem, criar/editar, detalhe | `feature/contatos` | ✅ Concluída |
-| 3 | Contas bancárias, categorias, centros de custo, extrato | `feature/contas-bancarias` | ⏳ Planejada |
+| 3 | Contas bancárias, categorias, centros de custo, extrato | `feature/contas-bancarias` | ✅ Concluída |
 | 4 | Contas a receber + novo recebimento (avulso e v3) | `feature/contas-a-receber` | ⏳ Planejada |
 | 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ⏳ Planejada |
 | 6 | Repasses (saldo por favorecido) | `feature/repasses` | ⏳ Planejada |
@@ -44,11 +44,11 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 - [x] `contatos-listagem` (468:666) → `/contatos`
 - [x] `contato-criar-editar` (469:893) → `/contatos/novo`, `/contatos/[id]/editar`
 - [x] `contato-detalhe` (471:682) → `/contatos/[id]`
-- [ ] `contas-bancarias-listagem` (473:652)
-- [ ] `conta-bancaria-criar-editar` (474:666)
-- [ ] `categorias-gestao` (474:1123)
-- [ ] `centros-de-custo-listagem` (477:779)
-- [ ] `extrato-conta-bancaria` (477:1121)
+- [x] `contas-bancarias-listagem` (473:652) → `/contas-bancarias`
+- [x] `conta-bancaria-criar-editar` (474:666) → `/contas-bancarias/novo`, `/contas-bancarias/[id]/editar`
+- [x] `categorias-gestao` (474:1123) → `/categorias`
+- [x] `centros-de-custo-listagem` (477:779) → `/centros-de-custo`
+- [x] `extrato-conta-bancaria` (477:1121) → `/contas-bancarias/[id]/extrato`
 - [ ] `contas-a-receber-listagem` (478:1000)
 - [ ] `novo-recebimento-avulso` (480:1775)
 - [ ] `novo-recebimento-v3` (400:351)
@@ -118,3 +118,30 @@ Prisma/RLS, dados reais em vez de mock — fora do escopo desta etapa de UI.
 **Validado com:** `next build`, `eslint .`, captura de tela via
 Playwright comparada ao Figma nas três telas (listagem, formulário,
 detalhe) — visualmente equivalentes.
+
+## Etapa 3 — Contas e Extratos (detalhe)
+
+**O que foi feito:**
+- `src/lib/mock-data/{contas-bancarias,categorias,centros-de-custo,extrato}.ts`
+  e `src/lib/format.ts` (`formatMoney`, valores sempre em centavos,
+  conforme AD-07).
+- `/contas-bancarias`: tabela com badges de natureza (Própria/Terceiro)
+  e situação (Ativa/Inativa), busca por nome ou banco.
+- `/contas-bancarias/novo` e `.../[id]/editar`: formulário de 4 seções
+  — Dados da conta, Natureza (cartões de rádio Própria/Terceiro com a
+  descrição de cada uma), Saldo inicial, Situação (switch).
+- `/contas-bancarias/[id]/extrato`: seletor de conta (troca de conta
+  navega para a rota do id selecionado), período, cards de saldo
+  inicial/final e tabela de lançamentos com entrada/saída/saldo.
+- `/categorias`: árvore categoria → subcategorias com abas Todas
+  /Receitas/Despesas, linhas colapsáveis e diálogo "Nova categoria".
+- `/centros-de-custo`: listagem com busca e diálogo "Novo centro de
+  custo".
+- Categorias e centros de custo não têm tela dedicada de criação no
+  Figma (apenas um botão) — implementados como `Dialog` do shadcn,
+  entrada mínima (nome e, para categoria, tipo) somada à lista local
+  via `useState` para dar feedback imediato nesta etapa de UI.
+
+**Validado com:** `next build`, `eslint .`, captura de tela via
+Playwright das cinco telas comparada ao Figma — visualmente
+equivalentes.
