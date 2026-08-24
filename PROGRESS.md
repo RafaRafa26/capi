@@ -31,7 +31,7 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 | # | Etapa | Branch | Status |
 |---|-------|--------|--------|
 | 1 | Fundação: shadcn/ui manual (registry `new-york-v4`), design tokens do Figma, `AppSidebar`, layout `(app)`, tela de login, dashboard (Visão geral) | `feature/shadcn-foundation` | ✅ Concluída |
-| 2 | Contatos: listagem, criar/editar, detalhe | `feature/contatos` | ⏳ Próxima |
+| 2 | Contatos: listagem, criar/editar, detalhe | `feature/contatos` | ✅ Concluída |
 | 3 | Contas bancárias, categorias, centros de custo, extrato | `feature/contas-bancarias` | ⏳ Planejada |
 | 4 | Contas a receber + novo recebimento (avulso e v3) | `feature/contas-a-receber` | ⏳ Planejada |
 | 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ⏳ Planejada |
@@ -41,9 +41,9 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 
 - [x] `login-capi` (455:569) → `/login`
 - [x] `visao-geral-dashboard` (460:769) + `-sidebar-collapsed` (486:606) → `/dashboard`
-- [ ] `contatos-listagem` (468:666)
-- [ ] `contato-criar-editar` (469:893)
-- [ ] `contato-detalhe` (471:682)
+- [x] `contatos-listagem` (468:666) → `/contatos`
+- [x] `contato-criar-editar` (469:893) → `/contatos/novo`, `/contatos/[id]/editar`
+- [x] `contato-detalhe` (471:682) → `/contatos/[id]`
 - [ ] `contas-bancarias-listagem` (473:652)
 - [ ] `conta-bancaria-criar-editar` (474:666)
 - [ ] `categorias-gestao` (474:1123)
@@ -94,3 +94,27 @@ comparada ao Figma (login e dashboard visualmente equivalentes).
 
 **Pendências conhecidas:** autenticação real (Fase 1 de `ARQUITETURA.md`),
 Prisma/RLS, dados reais em vez de mock — fora do escopo desta etapa de UI.
+
+## Etapa 2 — Contatos (detalhe)
+
+**O que foi feito:**
+- `src/lib/mock-data/contatos.ts`: tipos `Contato`, `TipoPessoa`,
+  `PapelContato`, `SituacaoContato` alinhados à entidade `Contato` de
+  `ARQUITETURA.md` §5.1, com 10 registros mockados.
+- `/contatos`: tabela client-side (`ContatosTable`) com busca por nome,
+  filtro por papel e por situação, badges de papéis/situação e menu de
+  ações (ver detalhes / editar) por linha.
+- `/contatos/novo` e `/contatos/[id]/editar`: formulário único
+  (`ContatoForm`) com as 5 seções do Figma — Identificação, Papéis,
+  Contato, Dados bancários, PIX — reaproveitado entre criar e editar.
+  O rótulo "Cliente" do checkbox mapeia para o papel `PAGADOR` do
+  domínio (mesmo mapeamento usado no item "Clientes" da sidebar).
+- `/contatos/[id]`: ficha somente-leitura com breadcrumb, badges de
+  papel/situação, botões Editar/Inativar e os dados cadastrais em grid.
+- Sem persistência: "Salvar" dispara um toast (sonner) e navega de
+  volta — a gravação real entra quando a Fase 1/2 de `ARQUITETURA.md`
+  (Prisma, serviços, RLS) for implementada.
+
+**Validado com:** `next build`, `eslint .`, captura de tela via
+Playwright comparada ao Figma nas três telas (listagem, formulário,
+detalhe) — visualmente equivalentes.
