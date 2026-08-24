@@ -320,3 +320,24 @@ removida — era redundante com os cards de série. Em seu lugar, um
 terceiro card "Saldo" (entradas − saídas) entrou na fileira de séries
 alternáveis, antes de Entradas e Saídas, e é a série selecionada por
 padrão ao abrir o dashboard.
+
+**Terceiro ajuste, a pedido do usuário:**
+- "Saldo" passou de resultado líquido do período para **saldo
+  acumulado de verdade** — soma entradas − saídas desde o início da
+  série mockada (`fluxoCaixaAcumulado` em `cash-flow-chart.tsx`) e não
+  reinicia ao trocar o filtro de período, então pode aparecer negativo
+  se as saídas superarem as entradas acumuladas.
+- Número do card "Saldo" mudou de azul para preto.
+- Eixo Y adicionado ao gráfico, com a mesma formatação compacta
+  ("R$ 70k") do gráfico de barras — `formatMoneyCompact` em
+  `src/lib/format.ts`.
+- A série ativa agora desenha sólido até `HOJE` (17/08/2026, a mesma
+  data fictícia de "hoje" usada no resto do dashboard, definida em
+  `fluxo-caixa.ts`) e pontilhado depois, para marcar visualmente que
+  a parte futura é projeção — dois `<Line>` do recharts com dataKeys
+  complementares (`valorReal`/`valorPrevisto`) que se tocam no dia de
+  virada para não abrir espaço em branco entre os trechos.
+- `isAnimationActive={false}` nas duas linhas: sem isso, o recharts
+  anima o traço crescendo a cada troca de série/filtro, e uma captura
+  de tela batida logo em seguida flagrava o gráfico "vazio" no meio
+  da animação.
