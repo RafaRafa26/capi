@@ -33,7 +33,7 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 | 1 | Fundação: shadcn/ui manual (registry `new-york-v4`), design tokens do Figma, `AppSidebar`, layout `(app)`, tela de login, dashboard (Visão geral) | `feature/shadcn-foundation` | ✅ Concluída |
 | 2 | Contatos: listagem, criar/editar, detalhe | `feature/contatos` | ✅ Concluída |
 | 3 | Contas bancárias, categorias, centros de custo, extrato | `feature/contas-bancarias` | ✅ Concluída |
-| 4 | Contas a receber + novo recebimento (avulso e v3) | `feature/contas-a-receber` | ⏳ Planejada |
+| 4 | Contas a receber + novo recebimento (avulso e v3) | `feature/contas-a-receber` | ✅ Concluída |
 | 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ⏳ Planejada |
 | 6 | Repasses (saldo por favorecido) | `feature/repasses` | ⏳ Planejada |
 
@@ -49,9 +49,9 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 - [x] `categorias-gestao` (474:1123) → `/categorias`
 - [x] `centros-de-custo-listagem` (477:779) → `/centros-de-custo`
 - [x] `extrato-conta-bancaria` (477:1121) → `/contas-bancarias/[id]/extrato`
-- [ ] `contas-a-receber-listagem` (478:1000)
-- [ ] `novo-recebimento-avulso` (480:1775)
-- [ ] `novo-recebimento-v3` (400:351)
+- [x] `contas-a-receber-listagem` (478:1000) → `/contas-a-receber`
+- [x] `novo-recebimento-avulso` (480:1775) → `/contas-a-receber/novo` (aba Avulsa)
+- [x] `novo-recebimento-v3` (400:351) → `/contas-a-receber/novo` (aba Contrato)
 - [ ] `conciliacao-lista-completa` (320:908)
 - [ ] `conciliacao-empty-state` (525:585)
 - [ ] `03 / Repasses — saldo por favorecido` (271:394)
@@ -145,3 +145,37 @@ detalhe) — visualmente equivalentes.
 **Validado com:** `next build`, `eslint .`, captura de tela via
 Playwright das cinco telas comparada ao Figma — visualmente
 equivalentes.
+
+## Etapa 4 — Contas a receber (detalhe)
+
+**Decisão de escopo:** os frames `novo-recebimento-avulso` e
+`novo-recebimento-v3` do Figma são o mesmo formulário "Nova venda" em
+dois estados de aba (Avulsa / Contrato), não duas telas distintas —
+mesma sidebar, mesmo layout de colunas, mesma seção de Repasse.
+Implementados como uma única rota (`/contas-a-receber/novo`) com
+`Tabs`, em vez de duplicar componente e lógica.
+
+**O que foi feito:**
+- `src/lib/mock-data/lancamentos.ts`: tipo `LancamentoRecebimento`
+  alinhado ao `Lancamento` (tipo `RECEBIMENTO`) de `ARQUITETURA.md`
+  §5.1, com situação derivada (`VENCIDO`/`VENCE_HOJE`/`A_VENCER`
+  /`RECEBIDO`) para a UI — o enum real de status (`PREVISTO`
+  /`PARCIAL`/`LIQUIDADO`/`CANCELADO`) entra com os serviços da Fase 4.
+- `/contas-a-receber`: cards de resumo, abas por situação, busca e
+  tabela com checkbox de seleção (preparado para ações em lote quando
+  a Fase 7 — repasses — existir).
+- `/contas-a-receber/novo`: formulário com painel "Resumo" ao vivo.
+  A seção **Repasse** implementa o rateio percentual da RN-04 —
+  cada linha soma favorecido + percentual, o valor é calculado a
+  partir do total (venda avulsa ou contrato), e o rodapé "Total: X%"
+  fica verde só em 100%, replicando a validação que RN-04/RN-05
+  exigem no domínio ("a soma das linhas deve corresponder a 100%").
+  Na aba Contrato, parcelas/periodicidade/datas são calculadas ao
+  vivo e refletidas em "Próximas parcelas".
+- Sem persistência real: "Salvar" mostra um toast e volta para a
+  listagem.
+
+**Validado com:** `next build`, `eslint .`, captura de tela via
+Playwright da listagem e das duas abas do formulário — incluindo o
+preenchimento do rateio para conferir visualmente o cálculo (total,
+parcelas, datas e percentuais) antes de reportar a etapa concluída.
