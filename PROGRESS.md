@@ -313,3 +313,10 @@ bloqueado, copiados manualmente): `chart` (`ChartContainer`,
 Playwright — alternância entre as séries, abertura do calendário
 (dois meses, em pt-BR) e seleção de um novo intervalo, confirmando
 que o botão do período, os KPIs e o gráfico atualizam juntos.
+
+**Ajuste seguinte, a pedido do usuário:** a fileira de KPIs estática
+(Saldo inicial/Entradas no período/Saídas no período/Resultado) foi
+removida — era redundante com os cards de série. Em seu lugar, um
+terceiro card "Saldo" (entradas − saídas) entrou na fileira de séries
+alternáveis, antes de Entradas e Saídas, e é a série selecionada por
+padrão ao abrir o dashboard.
