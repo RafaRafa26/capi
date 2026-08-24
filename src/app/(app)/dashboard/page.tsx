@@ -1,4 +1,4 @@
-import { Calendar, Landmark, TrendingDown, TrendingUp } from "lucide-react";
+import { Landmark, TrendingDown, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
@@ -140,47 +140,7 @@ export default function DashboardPage() {
           <Separator orientation="vertical" className="hidden md:block" />
           <Separator className="md:hidden" />
 
-          <div className="flex flex-1 flex-col gap-4 p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg className="size-5" viewBox="0 0 20 20" fill="none">
-                  <path
-                    d="M3 17V9M9 17V5M15 17v-4"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <p className="text-sm font-semibold">Fluxo de caixa</p>
-              </div>
-              <div className="bg-card border-border flex items-center gap-2 rounded-md border px-3 py-2">
-                <Calendar className="size-4" />
-                <span className="text-sm font-medium">Agosto de 2026</span>
-              </div>
-            </div>
-            <div className="border-border flex w-full gap-4 border-t border-b py-2.5">
-              <div className="flex-1">
-                <p className="text-muted-foreground text-xs">Saldo inicial</p>
-                <p className="text-sm font-medium">R$ 98.540,00</p>
-              </div>
-              <div className="flex-1">
-                <p className="text-muted-foreground text-xs">Entradas previstas</p>
-                <p className="text-sm font-medium text-[#0d9488]">R$ 187.320,00</p>
-              </div>
-              <div className="flex-1">
-                <p className="text-muted-foreground text-xs">Saídas previstas</p>
-                <p className="text-sm font-medium text-[#e5484d]">R$ 143.030,00</p>
-              </div>
-              <div className="flex-1">
-                <p className="text-muted-foreground text-xs">Resultado projetado</p>
-                <p className="text-sm font-medium text-[#f76b15]">R$ 142.830,00</p>
-              </div>
-            </div>
-            <CashFlowChart />
-            <Link href="/conciliacao" className="text-sm font-medium text-[#2563eb]">
-              Gerenciar fluxo de caixa →
-            </Link>
-          </div>
+          <CashFlowChart />
         </div>
 
         <div className="flex flex-col gap-6 md:flex-row">
