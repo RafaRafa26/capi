@@ -35,7 +35,7 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 | 3 | Contas bancárias, categorias, centros de custo, extrato | `feature/contas-bancarias` | ✅ Concluída |
 | 4 | Contas a receber + novo recebimento (avulso e v3) | `feature/contas-a-receber` | ✅ Concluída |
 | 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ✅ Concluída |
-| 6 | Repasses (saldo por favorecido) | `feature/repasses` | ⏳ Planejada |
+| 6 | Repasses (saldo por favorecido) | `feature/repasses` | ✅ Concluída |
 
 ## Telas do Figma (inventário completo, 17 frames)
 
@@ -54,7 +54,12 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 - [x] `novo-recebimento-v3` (400:351) → `/contas-a-receber/novo` (aba Contrato)
 - [x] `conciliacao-lista-completa` (320:908) → `/conciliacao`
 - [x] `conciliacao-empty-state` (525:585) → `/conciliacao` (estado sem pendências)
-- [ ] `03 / Repasses — saldo por favorecido` (271:394)
+- [x] `03 / Repasses — saldo por favorecido` (271:394) → `/repasses`
+
+**As 17 telas do Figma estão implementadas.** Próximo ciclo: integrar
+com backend real (Prisma, RLS, autenticação, serviços) seguindo as
+fases de `ARQUITETURA.md` §10, substituindo os dados mockados em
+`src/lib/mock-data/`.
 
 ## Etapa 1 — Fundação (detalhe)
 
@@ -206,3 +211,30 @@ como o estado vazio de `/conciliacao`, não como rota própria.
 Playwright da lista preenchida e, clicando "Conciliar" em todas as
 linhas, do estado vazio — confirmando visualmente as duas variações
 do frame do Figma.
+
+## Etapa 6 — Repasses (detalhe)
+
+**O que foi feito:**
+- `src/lib/mock-data/repasses.ts`: `FavorecidoRepasse` com saldo
+  disponível, pendente e realizado por favorecido (RN-09).
+- `/repasses`: cards de totais, abas Todos/Com saldo/Sem saldo, filtro
+  por período e busca, tabela com os três saldos por favorecido.
+- Botão "Gerar repasse" abre um `Dialog` que valida o valor contra o
+  saldo disponível **em tempo real** — implementa a RN-10 de verdade,
+  não só visualmente: campo e botão de confirmação ficam desabilitados
+  ao exceder o saldo, com a mensagem de erro. A ação da linha já nasce
+  desabilitada para favorecidos com saldo zero.
+- "Extrato" por favorecido é um placeholder (toast) — não existe frame
+  dedicado no Figma; entra na Fase 9 de `ARQUITETURA.md` junto com o
+  extrato de custódia real.
+
+**Validado com:** `next build`, `eslint .`, captura de tela via
+Playwright da listagem e do diálogo de repasse preenchido com um
+valor acima do saldo disponível, confirmando que a validação e o
+bloqueio do botão aparecem corretamente.
+
+---
+
+Com esta etapa, as 17 telas do arquivo Figma têm implementação de UI
+completa em `main`, todas com `next build`/`eslint` limpos e
+conferência visual contra o Figma via captura de tela.
