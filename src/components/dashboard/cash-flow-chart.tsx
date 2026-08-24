@@ -1,93 +1,157 @@
-const POINTS = [
-  { x: 0, y: 118, label: "01 Ago" },
-  { x: 25, y: 96, label: "08 Ago" },
-  { x: 50, y: 62, label: "17 Ago", today: true },
-  { x: 75, y: 40, label: "24 Ago" },
-  { x: 100, y: 18, label: "31 Ago" },
-];
+"use client";
 
-const VIEW_W = 800;
-const VIEW_H = 160;
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import type { DateRange } from "react-day-picker";
 
-function toSvgX(x: number) {
-  return (x / 100) * VIEW_W;
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { formatMoney } from "@/lib/format";
+import { DateRangePicker } from "@/components/dashboard/date-range-picker";
+import { fluxoCaixaDiario } from "@/lib/mock-data/fluxo-caixa";
+
+const SALDO_INICIAL = 9854000;
+
+const chartConfig = {
+  entradas: {
+    label: "Entradas",
+    color: "#0d9488",
+  },
+  saidas: {
+    label: "Saídas",
+    color: "#e5484d",
+  },
+} satisfies ChartConfig;
+
+function formatAxisDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
 
-function pathFor(points: typeof POINTS) {
-  return points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${toSvgX(p.x)} ${p.y}`)
-    .join(" ");
+function formatTooltipDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 export function CashFlowChart() {
-  const todayIndex = POINTS.findIndex((p) => p.today);
-  const solid = POINTS.slice(0, todayIndex + 1);
-  const projected = POINTS.slice(todayIndex);
-  const todayX = toSvgX(POINTS[todayIndex].x);
+  const [activeSerie, setActiveSerie] = useState<keyof typeof chartConfig>("entradas");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date("2026-08-01T00:00:00"),
+    to: new Date("2026-08-17T00:00:00"),
+  });
+
+  const filteredData = useMemo(() => {
+    if (!dateRange?.from) return fluxoCaixaDiario;
+    const from = dateRange.from.getTime();
+    const to = (dateRange.to ?? dateRange.from).getTime();
+    return fluxoCaixaDiario.filter((day) => {
+      const time = new Date(`${day.date}T00:00:00`).getTime();
+      return time >= from && time <= to;
+    });
+  }, [dateRange]);
+
+  const totals = useMemo(
+    () => ({
+      entradas: filteredData.reduce((sum, day) => sum + day.entradas, 0),
+      saidas: filteredData.reduce((sum, day) => sum + day.saidas, 0),
+    }),
+    [filteredData],
+  );
+
+  const resultado = totals.entradas - totals.saidas;
 
   return (
-    <div className="w-full">
-      <svg
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        className="h-[160px] w-full overflow-visible"
-        preserveAspectRatio="none"
-      >
-        {[0, 40, 80, 120, 160].map((y) => (
-          <line
-            key={y}
-            x1={0}
-            y1={y}
-            x2={VIEW_W}
-            y2={y}
-            className="stroke-border"
-            strokeWidth={1}
-          />
-        ))}
-
-        <line
-          x1={todayX}
-          y1={0}
-          x2={todayX}
-          y2={VIEW_H}
-          className="stroke-[#f76b15]"
-          strokeWidth={2}
-        />
-        <rect x={todayX - 32} y={4} width={64} height={16} rx={4} fill="#f76b15" />
-        <text
-          x={todayX}
-          y={15}
-          textAnchor="middle"
-          className="fill-white text-[9px] font-bold"
-        >
-          HOJE (17)
-        </text>
-
-        <path
-          d={pathFor(projected)}
-          fill="none"
-          className="stroke-[#0d9488] opacity-60"
-          strokeWidth={2}
-          strokeDasharray="4 4"
-          vectorEffect="non-scaling-stroke"
-        />
-        <path
-          d={pathFor(solid)}
-          fill="none"
-          className="stroke-[#0d9488]"
-          strokeWidth={2}
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-      <div className="text-muted-foreground mt-2 flex items-center justify-between px-2 text-[11px]">
-        {POINTS.map((p) => (
-          <span
-            key={p.label}
-            className={p.today ? "text-foreground font-semibold" : undefined}
-          >
-            {p.label}
-          </span>
-        ))}
+    <div className="flex flex-1 flex-col gap-4 p-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <svg className="size-5" viewBox="0 0 20 20" fill="none">
+            <path d="M3 17V9M9 17V5M15 17v-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          <p className="text-sm font-semibold">Fluxo de caixa</p>
+        </div>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
       </div>
+
+      <div className="border-border flex w-full gap-4 border-t border-b py-2.5">
+        <div className="flex-1">
+          <p className="text-muted-foreground text-xs">Saldo inicial</p>
+          <p className="text-sm font-medium">{formatMoney(SALDO_INICIAL)}</p>
+        </div>
+        <div className="flex-1">
+          <p className="text-muted-foreground text-xs">Entradas no período</p>
+          <p className="text-sm font-medium text-[#0d9488]">{formatMoney(totals.entradas)}</p>
+        </div>
+        <div className="flex-1">
+          <p className="text-muted-foreground text-xs">Saídas no período</p>
+          <p className="text-sm font-medium text-[#e5484d]">{formatMoney(totals.saidas)}</p>
+        </div>
+        <div className="flex-1">
+          <p className="text-muted-foreground text-xs">Resultado</p>
+          <p className={cn("text-sm font-medium", resultado >= 0 ? "text-[#0d9488]" : "text-[#e5484d]")}>
+            {formatMoney(resultado)}
+          </p>
+        </div>
+      </div>
+
+      <div className="border-border overflow-hidden rounded-lg border">
+        <div className="flex">
+          {(Object.keys(chartConfig) as (keyof typeof chartConfig)[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              data-active={activeSerie === key}
+              onClick={() => setActiveSerie(key)}
+              className="flex-1 border-r px-4 py-2.5 text-left last:border-r-0 data-[active=true]:bg-muted/50"
+            >
+              <span className="text-muted-foreground text-xs">{chartConfig[key].label}</span>
+              <p className="text-base font-bold" style={{ color: chartConfig[key].color }}>
+                {formatMoney(totals[key])}
+              </p>
+            </button>
+          ))}
+        </div>
+        <Separator />
+        <ChartContainer config={chartConfig} className="aspect-auto h-[160px] w-full px-2 pt-2">
+          <LineChart accessibilityLayer data={filteredData} margin={{ left: 12, right: 12 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="date"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              minTickGap={32}
+              tickFormatter={formatAxisDate}
+            />
+            <ChartTooltip
+              content={
+                <ChartTooltipContent
+                  className="w-[160px]"
+                  labelFormatter={(value) => formatTooltipDate(value as string)}
+                  formatter={(value) => formatMoney(Number(value))}
+                />
+              }
+            />
+            <Line
+              dataKey={activeSerie}
+              type="monotone"
+              stroke={`var(--color-${activeSerie})`}
+              strokeWidth={2}
+              dot={false}
+            />
+          </LineChart>
+        </ChartContainer>
+      </div>
+
+      <Link href="/conciliacao" className="text-sm font-medium text-[#2563eb]">
+        Gerenciar fluxo de caixa →
+      </Link>
     </div>
   );
 }
