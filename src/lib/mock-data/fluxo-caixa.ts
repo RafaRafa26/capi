@@ -4,6 +4,9 @@ export type FluxoCaixaDia = {
   saidas: number;
 };
 
+// "Hoje" fictício para esta demo — lançamentos após essa data são projeção.
+export const HOJE = new Date("2026-08-17T00:00:00");
+
 // Gerador determinístico (mulberry32) só para ter uma série de mock estável.
 function mulberry32(seed: number) {
   return function random() {

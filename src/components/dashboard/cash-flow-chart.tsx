@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import type { DateRange } from "react-day-picker";
 
 import {
@@ -12,14 +12,14 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatMoneyCompact } from "@/lib/format";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
-import { fluxoCaixaDiario } from "@/lib/mock-data/fluxo-caixa";
+import { fluxoCaixaDiario, HOJE } from "@/lib/mock-data/fluxo-caixa";
 
 const chartConfig = {
   saldo: {
     label: "Saldo",
-    color: "#2563eb",
+    color: "#0a0a0a",
   },
   entradas: {
     label: "Entradas",
@@ -41,6 +41,20 @@ function formatTooltipDate(value: string) {
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+// Saldo acumulado desde o início da série mockada — não reinicia ao trocar o
+// período filtrado, para refletir um saldo de conta de verdade.
+const fluxoCaixaAcumulado = (() => {
+  let saldo = 0;
+  return fluxoCaixaDiario.map((day) => {
+    saldo += day.entradas - day.saidas;
+    return {
+      ...day,
+      saldo,
+      isFuture: new Date(`${day.date}T00:00:00`) > HOJE,
+    };
+  });
+})();
+
 export function CashFlowChart() {
   const [activeSerie, setActiveSerie] = useState<keyof typeof chartConfig>("saldo");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -49,22 +63,36 @@ export function CashFlowChart() {
   });
 
   const filteredData = useMemo(() => {
-    const range = !dateRange?.from
-      ? fluxoCaixaDiario
-      : fluxoCaixaDiario.filter((day) => {
-          const from = dateRange.from!.getTime();
-          const to = (dateRange.to ?? dateRange.from!).getTime();
-          const time = new Date(`${day.date}T00:00:00`).getTime();
-          return time >= from && time <= to;
-        });
-    return range.map((day) => ({ ...day, saldo: day.entradas - day.saidas }));
+    if (!dateRange?.from) return fluxoCaixaAcumulado;
+    const from = dateRange.from.getTime();
+    const to = (dateRange.to ?? dateRange.from).getTime();
+    return fluxoCaixaAcumulado.filter((day) => {
+      const time = new Date(`${day.date}T00:00:00`).getTime();
+      return time >= from && time <= to;
+    });
   }, [dateRange]);
 
   const totals = useMemo(() => {
     const entradas = filteredData.reduce((sum, day) => sum + day.entradas, 0);
     const saidas = filteredData.reduce((sum, day) => sum + day.saidas, 0);
-    return { entradas, saidas, saldo: entradas - saidas };
+    const saldo = filteredData.at(-1)?.saldo ?? 0;
+    return { entradas, saidas, saldo };
   }, [filteredData]);
+
+  // Divide a série ativa em um trecho "real" (sólido) e um "previsto"
+  // (pontilhado), com o dia de virada presente nos dois para as linhas se
+  // encontrarem sem espaço em branco entre elas.
+  const chartData = useMemo(() => {
+    const lastRealIndex = filteredData.findLastIndex((day) => !day.isFuture);
+    return filteredData.map((day, index) => {
+      const value = day[activeSerie];
+      return {
+        date: day.date,
+        valorReal: index <= lastRealIndex ? value : null,
+        valorPrevisto: lastRealIndex === -1 || index >= lastRealIndex ? value : null,
+      };
+    });
+  }, [filteredData, activeSerie]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
@@ -96,8 +124,8 @@ export function CashFlowChart() {
           ))}
         </div>
         <Separator />
-        <ChartContainer config={chartConfig} className="aspect-auto h-[160px] w-full px-2 pt-2">
-          <LineChart accessibilityLayer data={filteredData} margin={{ left: 12, right: 12 }}>
+        <ChartContainer config={chartConfig} className="aspect-auto h-[180px] w-full px-2 pt-2">
+          <LineChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="date"
@@ -106,6 +134,13 @@ export function CashFlowChart() {
               tickMargin={8}
               minTickGap={32}
               tickFormatter={formatAxisDate}
+            />
+            <YAxis
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              width={56}
+              tickFormatter={(value) => formatMoneyCompact(Number(value))}
             />
             <ChartTooltip
               content={
@@ -117,10 +152,22 @@ export function CashFlowChart() {
               }
             />
             <Line
-              dataKey={activeSerie}
+              dataKey="valorReal"
+              name={chartConfig[activeSerie].label}
               type="monotone"
-              stroke={`var(--color-${activeSerie})`}
+              stroke={chartConfig[activeSerie].color}
               strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
+            <Line
+              dataKey="valorPrevisto"
+              name={chartConfig[activeSerie].label}
+              type="monotone"
+              stroke={chartConfig[activeSerie].color}
+              strokeWidth={2}
+              isAnimationActive={false}
+              strokeDasharray="5 5"
               dot={false}
             />
           </LineChart>
