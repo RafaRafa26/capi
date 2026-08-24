@@ -37,6 +37,7 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 | 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ✅ Concluída |
 | 6 | Repasses (saldo por favorecido) | `feature/repasses` | ✅ Concluída |
 | 7 | Sidebar: adoção do bloco shadcn `sidebar-07` | `feature/sidebar-07-block` | ✅ Concluída |
+| 8 | Dashboard: gráfico de fluxo de caixa interativo (recharts) + filtro por período | `feature/dashboard-chart-daterange` | ✅ Concluída |
 
 ## Telas do Figma (inventário completo, 17 frames)
 
@@ -268,3 +269,47 @@ sobre um item de Contatos, e o modo colapsado (ícones) da sidebar.
 
 **Validado com:** `next build`, `eslint .`, captura de tela via
 Playwright dos estados acima.
+
+## Etapa 8 — Gráfico de fluxo de caixa interativo + filtro por período
+
+A pedido do usuário, o gráfico de linha em SVG do card "Fluxo de
+caixa" (Etapa 1) foi substituído pelo padrão `chart-line-interactive`
+do shadcn/ui (recharts), e ganhou um seletor de período (date range
+picker) que filtra os dados exibidos.
+
+**Componentes shadcn instalados** (mesmo motivo de sempre — registry
+bloqueado, copiados manualmente): `chart` (`ChartContainer`,
+`ChartTooltip`, `ChartTooltipContent`) e `calendar`.
+
+**Duas armadilhas de versão resolvidas:**
+- `react-day-picker "latest"` resolve hoje para a v10, que remove
+  `getDefaultClassNames` e o tipo `DayButton` que o `calendar.tsx`
+  do registry usa — fixado em `9.14.0`, a última v9, para bater com
+  o código do componente.
+- O `chart.tsx` atual do registry importa `TooltipValueType` de
+  `recharts`, um tipo que só existe na major 3 — apesar de
+  `registry.json` ainda listar `recharts@2.15.4` como dependência
+  (desatualizado). Instalado `recharts@^3`, que declara suporte a
+  React 19.
+
+**O que foi feito:**
+- `src/lib/mock-data/fluxo-caixa.ts`: série diária de entradas/saídas
+  (01/jul a 31/ago de 2026) gerada deterministicamente.
+- `src/components/dashboard/date-range-picker.tsx`: adaptação do
+  `DatePickerWithRange` fornecido pelo usuário — o original usa
+  `<PopoverTrigger render={...}>` (API do Base UI); o `Popover` deste
+  projeto é Radix, então virou `<PopoverTrigger asChild>`, padrão já
+  usado em todo o resto do app. Localizado para pt-BR.
+- `src/components/dashboard/cash-flow-chart.tsx`: reescrito sobre o
+  `ChartLineInteractive` fornecido. As séries "desktop/mobile" viraram
+  "Entradas/Saídas"; os botões de alternância mostram o total de cada
+  série no período filtrado, e o tooltip formata valores em R$
+  (`formatMoney`). O componente passou a ser dono do estado de
+  período — o KPI (saldo inicial, entradas, saídas, resultado) é
+  recalculado a partir dos dados filtrados, e a badge fixa "Agosto de
+  2026" do cabeçalho deu lugar ao date range picker.
+
+**Validado com:** `next build`, `eslint .`, captura de tela via
+Playwright — alternância entre as séries, abertura do calendário
+(dois meses, em pt-BR) e seleção de um novo intervalo, confirmando
+que o botão do período, os KPIs e o gráfico atualizam juntos.
