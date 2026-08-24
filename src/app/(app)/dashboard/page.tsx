@@ -2,6 +2,12 @@ import { Calendar, Landmark, TrendingDown, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
 import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
 import { MonthlyBarChart } from "@/components/dashboard/monthly-bar-chart";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -82,116 +88,124 @@ function PayRecCard({
 
 export default function DashboardPage() {
   return (
-    <div className="flex flex-1 flex-col gap-7 p-6 md:p-10">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger className="-ml-1 md:hidden" />
-          <Separator orientation="vertical" className="mr-2 h-4 md:hidden" />
-          <h1 className="text-2xl font-bold">Visão geral</h1>
+    <>
+      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+        <div className="flex items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbPage>Visão geral</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
         </div>
-      </div>
+      </header>
 
-      <div className="bg-card border-border flex flex-col rounded-xl border shadow-sm md:flex-row">
-        <div className="flex w-full flex-col gap-4 p-6 md:w-[360px]">
-          <div className="flex items-center gap-2">
-            <Landmark className="size-5" />
-            <p className="text-sm font-semibold">Contas bancárias</p>
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Saldo total</p>
-            <p className="text-3xl font-bold">R$ 42.830,67</p>
-          </div>
-          <Link href="/contas-bancarias" className="text-sm font-medium text-[#2563eb]">
-            Ver todas →
-          </Link>
-          <Separator />
-          <div className="flex flex-col">
-            {bankAccounts.map((account) => (
-              <div
-                key={account.name}
-                className="border-border flex items-center justify-between border-b py-3 last:border-b-0"
-              >
-                <div>
-                  <p className="text-sm font-semibold">{account.name}</p>
-                  <p className="text-muted-foreground text-xs">{account.detail}</p>
+      <div className="flex flex-1 flex-col gap-7 p-6 pt-0 md:p-10 md:pt-0">
+        <div className="bg-card border-border flex flex-col rounded-xl border shadow-sm md:flex-row">
+          <div className="flex w-full flex-col gap-4 p-6 md:w-[360px]">
+            <div className="flex items-center gap-2">
+              <Landmark className="size-5" />
+              <p className="text-sm font-semibold">Contas bancárias</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground text-xs">Saldo total</p>
+              <p className="text-3xl font-bold">R$ 42.830,67</p>
+            </div>
+            <Link href="/contas-bancarias" className="text-sm font-medium text-[#2563eb]">
+              Ver todas →
+            </Link>
+            <Separator />
+            <div className="flex flex-col">
+              {bankAccounts.map((account) => (
+                <div
+                  key={account.name}
+                  className="border-border flex items-center justify-between border-b py-3 last:border-b-0"
+                >
+                  <div>
+                    <p className="text-sm font-semibold">{account.name}</p>
+                    <p className="text-muted-foreground text-xs">{account.detail}</p>
+                  </div>
+                  <p className="text-sm font-semibold">{account.balance}</p>
                 </div>
-                <p className="text-sm font-semibold">{account.balance}</p>
-              </div>
-            ))}
+              ))}
+            </div>
+            <Link href="/contas-bancarias" className="text-sm font-medium text-[#2563eb]">
+              + Adicionar conta
+            </Link>
           </div>
-          <Link href="/contas-bancarias" className="text-sm font-medium text-[#2563eb]">
-            + Adicionar conta
-          </Link>
+
+          <Separator orientation="vertical" className="hidden md:block" />
+          <Separator className="md:hidden" />
+
+          <div className="flex flex-1 flex-col gap-4 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="size-5" viewBox="0 0 20 20" fill="none">
+                  <path
+                    d="M3 17V9M9 17V5M15 17v-4"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <p className="text-sm font-semibold">Fluxo de caixa</p>
+              </div>
+              <div className="bg-card border-border flex items-center gap-2 rounded-md border px-3 py-2">
+                <Calendar className="size-4" />
+                <span className="text-sm font-medium">Agosto de 2026</span>
+              </div>
+            </div>
+            <div className="border-border flex w-full gap-4 border-t border-b py-2.5">
+              <div className="flex-1">
+                <p className="text-muted-foreground text-xs">Saldo inicial</p>
+                <p className="text-sm font-medium">R$ 98.540,00</p>
+              </div>
+              <div className="flex-1">
+                <p className="text-muted-foreground text-xs">Entradas previstas</p>
+                <p className="text-sm font-medium text-[#0d9488]">R$ 187.320,00</p>
+              </div>
+              <div className="flex-1">
+                <p className="text-muted-foreground text-xs">Saídas previstas</p>
+                <p className="text-sm font-medium text-[#e5484d]">R$ 143.030,00</p>
+              </div>
+              <div className="flex-1">
+                <p className="text-muted-foreground text-xs">Resultado projetado</p>
+                <p className="text-sm font-medium text-[#f76b15]">R$ 142.830,00</p>
+              </div>
+            </div>
+            <CashFlowChart />
+            <Link href="/conciliacao" className="text-sm font-medium text-[#2563eb]">
+              Gerenciar fluxo de caixa →
+            </Link>
+          </div>
         </div>
 
-        <Separator orientation="vertical" className="hidden md:block" />
-        <Separator className="md:hidden" />
+        <div className="flex flex-col gap-6 md:flex-row">
+          <PayRecCard title="Contas a receber" icon={TrendingUp} total="R$ 189.020,00" rows={receivables} />
+          <PayRecCard title="Contas a pagar" icon={TrendingDown} total="R$ 102.320,00" rows={payables} />
+        </div>
 
-        <div className="flex flex-1 flex-col gap-4 p-6">
+        <div className="bg-card border-border flex flex-col gap-4 rounded-xl border p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <svg className="size-5" viewBox="0 0 20 20" fill="none">
+              <svg className="size-[18px]" viewBox="0 0 18 18" fill="none">
                 <path
-                  d="M3 17V9M9 17V5M15 17v-4"
+                  d="M2.5 15V8M9 15V3M15.5 15v-5"
                   stroke="currentColor"
-                  strokeWidth="1.6"
+                  strokeWidth="1.5"
                   strokeLinecap="round"
                 />
               </svg>
-              <p className="text-sm font-semibold">Fluxo de caixa</p>
+              <p className="text-sm font-semibold">Recebimentos por mês</p>
             </div>
-            <div className="bg-card border-border flex items-center gap-2 rounded-md border px-3 py-2">
-              <Calendar className="size-4" />
-              <span className="text-sm font-medium">Agosto de 2026</span>
-            </div>
+            <p className="text-muted-foreground text-[11px]">Últimos 12 meses</p>
           </div>
-          <div className="border-border flex w-full gap-4 border-t border-b py-2.5">
-            <div className="flex-1">
-              <p className="text-muted-foreground text-xs">Saldo inicial</p>
-              <p className="text-sm font-medium">R$ 98.540,00</p>
-            </div>
-            <div className="flex-1">
-              <p className="text-muted-foreground text-xs">Entradas previstas</p>
-              <p className="text-sm font-medium text-[#0d9488]">R$ 187.320,00</p>
-            </div>
-            <div className="flex-1">
-              <p className="text-muted-foreground text-xs">Saídas previstas</p>
-              <p className="text-sm font-medium text-[#e5484d]">R$ 143.030,00</p>
-            </div>
-            <div className="flex-1">
-              <p className="text-muted-foreground text-xs">Resultado projetado</p>
-              <p className="text-sm font-medium text-[#f76b15]">R$ 142.830,00</p>
-            </div>
-          </div>
-          <CashFlowChart />
-          <Link href="/conciliacao" className="text-sm font-medium text-[#2563eb]">
-            Gerenciar fluxo de caixa →
-          </Link>
+          <MonthlyBarChart />
         </div>
       </div>
-
-      <div className="flex flex-col gap-6 md:flex-row">
-        <PayRecCard title="Contas a receber" icon={TrendingUp} total="R$ 189.020,00" rows={receivables} />
-        <PayRecCard title="Contas a pagar" icon={TrendingDown} total="R$ 102.320,00" rows={payables} />
-      </div>
-
-      <div className="bg-card border-border flex flex-col gap-4 rounded-xl border p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="size-[18px]" viewBox="0 0 18 18" fill="none">
-              <path
-                d="M2.5 15V8M9 15V3M15.5 15v-5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-            <p className="text-sm font-semibold">Recebimentos por mês</p>
-          </div>
-          <p className="text-muted-foreground text-[11px]">Últimos 12 meses</p>
-        </div>
-        <MonthlyBarChart />
-      </div>
-    </div>
+    </>
   );
 }

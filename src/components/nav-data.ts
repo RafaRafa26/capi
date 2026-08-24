@@ -9,28 +9,13 @@ import {
   Users,
 } from "lucide-react";
 
-export type NavLeaf = {
-  title: string;
-  url: string;
-};
+import type { NavMainItem } from "@/components/nav-main";
+import type { NavProjectItem } from "@/components/nav-projects";
+import type { Team } from "@/components/team-switcher";
 
-export type NavItem = {
-  title: string;
-  url: string;
-  icon: typeof LayoutDashboard;
-  items?: NavLeaf[];
-};
-
-export type NavSection = {
-  label?: string;
-  items: NavItem[];
-};
-
-export const orgInfo = {
-  name: "Capi HUB",
-  document: "12.345.678/0001-90",
-  icon: GalleryVerticalEnd,
-};
+export const teams: Team[] = [
+  { name: "Capi HUB", document: "12.345.678/0001-90", logo: GalleryVerticalEnd },
+];
 
 export const currentUser = {
   name: "Rafael Arantes",
@@ -38,7 +23,7 @@ export const currentUser = {
   avatarUrl: "",
 };
 
-export const navSections: NavSection[] = [
+export const navMainGroups: { label?: string; items: NavMainItem[] }[] = [
   {
     items: [{ title: "Visão geral", url: "/dashboard", icon: LayoutDashboard }],
   },
@@ -67,15 +52,17 @@ export const navSections: NavSection[] = [
       },
     ],
   },
-  {
-    label: "Contatos",
-    items: [
-      { title: "Favorecidos", url: "/contatos?papel=favorecido", icon: Users },
-      { title: "Fornecedores", url: "/contatos?papel=fornecedor", icon: Store },
-      { title: "Clientes", url: "/contatos?papel=pagador", icon: UserCircle },
-    ],
-  },
-  {
-    items: [{ title: "Configurações", url: "/configuracoes", icon: Settings }],
-  },
 ];
+
+export const contatosNav: { label?: string; items: NavProjectItem[] } = {
+  label: "Contatos",
+  items: [
+    { name: "Favorecidos", url: "/contatos?papel=favorecido", icon: Users },
+    { name: "Fornecedores", url: "/contatos?papel=fornecedor", icon: Store },
+    { name: "Clientes", url: "/contatos?papel=pagador", icon: UserCircle },
+  ],
+};
+
+export const configuracoesGroup: { label?: string; items: NavMainItem[] } = {
+  items: [{ title: "Configurações", url: "/configuracoes", icon: Settings }],
+};

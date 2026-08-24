@@ -36,6 +36,7 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 | 4 | Contas a receber + novo recebimento (avulso e v3) | `feature/contas-a-receber` | ✅ Concluída |
 | 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ✅ Concluída |
 | 6 | Repasses (saldo por favorecido) | `feature/repasses` | ✅ Concluída |
+| 7 | Sidebar: adoção do bloco shadcn `sidebar-07` | `feature/sidebar-07-block` | ✅ Concluída |
 
 ## Telas do Figma (inventário completo, 17 frames)
 
@@ -238,3 +239,32 @@ bloqueio do botão aparecem corretamente.
 Com esta etapa, as 17 telas do arquivo Figma têm implementação de UI
 completa em `main`, todas com `next build`/`eslint` limpos e
 conferência visual contra o Figma via captura de tela.
+
+## Etapa 7 — Bloco shadcn `sidebar-07`
+
+A pedido do usuário, a sidebar (que já tinha sido construída à mão na
+Etapa 1, replicando o Figma) foi refeita em cima do bloco oficial
+`sidebar-07` do shadcn/ui ("a sidebar that collapses to icons"),
+instalado manualmente pelo mesmo motivo das demais etapas (registry
+bloqueado pelo proxy — ver Etapa 1).
+
+**O que mudou:**
+- `src/components/team-switcher.tsx`, `nav-main.tsx`, `nav-projects.tsx`,
+  `nav-user.tsx`: os quatro componentes do bloco, cada um adaptado ao
+  domínio (organização em vez de "team/plano", ações reais em vez das
+  fabricadas pelo bloco de exemplo — ver detalhe no commit
+  `refactor(sidebar): adota a estrutura do bloco shadcn sidebar-07`).
+- `app-sidebar.tsx`: agora só compõe esses quatro componentes; a
+  ordem de navegação do Figma (Visão geral, Financeiro, Contatos,
+  Configurações) foi preservada.
+- `/dashboard`: adota o cabeçalho padrão do bloco — `SidebarTrigger` +
+  `Separator` vertical + `Breadcrumb` — no lugar do título solto.
+  As demais telas continuam com o cabeçalho anterior; portar esse
+  padrão para elas é trabalho futuro, se for o caso.
+
+**Comportamento validado visualmente:** dropdown do seletor de
+organização, menu do usuário, ação "Novo contato" ao passar o mouse
+sobre um item de Contatos, e o modo colapsado (ícones) da sidebar.
+
+**Validado com:** `next build`, `eslint .`, captura de tela via
+Playwright dos estados acima.
