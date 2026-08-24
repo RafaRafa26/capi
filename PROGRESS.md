@@ -34,7 +34,7 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 | 2 | Contatos: listagem, criar/editar, detalhe | `feature/contatos` | ✅ Concluída |
 | 3 | Contas bancárias, categorias, centros de custo, extrato | `feature/contas-bancarias` | ✅ Concluída |
 | 4 | Contas a receber + novo recebimento (avulso e v3) | `feature/contas-a-receber` | ✅ Concluída |
-| 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ⏳ Planejada |
+| 5 | Conciliação (lista completa + empty state) | `feature/conciliacao` | ✅ Concluída |
 | 6 | Repasses (saldo por favorecido) | `feature/repasses` | ⏳ Planejada |
 
 ## Telas do Figma (inventário completo, 17 frames)
@@ -52,8 +52,8 @@ A sidebar (`src/components/nav-data.ts`) organiza as 17 telas do Figma assim:
 - [x] `contas-a-receber-listagem` (478:1000) → `/contas-a-receber`
 - [x] `novo-recebimento-avulso` (480:1775) → `/contas-a-receber/novo` (aba Avulsa)
 - [x] `novo-recebimento-v3` (400:351) → `/contas-a-receber/novo` (aba Contrato)
-- [ ] `conciliacao-lista-completa` (320:908)
-- [ ] `conciliacao-empty-state` (525:585)
+- [x] `conciliacao-lista-completa` (320:908) → `/conciliacao`
+- [x] `conciliacao-empty-state` (525:585) → `/conciliacao` (estado sem pendências)
 - [ ] `03 / Repasses — saldo por favorecido` (271:394)
 
 ## Etapa 1 — Fundação (detalhe)
@@ -179,3 +179,30 @@ Implementados como uma única rota (`/contas-a-receber/novo`) com
 Playwright da listagem e das duas abas do formulário — incluindo o
 preenchimento do rateio para conferir visualmente o cálculo (total,
 parcelas, datas e percentuais) antes de reportar a etapa concluída.
+
+## Etapa 5 — Conciliação (detalhe)
+
+**Decisão de escopo:** `conciliacao-empty-state` é o mesmo frame
+`conciliacao-lista-completa` sem itens pendentes (mesma sidebar,
+cabeçalho, abas e legenda — só a área da lista muda). Implementado
+como o estado vazio de `/conciliacao`, não como rota própria.
+
+**O que foi feito:**
+- `src/lib/mock-data/conciliacao.ts`: `ItemConciliacao` com o lado do
+  extrato (`TransacaoOfx`) e, opcionalmente, o lançamento já casado
+  (`LancamentoCandidato`); quando não há match, o item carrega um
+  `criarTipoSugerido` (Pagamento ou Transferência).
+- Cada linha reproduz a coluna dupla do Figma — extrato à esquerda,
+  lançamento à direita — com os ícones de entrada/saída e os botões
+  Conciliar/Buscar outro lançamento.
+- Linhas sem correspondência viram um formulário inline de criação,
+  cobrindo os dois casos do Fase 8 de `ARQUITETURA.md`: **Pagamento**
+  (contato + categoria) e **Transferência** (apenas a conta de
+  destino — RN-15, o valor já vem da transação bancária).
+- "Conciliar" remove o item da lista pendente (estado local) e exibe
+  um toast; ao zerar a lista, aparece o estado vazio do segundo frame.
+
+**Validado com:** `next build`, `eslint .`, captura de tela via
+Playwright da lista preenchida e, clicando "Conciliar" em todas as
+linhas, do estado vazio — confirmando visualmente as duas variações
+do frame do Figma.
