@@ -7,6 +7,7 @@ import { saldoDisponivel } from "@/modules/custodia/servico";
 import { paraCentavos, validarDestinacoes } from "@/shared/dinheiro";
 import { ErroDeNegocio, NaoEncontrado } from "@/shared/erros";
 import { situacaoPorVencimento } from "./dominio";
+import type { LancamentoDaLista } from "./tipos";
 
 export const destinacaoEsquema = z.object({
   favorecidoId: z.uuid("Selecione o favorecido."),
@@ -125,6 +126,85 @@ export async function criarLancamento(
 }
 
 /**
+ * Cria N parcelas a partir de um valor total (espírito da RN-17).
+ *
+ * A base do parcelamento é sempre o valor total, e o resíduo da divisão vai
+ * para a ÚLTIMA parcela (AD-07) — assim a soma das parcelas é exatamente o
+ * total, sem centavo sobrando nem faltando.
+ *
+ * Nota: isto ainda NÃO é a entidade `Contrato` do §5.1 (Fase 3), que guarda
+ * partes, itens e propriedade. É o parcelamento simples que a tela do Figma
+ * oferece — as parcelas nascem soltas, sem contrato que as agrupe.
+ */
+export async function criarRecebimentosParcelados(
+  organizacaoId: string,
+  dados: LancamentoEntrada,
+  totalParcelas: number,
+  periodicidade: "Mensal" | "Quinzenal" | "Semanal" | "Anual" = "Mensal",
+) {
+  if (totalParcelas < 1) {
+    throw new ErroDeNegocio("O número de parcelas precisa ser ao menos 1.");
+  }
+  if (totalParcelas > 360) {
+    throw new ErroDeNegocio("Número de parcelas acima do limite (360).");
+  }
+
+  const base = Math.trunc(dados.valorPrevisto / totalParcelas);
+  const valores = Array.from({ length: totalParcelas }, () => base);
+  valores[totalParcelas - 1] = dados.valorPrevisto - base * (totalParcelas - 1);
+
+  const criados: { id: string }[] = [];
+  for (let i = 0; i < totalParcelas; i++) {
+    criados.push(
+      await criarLancamento(organizacaoId, {
+        ...dados,
+        valorPrevisto: valores[i],
+        vencimento: avancarVencimento(dados.vencimento, i, periodicidade),
+        numeroParcela: i + 1,
+        totalParcelas,
+        descricao: dados.descricao
+          ? `${dados.descricao} — parcela ${i + 1}/${totalParcelas}`
+          : `Parcela ${i + 1}/${totalParcelas}`,
+      }),
+    );
+  }
+
+  return criados;
+}
+
+/**
+ * Avança o vencimento em `passos` períodos.
+ *
+ * No modo mensal, dia 31 em mês curto cai para o último dia do mês em vez de
+ * transbordar para o mês seguinte — que é o que `setMonth` faria sozinho.
+ */
+function avancarVencimento(
+  iso: string,
+  passos: number,
+  periodicidade: "Mensal" | "Quinzenal" | "Semanal" | "Anual",
+): string {
+  const base = new Date(`${iso}T00:00:00Z`);
+
+  if (periodicidade === "Semanal" || periodicidade === "Quinzenal") {
+    const dias = (periodicidade === "Semanal" ? 7 : 15) * passos;
+    base.setUTCDate(base.getUTCDate() + dias);
+    return base.toISOString().slice(0, 10);
+  }
+
+  const meses = periodicidade === "Anual" ? 12 * passos : passos;
+  const diaOriginal = base.getUTCDate();
+  const alvo = new Date(
+    Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + meses, 1),
+  );
+  const ultimoDiaDoMes = new Date(
+    Date.UTC(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  alvo.setUTCDate(Math.min(diaOriginal, ultimoDiaDoMes));
+
+  return alvo.toISOString().slice(0, 10);
+}
+
+/**
  * Gera um repasse: lançamento de pagamento a um favorecido, limitado ao saldo
  * disponível dele (RN-10). Fica PREVISTO até ser conciliado (RN-11).
  */
@@ -190,18 +270,6 @@ export async function cancelarLancamento(organizacaoId: string, id: string) {
     });
   });
 }
-
-export type LancamentoDaLista = {
-  id: string;
-  vencimento: string;
-  contato: string;
-  descricao: string;
-  categoria: string;
-  valorPrevisto: number;
-  valorLiquidado: number;
-  status: string;
-  situacao: string;
-};
 
 export async function listarLancamentos(
   organizacaoId: string,

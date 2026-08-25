@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, Plus, Upload, X } from "lucide-react";
@@ -21,22 +21,17 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
-import { contatos } from "@/lib/mock-data/contatos";
-import { categorias } from "@/lib/mock-data/categorias";
-import { centrosDeCusto } from "@/lib/mock-data/centros-de-custo";
-import { contasBancarias } from "@/lib/mock-data/contas-bancarias";
+import { criarLancamentoAction } from "@/app/(app)/contas-a-receber/actions";
+import { paraCentavos } from "@/shared/dinheiro";
 
-const clientes = contatos.filter((c) => c.papeis.includes("PAGADOR"));
-const favorecidos = contatos.filter((c) => c.papeis.includes("FAVORECIDO"));
-const categoriasReceita = categorias
-  .filter((categoria) => categoria.tipo === "RECEITA")
-  .flatMap((categoria) =>
-    categoria.subcategorias.map((sub) => ({
-      value: sub.id,
-      label: `${categoria.nome} — ${sub.nome}`,
-    })),
-  );
-const contasRecebimento = contasBancarias.filter((c) => c.natureza === "PROPRIA" && c.ativa);
+export type OpcoesRecebimento = {
+  clientes: { id: string; nome: string }[];
+  favorecidos: { id: string; nome: string }[];
+  categoriasReceita: { value: string; label: string }[];
+  centrosDeCusto: { id: string; nome: string }[];
+  contasRecebimento: { id: string; nome: string; banco: string }[];
+};
+
 const FORMAS_PAGAMENTO = ["PIX", "Boleto", "Transferência bancária", "Dinheiro", "Cartão"];
 const PERIODICIDADES = ["Mensal", "Quinzenal", "Semanal", "Anual"];
 
@@ -75,12 +70,14 @@ function RepasseSection({
   setAtivo,
   payees,
   setPayees,
+  favorecidos,
 }: {
   total: number;
   ativo: boolean;
   setAtivo: (value: boolean) => void;
   payees: Payee[];
   setPayees: (payees: Payee[]) => void;
+  favorecidos: { id: string; nome: string }[];
 }) {
   const somaPercentual = payees.reduce((sum, p) => sum + (Number(p.percentual) || 0), 0);
 
@@ -171,8 +168,15 @@ function RepasseSection({
   );
 }
 
-export function NovoRecebimentoForm() {
+export function NovoRecebimentoForm({
+  clientes,
+  favorecidos,
+  categoriasReceita,
+  centrosDeCusto,
+  contasRecebimento,
+}: OpcoesRecebimento) {
   const router = useRouter();
+  const [salvando, iniciar] = useTransition();
 
   const [origem, setOrigem] = useState<"avulsa" | "contrato">("avulsa");
   const [clienteId, setClienteId] = useState("");
@@ -211,8 +215,77 @@ export function NovoRecebimentoForm() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    toast.success("Recebimento criado.");
-    router.push("/contas-a-receber");
+
+    const parcelado = origem === "contrato";
+    const valorInformado = parcelado ? valorTotal : valor;
+    const dataVencimento = parcelado ? primeiroVencimento : vencimento;
+
+    if (!clienteId) return toast.error("Selecione o cliente.");
+    if (!categoriaId) return toast.error("Selecione a categoria.");
+    if (!dataVencimento) return toast.error("Informe o vencimento.");
+
+    let valorPrevisto: number;
+    try {
+      valorPrevisto = paraCentavos(valorInformado || "0");
+    } catch {
+      return toast.error("Valor inválido.");
+    }
+    if (valorPrevisto <= 0) return toast.error("O valor precisa ser maior que zero.");
+
+    // RN-04: um recebimento precisa de destinação somando 100%. Quando o
+    // usuário não define repasse, a própria organização é a destinatária —
+    // mas ela ainda não é um contato cadastrável, então exigimos a definição
+    // explícita em vez de inventar um favorecido.
+    if (!repasseAtivo || payees.length === 0) {
+      return toast.error(
+        "Defina o repasse a favorecidos: todo recebimento precisa dizer de quem é o dinheiro.",
+      );
+    }
+
+    const destinacoes = payees.map((p) => ({
+      favorecidoId: p.favorecidoId,
+      modo: "PERCENTUAL" as const,
+      valor: Math.round(Number(p.percentual.replace(",", ".") || "0") * 100),
+    }));
+
+    if (destinacoes.some((d) => !d.favorecidoId)) {
+      return toast.error("Há favorecido não selecionado no repasse.");
+    }
+    const somaPct = destinacoes.reduce((soma, d) => soma + d.valor, 0);
+    if (somaPct !== 10000) {
+      return toast.error(
+        `Os percentuais somam ${(somaPct / 100).toFixed(2).replace(".", ",")}%; precisam somar 100%.`,
+      );
+    }
+
+    iniciar(async () => {
+      const r = await criarLancamentoAction({
+        tipo: "RECEBIMENTO",
+        contatoId: clienteId,
+        categoriaId,
+        centroCustoId: centroCustoId || null,
+        contaBancariaId: contaId || null,
+        descricao: descricao || null,
+        vencimento: dataVencimento,
+        valorPrevisto,
+        destinacoes,
+        parcelas: parcelado ? numParcelas : 1,
+        periodicidade: periodicidade as "Mensal" | "Quinzenal" | "Semanal" | "Anual",
+      });
+
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+
+      toast.success(
+        r.dados.criados > 1
+          ? `${r.dados.criados} parcelas criadas.`
+          : "Recebimento criado.",
+      );
+      router.push("/contas-a-receber");
+      router.refresh();
+    });
   }
 
   return (
@@ -469,6 +542,7 @@ export function NovoRecebimentoForm() {
                 setAtivo={setRepasseAtivo}
                 payees={payees}
                 setPayees={setPayees}
+                favorecidos={favorecidos}
               />
             </div>
           </div>
@@ -568,7 +642,9 @@ export function NovoRecebimentoForm() {
         <Button type="button" variant="outline" asChild>
           <Link href="/contas-a-receber">Cancelar</Link>
         </Button>
-        <Button type="submit">Salvar</Button>
+        <Button type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : "Salvar"}
+        </Button>
       </div>
     </form>
   );

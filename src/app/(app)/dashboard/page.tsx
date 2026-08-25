@@ -12,23 +12,15 @@ import { CashFlowChart } from "@/components/dashboard/cash-flow-chart";
 import { MonthlyBarChart } from "@/components/dashboard/monthly-bar-chart";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { formatMoney } from "@/lib/format";
 import { cn } from "@/lib/utils";
-
-const bankAccounts = [
-  { name: "ASAAS", detail: "Ag 1234 / CC 56789", balance: "R$ 85.420,30" },
-];
-
-const receivables = [
-  { label: "Vencido", count: 3, value: "R$ 24.500,00", tone: "destructive" },
-  { label: "Vence hoje", count: 1, value: "R$ 8.200,00", tone: "warning" },
-  { label: "A vencer", count: 12, value: "R$ 156.320,00", tone: "muted" },
-] as const;
-
-const payables = [
-  { label: "Vencido", count: 2, value: "R$ 12.870,00", tone: "destructive" },
-  { label: "Vence hoje", count: 0, value: "R$ 0,00", tone: "warning" },
-  { label: "A vencer", count: 8, value: "R$ 89.450,00", tone: "muted" },
-] as const;
+import { exigirSessaoOuRedirecionar } from "@/modules/auth/sessao";
+import {
+  fluxoDeCaixaDiario,
+  recebimentosPorMes,
+  resumoDoDashboard,
+  type ResumoPorSituacao,
+} from "@/modules/dashboard/servico";
 
 const toneDot: Record<string, string> = {
   destructive: "bg-[#e5484d]",
@@ -42,28 +34,38 @@ const toneBadge: Record<string, string> = {
   muted: "bg-muted text-muted-foreground",
 };
 
+function linhasDe(resumo: ResumoPorSituacao) {
+  return [
+    { label: "Vencido", ...resumo.vencido, tone: "destructive" },
+    { label: "Vence hoje", ...resumo.venceHoje, tone: "warning" },
+    { label: "A vencer", ...resumo.aVencer, tone: "muted" },
+  ];
+}
+
 function PayRecCard({
   title,
   icon: Icon,
-  total,
-  rows,
+  resumo,
+  href,
 }: {
   title: string;
   icon: typeof TrendingUp;
-  total: string;
-  rows: readonly { label: string; count: number; value: string; tone: string }[];
+  resumo: ResumoPorSituacao;
+  href: string;
 }) {
   return (
     <div className="bg-card border-border flex flex-1 flex-col gap-4 rounded-xl border p-6 shadow-sm">
       <div className="flex w-full items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link href={href} className="flex items-center gap-2 hover:underline">
           <Icon className="size-[18px]" />
           <p className="text-sm font-semibold">{title}</p>
-        </div>
-        <p className="text-muted-foreground text-[11px]">Total: {total}</p>
+        </Link>
+        <p className="text-muted-foreground text-[11px]">
+          Total: {formatMoney(resumo.total)}
+        </p>
       </div>
       <div className="flex w-full flex-col">
-        {rows.map((row) => (
+        {linhasDe(resumo).map((row) => (
           <div
             key={row.label}
             className="border-border flex w-full items-center justify-between border-b py-3 last:border-b-0"
@@ -73,12 +75,15 @@ function PayRecCard({
               <p className="text-sm font-medium">{row.label}</p>
               <Badge
                 variant="secondary"
-                className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-semibold", toneBadge[row.tone])}
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                  toneBadge[row.tone],
+                )}
               >
-                {row.count} lançamento{row.count === 1 ? "" : "s"}
+                {row.quantidade} lançamento{row.quantidade === 1 ? "" : "s"}
               </Badge>
             </div>
-            <p className="text-sm font-semibold">{row.value}</p>
+            <p className="text-sm font-semibold">{formatMoney(row.total)}</p>
           </div>
         ))}
       </div>
@@ -86,7 +91,15 @@ function PayRecCard({
   );
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const sessao = await exigirSessaoOuRedirecionar();
+
+  const [resumo, serieFluxo, meses] = await Promise.all([
+    resumoDoDashboard(sessao.organizacaoId),
+    fluxoDeCaixaDiario(sessao.organizacaoId),
+    recebimentosPorMes(sessao.organizacaoId),
+  ]);
+
   return (
     <>
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -112,27 +125,35 @@ export default function DashboardPage() {
             </div>
             <div>
               <p className="text-muted-foreground text-xs">Saldo total</p>
-              <p className="text-3xl font-bold">R$ 42.830,67</p>
+              <p className="text-3xl font-bold">{formatMoney(resumo.saldoTotal)}</p>
             </div>
             <Link href="/contas-bancarias" className="text-sm font-medium text-[#2563eb]">
               Ver todas →
             </Link>
             <Separator />
             <div className="flex flex-col">
-              {bankAccounts.map((account) => (
-                <div
-                  key={account.name}
-                  className="border-border flex items-center justify-between border-b py-3 last:border-b-0"
+              {resumo.contas.map((conta) => (
+                <Link
+                  key={conta.id}
+                  href={`/contas-bancarias/${conta.id}/extrato`}
+                  className="border-border hover:bg-muted/50 flex items-center justify-between border-b py-3 last:border-b-0"
                 >
                   <div>
-                    <p className="text-sm font-semibold">{account.name}</p>
-                    <p className="text-muted-foreground text-xs">{account.detail}</p>
+                    <p className="text-sm font-semibold">{conta.nome}</p>
+                    <p className="text-muted-foreground text-xs">
+                      Ag {conta.agencia} / CC {conta.conta}
+                    </p>
                   </div>
-                  <p className="text-sm font-semibold">{account.balance}</p>
-                </div>
+                  <p className="text-sm font-semibold">{formatMoney(conta.saldo)}</p>
+                </Link>
               ))}
+              {resumo.contas.length === 0 ? (
+                <p className="text-muted-foreground py-3 text-sm">
+                  Nenhuma conta própria cadastrada.
+                </p>
+              ) : null}
             </div>
-            <Link href="/contas-bancarias" className="text-sm font-medium text-[#2563eb]">
+            <Link href="/contas-bancarias/novo" className="text-sm font-medium text-[#2563eb]">
               + Adicionar conta
             </Link>
           </div>
@@ -140,12 +161,34 @@ export default function DashboardPage() {
           <Separator orientation="vertical" className="hidden md:block" />
           <Separator className="md:hidden" />
 
-          <CashFlowChart />
+          {serieFluxo.length > 0 ? (
+            <CashFlowChart serie={serieFluxo} />
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 p-10 text-center">
+              <p className="text-sm font-medium">Sem movimento no extrato ainda.</p>
+              <p className="text-muted-foreground text-sm">
+                Importe um arquivo OFX para o fluxo de caixa aparecer aqui.
+              </p>
+              <Link href="/conciliacao" className="text-sm font-medium text-[#2563eb]">
+                Ir para conciliação →
+              </Link>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-6 md:flex-row">
-          <PayRecCard title="Contas a receber" icon={TrendingUp} total="R$ 189.020,00" rows={receivables} />
-          <PayRecCard title="Contas a pagar" icon={TrendingDown} total="R$ 102.320,00" rows={payables} />
+          <PayRecCard
+            title="Contas a receber"
+            icon={TrendingUp}
+            resumo={resumo.aReceber}
+            href="/contas-a-receber"
+          />
+          <PayRecCard
+            title="Contas a pagar"
+            icon={TrendingDown}
+            resumo={resumo.aPagar}
+            href="/repasses"
+          />
         </div>
 
         <div className="bg-card border-border flex flex-col gap-4 rounded-xl border p-6 shadow-sm">
@@ -163,7 +206,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-muted-foreground text-[11px]">Últimos 12 meses</p>
           </div>
-          <MonthlyBarChart />
+          <MonthlyBarChart meses={meses} />
         </div>
       </div>
     </>

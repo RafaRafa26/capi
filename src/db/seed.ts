@@ -218,12 +218,77 @@ async function main() {
   }
   console.log("· 6 centros de custo criados");
 
+  const contatosCriados = [];
   for (const c of contatosSeed) {
-    await prisma.contato.create({
-      data: { organizacaoId: org.id, ...c, papeis: [...c.papeis] },
-    });
+    contatosCriados.push(
+      await prisma.contato.create({
+        data: { organizacaoId: org.id, ...c, papeis: [...c.papeis] },
+      }),
+    );
   }
   console.log(`· ${contatosSeed.length} contatos criados`);
+
+  // Alguns recebimentos em aberto, para haver o que conciliar já na primeira
+  // vez que o extrato de exemplo for importado. Os valores batem de propósito
+  // com as transações do OFX de demonstração.
+  const joao = contatosCriados.find((c) => c.nome === "João Francisco da Silva")!;
+  const marcos = contatosCriados.find((c) => c.nome === "Marcos Vieira da Silva")!;
+  const fazendaBoa = contatosCriados.find((c) => c.nome === "Fazenda Boa Esperança")!;
+  const saoJudas = contatosCriados.find((c) => c.nome === "Fazenda São Judas Tadeu")!;
+
+  const categoriaVendas = await prisma.categoria.findFirst({
+    where: { organizacaoId: org.id, nome: "Venda de gado" },
+  });
+
+  const recebimentos = [
+    {
+      contatoId: joao.id,
+      descricao: "Parcela 7/10 — venda de gado",
+      vencimento: "2026-08-05",
+      valor: 1245000,
+      // 100% do que entrar é do dono da fazenda — modelo de repasse integral.
+      favorecidoId: fazendaBoa.id,
+    },
+    {
+      contatoId: marcos.id,
+      descricao: "Parcela 5/10 — venda de gado",
+      vencimento: "2026-08-10",
+      valor: 981240,
+      favorecidoId: saoJudas.id,
+    },
+    {
+      contatoId: joao.id,
+      descricao: "Parcela 8/10 — venda de gado",
+      vencimento: "2026-09-05",
+      valor: 1245000,
+      favorecidoId: fazendaBoa.id,
+    },
+  ];
+
+  for (const r of recebimentos) {
+    await prisma.lancamento.create({
+      data: {
+        organizacaoId: org.id,
+        tipo: "RECEBIMENTO",
+        contatoId: r.contatoId,
+        categoriaId: categoriaVendas!.id,
+        vencimento: new Date(`${r.vencimento}T00:00:00Z`),
+        valorPrevisto: r.valor,
+        descricao: r.descricao,
+        destinacoes: {
+          create: [
+            {
+              favorecidoId: r.favorecidoId,
+              modo: "PERCENTUAL",
+              valor: 10000, // 100,00%
+              ordem: 0,
+            },
+          ],
+        },
+      },
+    });
+  }
+  console.log(`· ${recebimentos.length} recebimentos em aberto criados`);
 
   console.log("\nSeed concluído. Entre com rafael@email.com / capi1234");
 }

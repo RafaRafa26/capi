@@ -14,7 +14,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { formatMoney, formatMoneyAxis } from "@/lib/format";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
-import { fluxoCaixaDiario, HOJE } from "@/lib/mock-data/fluxo-caixa";
+export type PontoFluxoCaixa = { date: string; entradas: number; saidas: number };
 
 const NEGATIVE_COLOR = "#e5484d";
 
@@ -80,26 +80,35 @@ function formatTooltipDate(value: string) {
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-// Saldo acumulado desde o início da série mockada — não reinicia ao trocar o
-// período filtrado, para refletir um saldo de conta de verdade.
-const fluxoCaixaAcumulado = (() => {
-  let saldo = 0;
-  return fluxoCaixaDiario.map((day) => {
-    saldo += day.entradas - day.saidas;
-    return {
-      ...day,
-      saldo,
-      isFuture: new Date(`${day.date}T00:00:00`) > HOJE,
-    };
-  });
-})();
-
-export function CashFlowChart() {
+export function CashFlowChart({ serie }: { serie: PontoFluxoCaixa[] }) {
   const [activeSerie, setActiveSerie] = useState<keyof typeof chartConfig>("saldo");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date("2026-08-01T00:00:00"),
-    to: new Date("2026-08-17T00:00:00"),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+
+  // Saldo acumulado desde o início da série — não reinicia ao trocar o período
+  // filtrado, para refletir um saldo de conta de verdade. Lançamentos com data
+  // futura são projeção e a linha os desenha pontilhados.
+  const hoje = useMemo(() => {
+    const agora = new Date();
+    return new Date(
+      Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()),
+    );
+  }, []);
+
+  const fluxoCaixaAcumulado = useMemo(() => {
+    // Laço em vez de `map` com acumulador externo: o compilador do React
+    // rejeita reatribuir variável capturada por callback durante o render.
+    const acumulado: (PontoFluxoCaixa & { saldo: number; isFuture: boolean })[] = [];
+    let saldo = 0;
+    for (const day of serie) {
+      saldo += day.entradas - day.saidas;
+      acumulado.push({
+        ...day,
+        saldo,
+        isFuture: new Date(`${day.date}T00:00:00Z`) > hoje,
+      });
+    }
+    return acumulado;
+  }, [serie, hoje]);
 
   const filteredData = useMemo(() => {
     if (!dateRange?.from) return fluxoCaixaAcumulado;
@@ -109,7 +118,7 @@ export function CashFlowChart() {
       const time = new Date(`${day.date}T00:00:00`).getTime();
       return time >= from && time <= to;
     });
-  }, [dateRange]);
+  }, [dateRange, fluxoCaixaAcumulado]);
 
   const totals = useMemo(() => {
     const entradas = filteredData.reduce((sum, day) => sum + day.entradas, 0);

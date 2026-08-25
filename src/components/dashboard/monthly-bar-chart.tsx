@@ -1,33 +1,27 @@
 import { cn } from "@/lib/utils";
 
-type MonthDatum = {
+export type MonthDatum = {
   label: string;
   value: number;
   display: string;
   current?: boolean;
 };
 
-const DATA: MonthDatum[] = [
-  { label: "Set 25", value: 95, display: "R$ 95k" },
-  { label: "Out", value: 110, display: "R$ 110k" },
-  { label: "Nov", value: 135, display: "R$ 135k" },
-  { label: "Dez", value: 80, display: "R$ 80k" },
-  { label: "Jan 26", value: 120, display: "R$ 120k" },
-  { label: "Fev", value: 145, display: "R$ 145k" },
-  { label: "Mar", value: 165, display: "R$ 165k" },
-  { label: "Abr", value: 130, display: "R$ 130k" },
-  { label: "Mai", value: 155, display: "R$ 155k" },
-  { label: "Jun", value: 190, display: "R$ 190k" },
-  { label: "Jul", value: 140, display: "R$ 140k" },
-  { label: "Ago", value: 143, display: "R$ 143k", current: true },
-];
+export function MonthlyBarChart({ meses }: { meses: MonthDatum[] }) {
+  if (meses.length === 0) {
+    return (
+      <p className="text-muted-foreground py-8 text-center text-sm">
+        Sem recebimentos conciliados ainda — o gráfico aparece assim que houver
+        movimento no extrato.
+      </p>
+    );
+  }
 
-const MAX = Math.max(...DATA.map((d) => d.value));
+  const MAX = Math.max(...meses.map((d) => d.value), 1);
 
-export function MonthlyBarChart() {
   return (
     <div className="flex h-[100px] w-full items-end justify-between">
-      {DATA.map((month) => (
+      {meses.map((month) => (
         <div
           key={month.label}
           className="flex h-full w-[60px] flex-col items-center justify-end gap-1.5"

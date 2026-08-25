@@ -1,21 +1,10 @@
 import "server-only";
 
 import { comOrganizacao } from "@/db/client";
+import type { PosicaoFavorecido } from "./tipos";
 
 // O razão de custódia é sempre DERIVADO (RN-13): nada aqui escreve, só soma
 // o que as liquidações produziram.
-
-export type PosicaoFavorecido = {
-  favorecidoId: string;
-  nome: string;
-  documento: string;
-  creditos: number;
-  debitos: number;
-  /** Repasses gerados e ainda não conciliados — reservam saldo (RN-09). */
-  reservado: number;
-  /** creditos − debitos − reservado (RN-09). */
-  disponivel: number;
-};
 
 export async function posicaoDosFavorecidos(
   organizacaoId: string,

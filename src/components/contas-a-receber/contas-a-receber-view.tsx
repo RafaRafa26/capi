@@ -26,10 +26,11 @@ import {
 import { cn } from "@/lib/utils";
 import { formatMoney } from "@/lib/format";
 import {
-  type LancamentoRecebimento,
+  type LancamentoDaLista,
   situacaoClasses,
   situacaoLabel,
-} from "@/lib/mock-data/lancamentos";
+} from "@/modules/lancamentos/tipos";
+import { BaixaManualDialog } from "@/components/contas-a-receber/baixa-manual-dialog";
 
 function formatDate(iso: string) {
   const [year, month, day] = iso.split("-");
@@ -58,15 +59,27 @@ function SummaryCard({
   );
 }
 
-export function ContasAReceberView({ lancamentos }: { lancamentos: LancamentoRecebimento[] }) {
+export function ContasAReceberView({
+  lancamentos,
+  contasDeTerceiro,
+}: {
+  lancamentos: LancamentoDaLista[];
+  contasDeTerceiro: { id: string; nome: string }[];
+}) {
   const [tab, setTab] = useState<"todas" | "a_vencer" | "vencidas" | "recebidas">("todas");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [baixaAberta, setBaixaAberta] = useState(false);
+
+  // Só faz sentido dar baixa no que ainda não está liquidado.
+  const selecionadosEmAberto = lancamentos.filter(
+    (l) => selected.has(l.id) && l.situacao !== "LIQUIDADO",
+  );
 
   const vencidos = lancamentos.filter((l) => l.situacao === "VENCIDO");
   const venceHoje = lancamentos.filter((l) => l.situacao === "VENCE_HOJE");
   const aVencer = lancamentos.filter((l) => l.situacao === "A_VENCER");
-  const recebidos = lancamentos.filter((l) => l.situacao === "RECEBIDO");
+  const recebidos = lancamentos.filter((l) => l.situacao === "LIQUIDADO");
 
   const filtered = useMemo(() => {
     let list = lancamentos;
@@ -76,7 +89,7 @@ export function ContasAReceberView({ lancamentos }: { lancamentos: LancamentoRec
     if (query) {
       list = list.filter(
         (l) =>
-          l.recebidoDe.toLowerCase().includes(query.toLowerCase()) ||
+          l.contato.toLowerCase().includes(query.toLowerCase()) ||
           l.descricao.toLowerCase().includes(query.toLowerCase()),
       );
     }
@@ -150,6 +163,33 @@ export function ContasAReceberView({ lancamentos }: { lancamentos: LancamentoRec
         </div>
       </div>
 
+      {selecionadosEmAberto.length > 0 ? (
+        <div className="bg-muted/60 border-border flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3">
+          <p className="text-sm">
+            {selecionadosEmAberto.length}{" "}
+            {selecionadosEmAberto.length === 1
+              ? "parcela selecionada"
+              : "parcelas selecionadas"}
+          </p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setSelected(new Set())}>
+              Limpar seleção
+            </Button>
+            <Button size="sm" onClick={() => setBaixaAberta(true)}>
+              Dar baixa manual
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      <BaixaManualDialog
+        selecionados={selecionadosEmAberto}
+        contasDeTerceiro={contasDeTerceiro}
+        aberto={baixaAberta}
+        onOpenChange={setBaixaAberta}
+        onConcluido={() => setSelected(new Set())}
+      />
+
       <div className="bg-card border-border w-full overflow-hidden rounded-[10px] border shadow-sm">
         <Table>
           <TableHeader>
@@ -175,14 +215,14 @@ export function ContasAReceberView({ lancamentos }: { lancamentos: LancamentoRec
                   />
                 </TableCell>
                 <TableCell>{formatDate(lancamento.vencimento)}</TableCell>
-                <TableCell className="font-medium">{lancamento.recebidoDe}</TableCell>
+                <TableCell className="font-medium">{lancamento.contato}</TableCell>
                 <TableCell className="text-muted-foreground max-w-[220px] truncate">
                   {lancamento.descricao}
                 </TableCell>
                 <TableCell>{lancamento.categoria}</TableCell>
                 <TableCell className="text-right">{formatMoney(lancamento.valorPrevisto)}</TableCell>
                 <TableCell className="text-right">
-                  {lancamento.valorRecebido ? formatMoney(lancamento.valorRecebido) : "—"}
+                  {lancamento.valorLiquidado > 0 ? formatMoney(lancamento.valorLiquidado) : "—"}
                 </TableCell>
                 <TableCell>
                   <Badge
