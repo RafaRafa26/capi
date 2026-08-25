@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { prismaAdmin } from "@/db/client";
+import { removerOrganizacao } from "@/db/remover-organizacao";
 
 // Apoio para os testes que tocam o banco de verdade.
 //
@@ -115,6 +116,8 @@ export async function criarOrganizacaoDeTeste(rotulo: string): Promise<OrgDeTest
 
 export async function removerOrganizacoesDeTeste(ids: string[]) {
   for (const id of ids) {
-    await prismaAdmin.organizacao.delete({ where: { id } }).catch(() => {});
+    // Sem `catch` silencioso: engolir a falha aqui deixava organizações de
+    // teste acumulando no banco de desenvolvimento sem ninguém perceber.
+    await removerOrganizacao(prismaAdmin, id);
   }
 }

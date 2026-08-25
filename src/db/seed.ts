@@ -5,6 +5,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { hash as argonHash } from "@node-rs/argon2";
 
 import { PrismaClient } from "./generated/client";
+import { removerOrganizacao } from "./remover-organizacao";
 
 // Seed de desenvolvimento. Roda no papel dono do banco, ignorando RLS de
 // propósito — é o único jeito de criar a primeira organização, que ainda não
@@ -139,7 +140,7 @@ async function main() {
     where: { documento: DOCUMENTO_DEMO },
   });
   if (anterior) {
-    await prisma.organizacao.delete({ where: { id: anterior.id } });
+    await removerOrganizacao(prisma, anterior.id);
     console.log("· organização de demonstração anterior removida");
   }
 
