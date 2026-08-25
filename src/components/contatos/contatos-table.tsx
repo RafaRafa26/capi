@@ -30,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { type Contato, type PapelContato, papelLabel } from "@/lib/mock-data/contatos";
+import { type Contato, type PapelContato, papelLabel } from "@/modules/contatos/tipos";
 
 const papelParamToPapel: Record<string, PapelContato> = {
   favorecido: "FAVORECIDO",
@@ -53,7 +53,8 @@ export function ContatosTable({ contatos }: { contatos: Contato[] }) {
     return contatos.filter((contato) => {
       const matchesQuery = contato.nome.toLowerCase().includes(query.toLowerCase());
       const matchesPapel = papel === "todos" || contato.papeis.includes(papel);
-      const matchesSituacao = situacao === "todos" || contato.situacao === situacao;
+      const matchesSituacao =
+        situacao === "todos" || contato.ativo === (situacao === "ATIVO");
       return matchesQuery && matchesPapel && matchesSituacao;
     });
   }, [contatos, query, papel, situacao]);
@@ -138,12 +139,12 @@ export function ContatosTable({ contatos }: { contatos: Contato[] }) {
                     variant="secondary"
                     className={cn(
                       "rounded-full text-[11px] font-semibold",
-                      contato.situacao === "ATIVO"
+                      contato.ativo
                         ? "bg-[#ecfdf5] text-[#218358]"
                         : "bg-muted text-muted-foreground",
                     )}
                   >
-                    {contato.situacao === "ATIVO" ? "Ativo" : "Inativo"}
+                    {contato.ativo ? "Ativo" : "Inativo"}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronsUpDown, LogOut, Settings } from "lucide-react";
 
+import { sairAction } from "@/app/login/actions";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -84,11 +85,13 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/login">
-                <LogOut />
-                Sair
-              </Link>
+            <DropdownMenuItem
+              onClick={() => {
+                void sairAction();
+              }}
+            >
+              <LogOut />
+              Sair
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,0 +1,378 @@
+// Modelo de domínio — ver ARQUITETURA.md §5.
+//
+// Convenções:
+// - Todo valor monetário é inteiro em centavos (AD-07). Nunca Float/Decimal.
+// - Toda tabela com `organizacaoId` tem RLS ativo (AD-02) — ver
+//   src/db/migrations/*_rls/migration.sql.
+// - Nomes de tabela/coluna em snake_case no banco, camelCase no client.
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- enums
+
+enum TipoPessoa {
+  FISICA
+  JURIDICA
+}
+
+enum PapelContato {
+  PAGADOR
+  FAVORECIDO
+  FORNECEDOR
+}
+
+enum NaturezaConta {
+  PROPRIA
+  TERCEIRO
+}
+
+enum TipoCategoria {
+  RECEITA
+  DESPESA
+}
+
+enum TipoLancamento {
+  RECEBIMENTO
+  PAGAMENTO
+  TRANSFERENCIA
+}
+
+enum StatusLancamento {
+  PREVISTO
+  PARCIAL
+  LIQUIDADO
+  CANCELADO
+}
+
+enum ModoDestinacao {
+  PERCENTUAL
+  VALOR_FIXO
+}
+
+enum StatusTransacao {
+  PENDENTE
+  CONCILIADA
+  IGNORADA
+}
+
+enum OrigemLiquidacao {
+  EXTRATO
+  BAIXA_MANUAL
+}
+
+enum TipoMovimentoCustodia {
+  CREDITO
+  DEBITO
+}
+
+enum PapelUsuario {
+  ADMIN
+  OPERADOR
+}
+
+// ---------------------------------------------------------------- tenant
+
+model Organizacao {
+  id        String   @id @default(uuid()) @db.Uuid
+  nome      String
+  documento String
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  usuarios         Usuario[]
+  contatos         Contato[]
+  contasBancarias  ContaBancaria[]
+  categorias       Categoria[]
+  centrosDeCusto   CentroCusto[]
+  lancamentos      Lancamento[]
+  importacoes      Importacao[]
+  transacoes       TransacaoBancaria[]
+  liquidacoes      Liquidacao[]
+  movimentos       MovimentoCustodia[]
+
+  @@map("organizacao")
+}
+
+model Usuario {
+  id            String       @id @default(uuid()) @db.Uuid
+  organizacaoId String       @map("organizacao_id") @db.Uuid
+  nome          String
+  email         String       @unique
+  senhaHash     String       @map("senha_hash")
+  papel         PapelUsuario @default(OPERADOR)
+  ativo         Boolean      @default(true)
+  criadoEm      DateTime     @default(now()) @map("criado_em")
+
+  organizacao Organizacao  @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  sessoes     Sessao[]
+  liquidacoes Liquidacao[]
+  importacoes Importacao[]
+
+  @@index([organizacaoId])
+  @@map("usuario")
+}
+
+// Sessão opaca: o cookie carrega um token aleatório; aqui guardamos só o
+// hash dele, para que vazamento do banco não permita personificar ninguém.
+model Sessao {
+  id         String   @id @default(uuid()) @db.Uuid
+  usuarioId  String   @map("usuario_id") @db.Uuid
+  tokenHash  String   @unique @map("token_hash")
+  expiraEm   DateTime @map("expira_em")
+  criadaEm   DateTime @default(now()) @map("criada_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("sessao")
+}
+
+// ---------------------------------------------------------------- cadastros
+
+model Contato {
+  id            String         @id @default(uuid()) @db.Uuid
+  organizacaoId String         @map("organizacao_id") @db.Uuid
+  nome          String
+  tipoPessoa    TipoPessoa     @map("tipo_pessoa")
+  documento     String
+  papeis        PapelContato[]
+  ativo         Boolean        @default(true)
+  telefone      String?
+  email         String?
+  cidade        String?
+  estado        String?
+  banco         String?
+  tipoConta     String?        @map("tipo_conta")
+  agencia       String?
+  conta         String?
+  tipoChavePix  String?        @map("tipo_chave_pix")
+  chavePix      String?        @map("chave_pix")
+  criadoEm      DateTime       @default(now()) @map("criado_em")
+
+  organizacao Organizacao         @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  lancamentos Lancamento[]
+  destinacoes Destinacao[]
+  movimentos  MovimentoCustodia[]
+
+  @@index([organizacaoId])
+  @@map("contato")
+}
+
+model ContaBancaria {
+  id                String        @id @default(uuid()) @db.Uuid
+  organizacaoId     String        @map("organizacao_id") @db.Uuid
+  nome              String
+  banco             String
+  agencia           String
+  conta             String
+  natureza          NaturezaConta
+  saldoInicial      Int           @default(0) @map("saldo_inicial")
+  dataSaldoInicial  DateTime?     @map("data_saldo_inicial") @db.Date
+  ativa             Boolean       @default(true)
+  criadoEm          DateTime      @default(now()) @map("criado_em")
+
+  organizacao      Organizacao         @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  transacoes       TransacaoBancaria[]
+  importacoes      Importacao[]
+  lancamentos      Lancamento[]
+  lancamentosDestino Lancamento[]      @relation("ContaDestino")
+  liquidacoes      Liquidacao[]
+
+  @@index([organizacaoId])
+  @@map("conta_bancaria")
+}
+
+model Categoria {
+  id            String        @id @default(uuid()) @db.Uuid
+  organizacaoId String        @map("organizacao_id") @db.Uuid
+  nome          String
+  tipo          TipoCategoria
+  paiId         String?       @map("pai_id") @db.Uuid
+  ativa         Boolean       @default(true)
+  criadoEm      DateTime      @default(now()) @map("criado_em")
+
+  organizacao   Organizacao  @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  pai           Categoria?   @relation("Subcategorias", fields: [paiId], references: [id], onDelete: Cascade)
+  subcategorias Categoria[]  @relation("Subcategorias")
+  lancamentos   Lancamento[]
+
+  @@index([organizacaoId])
+  @@map("categoria")
+}
+
+model CentroCusto {
+  id            String   @id @default(uuid()) @db.Uuid
+  organizacaoId String   @map("organizacao_id") @db.Uuid
+  nome          String
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now()) @map("criado_em")
+
+  organizacao Organizacao  @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  lancamentos Lancamento[]
+
+  @@index([organizacaoId])
+  @@map("centro_custo")
+}
+
+// ---------------------------------------------------------------- lançamentos
+
+model Lancamento {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizacaoId   String           @map("organizacao_id") @db.Uuid
+  tipo            TipoLancamento
+  contatoId       String?          @map("contato_id") @db.Uuid
+  categoriaId     String?          @map("categoria_id") @db.Uuid
+  centroCustoId   String?          @map("centro_custo_id") @db.Uuid
+  contaBancariaId String?          @map("conta_bancaria_id") @db.Uuid
+  contaDestinoId  String?          @map("conta_destino_id") @db.Uuid
+  numeroParcela   Int?             @map("numero_parcela")
+  totalParcelas   Int?             @map("total_parcelas")
+  vencimento      DateTime         @db.Date
+  valorPrevisto   Int              @map("valor_previsto")
+  juros           Int              @default(0)
+  multa           Int              @default(0)
+  desconto        Int              @default(0)
+  valorLiquidado  Int              @default(0) @map("valor_liquidado")
+  status          StatusLancamento @default(PREVISTO)
+  lancamentoParId String?          @unique @map("lancamento_par_id") @db.Uuid
+  descricao       String?
+  criadoEm        DateTime         @default(now()) @map("criado_em")
+
+  organizacao   Organizacao    @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  contato       Contato?       @relation(fields: [contatoId], references: [id], onDelete: Restrict)
+  categoria     Categoria?     @relation(fields: [categoriaId], references: [id], onDelete: Restrict)
+  centroCusto   CentroCusto?   @relation(fields: [centroCustoId], references: [id], onDelete: Restrict)
+  contaBancaria ContaBancaria? @relation(fields: [contaBancariaId], references: [id], onDelete: Restrict)
+  contaDestino  ContaBancaria? @relation("ContaDestino", fields: [contaDestinoId], references: [id], onDelete: Restrict)
+
+  // Perna oposta da transferência (RN-15) — auto-relação 1:1.
+  lancamentoPar Lancamento?  @relation("PernaTransferencia", fields: [lancamentoParId], references: [id], onDelete: SetNull)
+  parDe         Lancamento?  @relation("PernaTransferencia")
+
+  destinacoes Destinacao[]
+  liquidacoes Liquidacao[]
+
+  @@index([organizacaoId])
+  @@index([organizacaoId, status])
+  @@index([organizacaoId, vencimento])
+  @@map("lancamento")
+}
+
+model Destinacao {
+  id           String         @id @default(uuid()) @db.Uuid
+  lancamentoId String         @map("lancamento_id") @db.Uuid
+  favorecidoId String         @map("favorecido_id") @db.Uuid
+  modo         ModoDestinacao
+  // PERCENTUAL: base 10.000 (1% = 100) para evitar fração. VALOR_FIXO: centavos.
+  valor        Int
+  ordem        Int
+
+  lancamento Lancamento @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+  favorecido Contato    @relation(fields: [favorecidoId], references: [id], onDelete: Restrict)
+
+  @@index([lancamentoId])
+  @@map("destinacao")
+}
+
+// ---------------------------------------------------------------- extrato
+
+model Importacao {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizacaoId   String   @map("organizacao_id") @db.Uuid
+  contaBancariaId String   @map("conta_bancaria_id") @db.Uuid
+  usuarioId       String?  @map("usuario_id") @db.Uuid
+  arquivo         String
+  periodoInicio   DateTime @map("periodo_inicio") @db.Date
+  periodoFim      DateTime @map("periodo_fim") @db.Date
+  totalLidas      Int      @default(0) @map("total_lidas")
+  totalImportadas Int      @default(0) @map("total_importadas")
+  importadoEm     DateTime @default(now()) @map("importado_em")
+
+  organizacao   Organizacao         @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  contaBancaria ContaBancaria       @relation(fields: [contaBancariaId], references: [id], onDelete: Cascade)
+  usuario       Usuario?            @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  transacoes    TransacaoBancaria[]
+
+  @@index([organizacaoId])
+  @@map("importacao")
+}
+
+model TransacaoBancaria {
+  id                 String          @id @default(uuid()) @db.Uuid
+  organizacaoId      String          @map("organizacao_id") @db.Uuid
+  contaBancariaId    String          @map("conta_bancaria_id") @db.Uuid
+  importacaoId       String?         @map("importacao_id") @db.Uuid
+  identificadorBanco String          @map("identificador_banco")
+  data               DateTime        @db.Date
+  // Sinal indica entrada (+) ou saída (−).
+  valor              Int
+  descricao          String
+  status             StatusTransacao @default(PENDENTE)
+  criadoEm           DateTime        @default(now()) @map("criado_em")
+
+  organizacao   Organizacao   @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  contaBancaria ContaBancaria @relation(fields: [contaBancariaId], references: [id], onDelete: Cascade)
+  importacao    Importacao?   @relation(fields: [importacaoId], references: [id], onDelete: SetNull)
+  liquidacoes   Liquidacao[]
+
+  // RN-16 — deduplicação garantida pelo banco, não só pelo código.
+  @@unique([contaBancariaId, identificadorBanco])
+  @@index([organizacaoId, status])
+  @@map("transacao_bancaria")
+}
+
+// ---------------------------------------------------------------- liquidação
+
+// A única porta de entrada da custódia (§5.1). Ver RN-13.
+model Liquidacao {
+  id              String           @id @default(uuid()) @db.Uuid
+  organizacaoId   String           @map("organizacao_id") @db.Uuid
+  origem          OrigemLiquidacao
+  transacaoId     String?          @map("transacao_id") @db.Uuid
+  contaBancariaId String?          @map("conta_bancaria_id") @db.Uuid
+  lancamentoId    String           @map("lancamento_id") @db.Uuid
+  valorLiquidado  Int              @map("valor_liquidado")
+  dataLiquidacao  DateTime         @map("data_liquidacao") @db.Date
+  observacao      String?
+  usuarioId       String?          @map("usuario_id") @db.Uuid
+  registradoEm    DateTime         @default(now()) @map("registrado_em")
+
+  organizacao   Organizacao         @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  transacao     TransacaoBancaria?  @relation(fields: [transacaoId], references: [id], onDelete: Cascade)
+  contaBancaria ContaBancaria?      @relation(fields: [contaBancariaId], references: [id], onDelete: Restrict)
+  lancamento    Lancamento          @relation(fields: [lancamentoId], references: [id], onDelete: Cascade)
+  usuario       Usuario?            @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  movimentos    MovimentoCustodia[]
+
+  @@index([organizacaoId])
+  @@index([lancamentoId])
+  @@index([transacaoId])
+  @@map("liquidacao")
+}
+
+// O razão. Somente-inserção (RN-12): removido apenas via cascade ao desfazer
+// a liquidação de origem.
+model MovimentoCustodia {
+  id            String                @id @default(uuid()) @db.Uuid
+  organizacaoId String                @map("organizacao_id") @db.Uuid
+  favorecidoId  String                @map("favorecido_id") @db.Uuid
+  liquidacaoId  String                @map("liquidacao_id") @db.Uuid
+  tipo          TipoMovimentoCustodia
+  valor         Int
+  data          DateTime              @db.Date
+  criadoEm      DateTime              @default(now()) @map("criado_em")
+
+  organizacao Organizacao @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
+  favorecido  Contato     @relation(fields: [favorecidoId], references: [id], onDelete: Restrict)
+  liquidacao  Liquidacao  @relation(fields: [liquidacaoId], references: [id], onDelete: Cascade)
+
+  @@index([organizacaoId, favorecidoId])
+  @@index([liquidacaoId])
+  @@map("movimento_custodia")
+}

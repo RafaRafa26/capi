@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Contato, PapelContato, TipoPessoa } from "@/lib/mock-data/contatos";
-
-const ESTADOS = [
-  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
-  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
-];
+import { salvarContatoAction } from "@/app/(app)/contatos/actions";
+import { ESTADOS } from "@/modules/contatos/tipos";
+import type { Contato, PapelContato, TipoPessoa } from "@/modules/contatos/tipos";
 
 const PAPEIS: { value: PapelContato; label: string }[] = [
   { value: "PAGADOR", label: "Cliente" },
@@ -58,6 +55,7 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
 
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>(contato?.tipoPessoa ?? "FISICA");
   const [papeis, setPapeis] = useState<PapelContato[]>(contato?.papeis ?? []);
+  const [salvando, iniciarSalvamento] = useTransition();
 
   const backHref = contato ? `/contatos/${contato.id}` : "/contatos";
 
@@ -69,8 +67,25 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    toast.success(isEditing ? "Contato atualizado." : "Contato criado.");
-    router.push(backHref);
+    const form = new FormData(event.currentTarget);
+
+    // Radio e checkbox controlados pelo React não entram no FormData sozinhos.
+    form.set("tipoPessoa", tipoPessoa);
+    form.delete("papeis");
+    papeis.forEach((papel) => form.append("papeis", papel));
+
+    iniciarSalvamento(async () => {
+      const resultado = await salvarContatoAction(contato?.id ?? null, form);
+
+      if (!resultado.ok) {
+        toast.error(resultado.erro);
+        return;
+      }
+
+      toast.success(isEditing ? "Contato atualizado." : "Contato criado.");
+      router.push(isEditing ? backHref : `/contatos/${resultado.dados.id}`);
+      router.refresh();
+    });
   }
 
   return (
@@ -94,7 +109,7 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
               <Input
                 id="nome"
                 name="nome"
-                defaultValue={contato?.nome}
+                defaultValue={contato?.nome ?? undefined}
                 placeholder="Nome completo ou Razão social da empresa"
                 required
               />
@@ -130,7 +145,7 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
               <Input
                 id="documento"
                 name="documento"
-                defaultValue={contato?.documento}
+                defaultValue={contato?.documento ?? undefined}
                 placeholder={tipoPessoa === "FISICA" ? "000.000.000-00" : "00.000.000/0000-00"}
                 required
               />
@@ -164,21 +179,21 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
           <div className="flex gap-4">
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="telefone">Telefone</Label>
-              <Input id="telefone" name="telefone" defaultValue={contato?.telefone} placeholder="(00) 00000-0000" />
+              <Input id="telefone" name="telefone" defaultValue={contato?.telefone ?? undefined} placeholder="(00) 00000-0000" />
             </div>
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="email">E-mail</Label>
-              <Input id="email" name="email" type="email" defaultValue={contato?.email} placeholder="email@exemplo.com" />
+              <Input id="email" name="email" type="email" defaultValue={contato?.email ?? undefined} placeholder="email@exemplo.com" />
             </div>
           </div>
           <div className="flex gap-4">
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="cidade">Cidade</Label>
-              <Input id="cidade" name="cidade" defaultValue={contato?.cidade} placeholder="Selecione ou digite a cidade" />
+              <Input id="cidade" name="cidade" defaultValue={contato?.cidade ?? undefined} placeholder="Selecione ou digite a cidade" />
             </div>
             <div className="flex w-[200px] flex-col gap-2">
               <Label htmlFor="estado">Estado (UF)</Label>
-              <Select name="estado" defaultValue={contato?.estado}>
+              <Select name="estado" defaultValue={contato?.estado ?? undefined}>
                 <SelectTrigger id="estado" className="w-full">
                   <SelectValue placeholder="UF" />
                 </SelectTrigger>
@@ -198,11 +213,11 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
           <div className="flex gap-4">
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="banco">Banco</Label>
-              <Input id="banco" name="banco" defaultValue={contato?.banco} placeholder="Banco do Brasil" />
+              <Input id="banco" name="banco" defaultValue={contato?.banco ?? undefined} placeholder="Banco do Brasil" />
             </div>
             <div className="flex w-[340px] flex-col gap-2">
               <Label htmlFor="tipoConta">Tipo de conta</Label>
-              <Select name="tipoConta" defaultValue={contato?.tipoConta}>
+              <Select name="tipoConta" defaultValue={contato?.tipoConta ?? undefined}>
                 <SelectTrigger id="tipoConta" className="w-full">
                   <SelectValue placeholder="Conta corrente" />
                 </SelectTrigger>
@@ -216,11 +231,11 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
           <div className="flex gap-4">
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="agencia">Agência</Label>
-              <Input id="agencia" name="agencia" defaultValue={contato?.agencia} placeholder="0000" />
+              <Input id="agencia" name="agencia" defaultValue={contato?.agencia ?? undefined} placeholder="0000" />
             </div>
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="conta">Conta</Label>
-              <Input id="conta" name="conta" defaultValue={contato?.conta} placeholder="00000-0" />
+              <Input id="conta" name="conta" defaultValue={contato?.conta ?? undefined} placeholder="00000-0" />
             </div>
           </div>
         </FormSection>
@@ -229,7 +244,7 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
           <div className="flex gap-4">
             <div className="flex w-[280px] flex-col gap-2">
               <Label htmlFor="tipoChavePix">Tipo de chave</Label>
-              <Select name="tipoChavePix" defaultValue={contato?.tipoChavePix}>
+              <Select name="tipoChavePix" defaultValue={contato?.tipoChavePix ?? undefined}>
                 <SelectTrigger id="tipoChavePix" className="w-full">
                   <SelectValue placeholder="CPF" />
                 </SelectTrigger>
@@ -244,7 +259,7 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
             </div>
             <div className="flex flex-1 flex-col gap-2">
               <Label htmlFor="chavePix">Chave PIX</Label>
-              <Input id="chavePix" name="chavePix" defaultValue={contato?.chavePix} placeholder="Digite a chave PIX" />
+              <Input id="chavePix" name="chavePix" defaultValue={contato?.chavePix ?? undefined} placeholder="Digite a chave PIX" />
             </div>
           </div>
         </FormSection>
@@ -254,7 +269,9 @@ export function ContatoForm({ contato }: { contato?: Contato }) {
         <Button type="button" variant="outline" asChild>
           <Link href={backHref}>Cancelar</Link>
         </Button>
-        <Button type="submit">{isEditing ? "Salvar alterações" : "Salvar contato"}</Button>
+        <Button type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : isEditing ? "Salvar alterações" : "Salvar contato"}
+        </Button>
       </div>
     </form>
   );
