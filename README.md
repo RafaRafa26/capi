@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Capi
 
-## Getting Started
+Sistema de gestão de recebimentos e repasses de terceiros. Mantém uma conta
+corrente por favorecido cujo saldo é consequência da conciliação bancária, em
+vez de uma planilha por cliente.
 
-First, run the development server:
+Leia `ARQUITETURA.md` antes de mexer no código — ele define o modelo de
+domínio, as regras de negócio numeradas (RN-01 a RN-22) e as decisões de
+arquitetura. `PROGRESS.md` registra o que já foi construído.
+
+## Como rodar localmente
+
+Requisitos: Node 20+ e Docker (ou um Postgres 16+ acessível).
 
 ```bash
+# 1. dependências
+npm install
+
+# 2. banco local
+docker compose up -d
+
+# 3. variáveis de ambiente
+cp .env.example .env
+#    e preencha as senhas — DATABASE_URL_APP usa o papel capi_app,
+#    criado pela migração de RLS
+
+# 4. schema + papel da aplicação + dados de demonstração
+npm run db:migrate
+npm run db:seed
+
+# 5. subir
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra http://localhost:3000 e entre com **rafael@email.com** / **capi1234**
+(usuário criado pelo seed).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Dois papéis de banco, de propósito
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Papel | Quem usa | RLS |
+|---|---|---|
+| `capi` (`DATABASE_URL`) | migrações, seed e as consultas de login | ignora — é dono das tabelas |
+| `capi_app` (`DATABASE_URL_APP`) | todo o resto da aplicação | **sujeito às políticas** |
 
-## Learn More
+Cada transação da aplicação declara sua organização com
+`SET LOCAL app.organizacao_id`, e o banco recusa qualquer linha de outra
+organização — inclusive numa escrita. Ver `src/db/migrations/*_rls/`.
 
-To learn more about Next.js, take a look at the following resources:
+O login precisa procurar um usuário por e-mail antes de saber a que
+organização ele pertence, por isso é o único ponto que roda no papel dono.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Comandos
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev          # servidor de desenvolvimento
+npm run build        # build de produção
+npm run lint         # eslint
+npm test             # vitest (inclui testes contra o Postgres local)
 
-## Deploy on Vercel
+npm run db:migrate   # aplica migrações pendentes
+npm run db:seed      # recria a organização de demonstração
+npm run db:reset     # apaga e recria o banco do zero
+npm run db:studio    # inspeção visual das tabelas
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Os testes de banco criam e destroem organizações próprias, então rodam contra
+o mesmo Postgres de desenvolvimento sem sujá-lo.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Organização do código
+
+```
+src/
+  app/                  ← rotas, telas e server actions (BORDA)
+  modules/              ← um diretório por área do domínio
+    auth/               ← sessão e senha
+    contatos/ categorias/ centros-de-custo/ contas-bancarias/
+    lancamentos/        ← recebimentos, pagamentos, parcelamento
+    extrato/            ← leitura de OFX e transações bancárias
+    liquidacao/         ← conciliação e baixa manual (porta única da custódia)
+    custodia/           ← o razão por favorecido, sempre derivado
+    dashboard/
+  shared/               ← dinheiro em centavos, erros
+  db/                   ← schema Prisma, migrações, seed
+```
+
+Dentro de cada módulo: `esquema.ts` valida a entrada (Zod), `servico.ts`
+orquestra e é o único que escreve no banco, `dominio.ts` guarda as regras
+puras, `tipos.ts` carrega o que servidor e cliente compartilham.
+
+`servico.ts` importa o driver do Postgres — um componente de cliente que
+importar **valor** de lá arrasta o driver para o bundle do navegador. Por isso
+tipos e constantes compartilhados moram em `tipos.ts`.
