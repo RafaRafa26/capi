@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 
+import { ehBancoIndisponivel } from "@/db/indisponivel";
 import { NaoAutenticado } from "@/shared/erros";
 import {
   ACESSO_LIVRE,
@@ -44,14 +45,22 @@ export async function tokenDaRequisicao() {
  * cada server action podem chamar à vontade que o banco é consultado uma vez só.
  */
 export const sessaoAtual = cache(async (): Promise<SessaoAtiva | null> => {
-  const porToken = await sessaoPorToken(await tokenDaRequisicao());
-  if (porToken) return porToken;
+  try {
+    const porToken = await sessaoPorToken(await tokenDaRequisicao());
+    if (porToken) return porToken;
 
-  // Acesso livre (temporário): sem sessão, o app roda como o admin padrão em
-  // vez de mandar para o login. Ver ACESSO_LIVRE em ./servico.ts.
-  if (ACESSO_LIVRE) return sessaoLivre();
+    // Acesso livre (temporário): sem sessão, o app roda como o admin padrão
+    // em vez de mandar para o login. Ver ACESSO_LIVRE em ./servico.ts.
+    if (ACESSO_LIVRE) return await sessaoLivre();
 
-  return null;
+    return null;
+  } catch (erro) {
+    // Sem banco utilizável (env ausente, servidor fora, credencial errada),
+    // nenhuma rota funciona — toda página começa por aqui, então este é o
+    // lugar de trocar o error boundary genérico por uma orientação clara.
+    if (ehBancoIndisponivel(erro)) redirect("/configuracao-pendente");
+    throw erro;
+  }
 });
 
 /** Para páginas: manda para o login quando não há sessão. */
