@@ -33,15 +33,47 @@ function criarCliente(url: string | undefined, nome: string): PrismaClient {
   return new PrismaClient({ adapter: new PrismaPg(pool) });
 }
 
-export const prismaAdmin: PrismaClient = (cache.admin ??= criarCliente(
-  process.env.DATABASE_URL,
-  "DATABASE_URL",
-));
+/**
+ * Cliente preguiçoso: o pool só nasce no primeiro uso de verdade.
+ *
+ * Isso não é otimização, é requisito de build. O `next build` importa os
+ * módulos de cada rota para coletar configuração, e criar o cliente no escopo
+ * do módulo faria o build inteiro falhar em qualquer ambiente sem
+ * `DATABASE_URL` — mesmo sem nenhuma consulta acontecer. Adiando para o
+ * primeiro acesso, o build passa e a variável ausente vira erro em tempo de
+ * requisição, que é onde ela realmente importa.
+ */
+function clientePreguicoso(
+  chave: "admin" | "app",
+  lerUrl: () => string | undefined,
+  nome: string,
+): PrismaClient {
+  const obter = () => (cache[chave] ??= criarCliente(lerUrl(), nome));
 
-const prismaApp: PrismaClient = (cache.app ??= criarCliente(
-  process.env.DATABASE_URL_APP ?? process.env.DATABASE_URL,
+  return new Proxy({} as PrismaClient, {
+    get(_alvo, prop) {
+      const cliente = obter();
+      const valor = Reflect.get(cliente, prop) as unknown;
+      // Métodos como `$transaction` precisam do cliente real como `this`.
+      return typeof valor === "function" ? valor.bind(cliente) : valor;
+    },
+    has(_alvo, prop) {
+      return prop in obter();
+    },
+  });
+}
+
+export const prismaAdmin: PrismaClient = clientePreguicoso(
+  "admin",
+  () => process.env.DATABASE_URL,
+  "DATABASE_URL",
+);
+
+const prismaApp: PrismaClient = clientePreguicoso(
+  "app",
+  () => process.env.DATABASE_URL_APP ?? process.env.DATABASE_URL,
   "DATABASE_URL_APP",
-));
+);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
