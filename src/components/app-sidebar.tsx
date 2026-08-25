@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { ModeToggle } from "@/components/mode-toggle";
 import { NavMain } from "@/components/nav-main";
 import { NavProjects } from "@/components/nav-projects";
 import { NavUser } from "@/components/nav-user";
@@ -35,6 +36,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={configuracoesGroup.items} />
       </SidebarContent>
       <SidebarFooter>
+        <ModeToggle />
         <NavUser user={currentUser} />
       </SidebarFooter>
       <SidebarRail />
