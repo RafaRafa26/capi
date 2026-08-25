@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { NaoAutenticado } from "@/shared/erros";
-import { DIAS_DE_SESSAO, sessaoPorToken, type SessaoAtiva } from "./servico";
+import {
+  ACESSO_LIVRE,
+  DIAS_DE_SESSAO,
+  sessaoLivre,
+  sessaoPorToken,
+  type SessaoAtiva,
+} from "./servico";
 
 export const COOKIE_SESSAO = "capi_sessao";
 
@@ -38,7 +44,14 @@ export async function tokenDaRequisicao() {
  * cada server action podem chamar à vontade que o banco é consultado uma vez só.
  */
 export const sessaoAtual = cache(async (): Promise<SessaoAtiva | null> => {
-  return sessaoPorToken(await tokenDaRequisicao());
+  const porToken = await sessaoPorToken(await tokenDaRequisicao());
+  if (porToken) return porToken;
+
+  // Acesso livre (temporário): sem sessão, o app roda como o admin padrão em
+  // vez de mandar para o login. Ver ACESSO_LIVRE em ./servico.ts.
+  if (ACESSO_LIVRE) return sessaoLivre();
+
+  return null;
 });
 
 /** Para páginas: manda para o login quando não há sessão. */

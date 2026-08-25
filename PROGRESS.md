@@ -523,3 +523,26 @@ respondem 200 sem erro de console.
 - **Cadastro de usuários** pela interface, e as rotas `/cadastro` e
   `/esqueci-senha` que o login referencia. Usuário novo só pelo seed.
 - **Login social** (o botão do Google está desabilitado).
+
+---
+
+## Etapa — Acesso livre (temporário, a pedido)
+
+O login deixou de ser exigido: sem sessão no cookie, o app roda como o
+primeiro usuário ADMIN do banco, e `/login` passa a redirecionar para o
+dashboard. Se o banco estiver recém-migrado e vazio, a organização de
+demonstração e o admin padrão são criados na hora — um preview funciona sem
+rodar o seed.
+
+Nada da autenticação foi removido: cookie, senha argon2, sessão em banco e o
+formulário de login continuam funcionando por baixo. Religar a exigência é
+definir `CAPI_EXIGIR_LOGIN=1` no ambiente (ver `ACESSO_LIVRE` em
+`src/modules/auth/servico.ts`).
+
+**Antes de qualquer uso com dados reais, o login volta a ser obrigatório** —
+com acesso livre, qualquer pessoa com a URL enxerga e altera tudo.
+
+Verificado: navegador sem nenhum cookie abre /dashboard, /contatos,
+/conciliacao e /repasses direto (200); /login e / redirecionam para o
+dashboard; escrita (criar centro de custo) funciona sem sessão; e um banco
+zerado, só com migrações, serve o dashboard e cria org+admin sozinho.

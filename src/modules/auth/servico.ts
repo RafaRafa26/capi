@@ -113,6 +113,64 @@ export async function sessaoPorToken(
   };
 }
 
+// ------------------------------------------------------------ acesso livre
+
+/**
+ * MODO TEMPORÁRIO, a pedido: o app está aberto, sem exigir login.
+ *
+ * Quando a requisição não traz sessão válida, tudo roda como o primeiro
+ * usuário ADMIN ativo do banco. Se o banco estiver recém-migrado e vazio, a
+ * organização de demonstração é criada na hora — assim um preview funciona
+ * sem rodar o seed.
+ *
+ * Para religar a exigência de login: troque ACESSO_LIVRE para false (ou
+ * defina CAPI_EXIGIR_LOGIN=1 no ambiente). Toda a autenticação continua
+ * intacta por baixo — cookie, senha e sessão em banco seguem funcionando.
+ */
+export const ACESSO_LIVRE = process.env.CAPI_EXIGIR_LOGIN !== "1";
+
+export async function sessaoLivre(): Promise<SessaoAtiva> {
+  const usuario =
+    (await prismaAdmin.usuario.findFirst({
+      where: { ativo: true, papel: "ADMIN" },
+      orderBy: { criadoEm: "asc" },
+      include: { organizacao: true },
+    })) ??
+    (await prismaAdmin.usuario.findFirst({
+      where: { ativo: true },
+      orderBy: { criadoEm: "asc" },
+      include: { organizacao: true },
+    })) ??
+    (await criarUsuarioInicial());
+
+  return {
+    usuarioId: usuario.id,
+    organizacaoId: usuario.organizacaoId,
+    nome: usuario.nome,
+    email: usuario.email,
+    papel: usuario.papel,
+    organizacaoNome: usuario.organizacao.nome,
+    organizacaoDocumento: usuario.organizacao.documento,
+  };
+}
+
+/** Banco vazio: cria a organização e o admin padrão para o app poder abrir. */
+async function criarUsuarioInicial() {
+  const org = await prismaAdmin.organizacao.create({
+    data: { nome: "Capi HUB", documento: "12.345.678/0001-90" },
+  });
+  return prismaAdmin.usuario.create({
+    data: {
+      organizacaoId: org.id,
+      nome: "Rafael Arantes",
+      email: "rafael@email.com",
+      senhaHash: await hashDeSenha("capi1234"),
+      papel: "ADMIN",
+    },
+    include: { organizacao: true },
+  });
+}
+
 export async function encerrarSessao(token: string | undefined) {
   if (!token) return;
   await prismaAdmin.sessao

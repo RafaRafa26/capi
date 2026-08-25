@@ -32,8 +32,11 @@ npm run db:seed
 npm run dev
 ```
 
-Abra http://localhost:3000 e entre com **rafael@email.com** / **capi1234**
-(usuário criado pelo seed).
+Abra http://localhost:3000 — **o acesso está livre por enquanto** (decisão
+temporária): sem sessão, o app roda como o admin padrão, e um banco vazio é
+inicializado sozinho com a organização de demonstração. Para voltar a exigir
+login, defina `CAPI_EXIGIR_LOGIN=1` no ambiente; a autenticação continua
+inteira por baixo (rafael@email.com / capi1234, criado pelo seed).
 
 ### Dois papéis de banco, de propósito
 
