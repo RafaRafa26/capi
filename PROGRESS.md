@@ -341,3 +341,37 @@ padrão ao abrir o dashboard.
   anima o traço crescendo a cada troca de série/filtro, e uma captura
   de tela batida logo em seguida flagrava o gráfico "vazio" no meio
   da animação.
+
+**Quarto ajuste, a pedido do usuário — escala do eixo Y:**
+- O eixo Y do gráfico não começa mais sempre em zero: agora usa uma
+  escala "nice numbers" (`niceTicks` em `cash-flow-chart.tsx`) que
+  arredonda o mínimo/máximo do eixo para valores redondos próximos do
+  mínimo/máximo real dos dados, evitando que a linha fique espremida
+  no topo do gráfico. Quando o saldo do período é negativo, a escala
+  se estende para baixo automaticamente (o algoritmo sempre inclui um
+  tick em zero quando o intervalo cruza zero, já que o passo — 1, 2 ou
+  5 × potência de 10 — é sempre um divisor exato de zero).
+- Rótulos do eixo passaram do formato compacto ("R$ 70k") para valores
+  por extenso ("R$ 70.000") — `formatMoneyAxis` substituiu
+  `formatMoneyCompact` em `src/lib/format.ts`.
+- Quando a série ativa é "Saldo" e o saldo do período é negativo, a
+  linha do gráfico (sólida e pontilhada) muda de preto para vermelho
+  (`#e5484d`, a mesma cor usada em "Saídas").
+- **Bug encontrado e corrigido durante a validação:** passar apenas
+  `domain={[min, max]}` para o `<YAxis>` do recharts não bastava — o
+  gerador de ticks padrão dele (`getTickValuesFixedDomain`) sempre
+  acrescenta o limite exato do domain como último tick, mesmo quando
+  ele não é múltiplo do step calculado, e depois descarta ticks
+  vizinhos que colidiriam visualmente. Resultado: espaçamento
+  inconsistente entre os números do eixo (confirmado inspecionando o
+  DOM renderizado — ex.: 150k → 190k → 230k → 300k, passos de
+  40k/40k/70k). Corrigido calculando a lista de ticks manualmente e
+  passando-a explicitamente via prop `ticks`, em vez de deixar o
+  recharts recalcular a partir do domain.
+- Validado com `next build`, `eslint .`, e inspeção do DOM renderizado
+  via Playwright (texto dos ticks do eixo Y extraído diretamente dos
+  elementos `<text>`, não só por captura de tela) — confirmando passo
+  uniforme em um período positivo (150.000/200.000/250.000/300.000) e
+  extensão correta abaixo de zero com um período de saldo negativo
+  (selecionando 01/jul/2026, o único dia com saldo acumulado negativo
+  nos dados mockados).

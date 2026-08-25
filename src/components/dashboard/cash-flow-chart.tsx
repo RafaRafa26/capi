@@ -12,9 +12,48 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Separator } from "@/components/ui/separator";
-import { formatMoney, formatMoneyCompact } from "@/lib/format";
+import { formatMoney, formatMoneyAxis } from "@/lib/format";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { fluxoCaixaDiario, HOJE } from "@/lib/mock-data/fluxo-caixa";
+
+const NEGATIVE_COLOR = "#e5484d";
+
+// Algoritmo clássico de "nice numbers": arredonda o mínimo/máximo do eixo
+// para valores redondos relativos à ordem de grandeza dos dados, em vez de
+// sempre partir de zero — assim a linha não fica espremida no topo do
+// gráfico, e a escala se estende para baixo sozinha quando há negativos.
+//
+// Geramos a lista de ticks nós mesmos (em vez de deixar o recharts calcular
+// a partir do domain) porque o gerador padrão dele sempre inclui o limite
+// exato do domain como último tick, mesmo quando isso não é múltiplo do
+// step — o que produz espaçamento inconsistente entre os números do eixo.
+function niceTicks(min: number, max: number, tickCount = 4): number[] {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 100000];
+  if (min === max) {
+    const pad = Math.max(Math.abs(min) * 0.1, 100000);
+    min -= pad;
+    max += pad;
+  }
+
+  const range = max - min;
+  const rawStep = range / tickCount;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const residual = rawStep / magnitude;
+
+  let step = magnitude;
+  if (residual > 5) step = 10 * magnitude;
+  else if (residual > 2) step = 5 * magnitude;
+  else if (residual > 1) step = 2 * magnitude;
+
+  const niceMin = Math.floor(min / step) * step;
+  const niceMax = Math.ceil(max / step) * step;
+
+  const ticks: number[] = [];
+  for (let value = niceMin; value <= niceMax + step / 2; value += step) {
+    ticks.push(value);
+  }
+  return ticks;
+}
 
 const chartConfig = {
   saldo: {
@@ -79,6 +118,9 @@ export function CashFlowChart() {
     return { entradas, saidas, saldo };
   }, [filteredData]);
 
+  const isNegativeSaldo = activeSerie === "saldo" && totals.saldo < 0;
+  const lineColor = isNegativeSaldo ? NEGATIVE_COLOR : chartConfig[activeSerie].color;
+
   // Divide a série ativa em um trecho "real" (sólido) e um "previsto"
   // (pontilhado), com o dia de virada presente nos dois para as linhas se
   // encontrarem sem espaço em branco entre elas.
@@ -93,6 +135,15 @@ export function CashFlowChart() {
       };
     });
   }, [filteredData, activeSerie]);
+
+  const yTicks = useMemo(() => {
+    const values = filteredData.map((day) => day[activeSerie]);
+    return niceTicks(Math.min(...values), Math.max(...values));
+  }, [filteredData, activeSerie]);
+  const yDomain = useMemo<[number, number]>(
+    () => [yTicks[0], yTicks[yTicks.length - 1]],
+    [yTicks],
+  );
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
@@ -139,8 +190,10 @@ export function CashFlowChart() {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              width={56}
-              tickFormatter={(value) => formatMoneyCompact(Number(value))}
+              width={82}
+              domain={yDomain}
+              ticks={yTicks}
+              tickFormatter={(value) => formatMoneyAxis(Number(value))}
             />
             <ChartTooltip
               content={
@@ -155,7 +208,7 @@ export function CashFlowChart() {
               dataKey="valorReal"
               name={chartConfig[activeSerie].label}
               type="monotone"
-              stroke={chartConfig[activeSerie].color}
+              stroke={lineColor}
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
@@ -164,7 +217,7 @@ export function CashFlowChart() {
               dataKey="valorPrevisto"
               name={chartConfig[activeSerie].label}
               type="monotone"
-              stroke={chartConfig[activeSerie].color}
+              stroke={lineColor}
               strokeWidth={2}
               isAnimationActive={false}
               strokeDasharray="5 5"
