@@ -49,6 +49,29 @@ organização — inclusive numa escrita. Ver `src/db/migrations/*_rls/`.
 O login precisa procurar um usuário por e-mail antes de saber a que
 organização ele pertence, por isso é o único ponto que roda no papel dono.
 
+## Deploy
+
+O `prisma generate` roda sozinho no `postinstall` e no início do `build` — o
+Prisma Client é artefato e não vai versionado, então a plataforma o recria.
+
+As URLs do banco são lidas **em tempo de requisição**, não no build: o
+`next build` passa sem `DATABASE_URL`, e a falta dela só aparece quando uma
+página tenta consultar. Isso é proposital, para o build não depender de ter
+banco acessível. Na plataforma, configure antes do primeiro acesso:
+
+| Variável | Para quê |
+|---|---|
+| `DATABASE_URL` | papel dono — migrações e login |
+| `DATABASE_URL_APP` | papel da aplicação, restrito por RLS |
+
+Depois de provisionar o banco, rode `npx prisma migrate deploy` e **troque a
+senha do papel `capi_app`** — a migração o cria com uma senha de
+desenvolvimento:
+
+```sql
+ALTER ROLE capi_app PASSWORD 'senha-forte-de-producao';
+```
+
 ## Comandos
 
 ```bash
