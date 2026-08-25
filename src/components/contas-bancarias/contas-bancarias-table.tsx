@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { MoreHorizontal, Plus, Search } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -23,11 +24,39 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { ContaBancaria } from "@/lib/mock-data/contas-bancarias";
+import {
+  alternarAtivaContaBancariaAction,
+  excluirContaBancariaAction,
+} from "@/app/(app)/contas-bancarias/actions";
+import type { ContaBancaria } from "@/modules/contas-bancarias/tipos";
 
 export function ContasBancariasTable({ contas }: { contas: ContaBancaria[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [, iniciar] = useTransition();
+
+  function alternarAtiva(id: string) {
+    iniciar(async () => {
+      const r = await alternarAtivaContaBancariaAction(id);
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function excluir(id: string) {
+    iniciar(async () => {
+      const r = await excluirContaBancariaAction(id);
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+      toast.success("Conta bancária excluída.");
+      router.refresh();
+    });
+  }
 
   const filtered = useMemo(
     () =>
@@ -120,6 +149,15 @@ export function ContasBancariasTable({ contas }: { contas: ContaBancaria[] }) {
                       </DropdownMenuItem>
                       <DropdownMenuItem asChild>
                         <Link href={`/contas-bancarias/${conta.id}/editar`}>Editar</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => alternarAtiva(conta.id)}>
+                        {conta.ativa ? "Inativar" : "Ativar"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => excluir(conta.id)}
+                      >
+                        Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

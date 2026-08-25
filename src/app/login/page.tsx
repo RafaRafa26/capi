@@ -1,16 +1,12 @@
 import Link from "next/link";
-import { AlertTriangle } from "lucide-react";
+import { redirect } from "next/navigation";
 
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
+import { LoginForm } from "@/components/auth/login-form";
+import { sessaoAtual } from "@/modules/auth/sessao";
 
-export default async function LoginPage({
-  searchParams,
-}: PageProps<"/login">) {
-  const params = await searchParams;
-  const hasError = params?.error === "1";
+export default async function LoginPage() {
+  // Quem já está logado não precisa ver o login de novo.
+  if (await sessaoAtual()) redirect("/dashboard");
 
   return (
     <div className="flex min-h-svh items-stretch">
@@ -37,44 +33,7 @@ export default async function LoginPage({
             </p>
           </div>
 
-          <form className="flex flex-col gap-4" action="/dashboard">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input id="email" name="email" type="email" placeholder="m@exemplo.com" required />
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Senha</Label>
-                <Link href="/esqueci-senha" className="text-sm hover:underline">
-                  Esqueci minha senha
-                </Link>
-              </div>
-              <Input id="password" name="password" type="password" required />
-            </div>
-
-            {hasError ? (
-              <div className="border-destructive/40 bg-destructive/10 flex items-center gap-3 rounded-md border px-4 py-3">
-                <AlertTriangle className="text-destructive size-4 shrink-0" />
-                <p className="text-destructive text-sm font-medium">
-                  E-mail ou senha inválidos. Tente novamente.
-                </p>
-              </div>
-            ) : null}
-
-            <div className="flex flex-col gap-4">
-              <Button type="submit" className="w-full">
-                Entrar
-              </Button>
-              <div className="flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-muted-foreground text-xs">Ou continue com</span>
-                <Separator className="flex-1" />
-              </div>
-              <Button type="button" variant="outline" className="w-full">
-                Google
-              </Button>
-            </div>
-          </form>
+          <LoginForm />
 
           <p className="flex justify-center gap-1 text-sm">
             <span className="text-muted-foreground">Não tem uma conta?</span>

@@ -414,3 +414,112 @@ a classe `dark` aplicada em `<html>`, captura de tela de página inteira
 no modo escuro (sidebar, cards, gráfico e barras todos legíveis), e
 comparação da cor computada do número "Saldo" e do `stroke` da linha
 do gráfico nos dois temas.
+
+---
+
+## Etapa — Backend real: banco, autenticação, domínio e conciliação
+
+Até aqui o projeto era **interface completa sobre dados mockados**: 17 telas
+do Figma implementadas, nenhuma linha de banco, nenhuma API, e o login era um
+`<form action="/dashboard">` que deixava qualquer pessoa entrar. Esta etapa
+implementa o backend das Fases 1, 2, 4, 5 e 6 da `ARQUITETURA.md` e liga
+todas as telas a ele. O diretório `src/lib/mock-data/` foi removido.
+
+### Fase 1 — Esqueleto que anda
+
+**Banco e isolamento (AD-02, AD-04).** Schema Prisma com as 13 entidades do
+§5.1, dinheiro sempre em centavos inteiros (AD-07). RLS ativo em toda tabela
+com `organizacao_id`, em dois papéis: `capi` (dono — migrações, seed e as
+consultas de login, que por natureza atravessam organizações) e `capi_app`
+(aplicação, sujeito às políticas). `comOrganizacao()` abre a transação e
+declara a organização com `SET LOCAL`, que expira junto com a transação —
+não há como vazar contexto para a próxima consulta que pegar a mesma conexão.
+
+Verificado na prática, não só no papel: uma organização não vê contato da
+outra, conexão sem organização declarada lê zero linhas, e `INSERT` cruzando
+organização é recusado **pelo banco**.
+
+**Autenticação (AD-05).** Sessão opaca em banco em vez de JWT: token aleatório
+de 256 bits no cookie `httpOnly`, apenas o hash SHA-256 persistido — um dump
+do banco não permite montar cookie válido. Senha com argon2. A verificação de
+senha roda mesmo para e-mail inexistente, para que os dois casos não se
+distingam pelo tempo de resposta. O layout da área logada é porta única.
+
+**Escolha registrada:** o AD-05 pede "biblioteca madura de sessão". Optei por
+sessão em banco com argon2 + `crypto` do Node em vez de framework de auth
+porque as opções maduras para App Router ou estão em beta ou trazem schema
+próprio que brigaria com o modelo do §5.1. Nenhuma primitiva criptográfica foi
+implementada à mão. Trocar por Auth.js depois é contido: só `modules/auth/`.
+
+### Fase 2 — Cadastros
+
+Contatos, categorias (com subcategorias), centros de custo e contas bancárias
+em CRUD completo nas três camadas (AD-03), com as guardas que o domínio pede:
+documento duplicado é recusado; contato, categoria, centro de custo ou conta
+com movimentação financeira não pode ser excluído (só inativado), porque
+apagar levaria embora informação já registrada e quebraria a auditabilidade
+do §3.3; a natureza de uma conta não muda depois que o extrato entrou.
+
+### Fase 5 — Importação de extrato
+
+Parser de OFX próprio, lendo tanto 1.x (SGML) quanto 2.x (XML). Escrevi em vez
+de usar biblioteca porque os pacotes npm de OFX estão sem manutenção e o §9 já
+listava variação de formato entre bancos como risco aberto — assim cada
+tolerância fica explícita e testada: vírgula como decimal, `DEBIT` com sinal
+positivo, `MEMO` ausente caindo para `NAME`, data com fuso.
+
+A deduplicação (RN-16) é da restrição única `(conta, FITID)` no banco, não do
+código: reimportar o mesmo arquivo é seguro mesmo sob concorrência.
+
+O upload detecta latin-1 pelo cabeçalho `CHARSET` — ler OFX 1.x como UTF-8
+corrompia os acentos das descrições.
+
+### Fase 6 — Liquidação e custódia
+
+O núcleo. Uma única porta de entrada para o razão (RN-13): conciliação de
+extrato e baixa manual gravam na mesma tabela `liquidacao`, e é dela que
+nasce — ou não — o movimento de custódia. Tudo dentro de transação de banco
+(§8.3.2). Custódia é sempre derivada: nada a escreve diretamente, e desfazer
+a liquidação remove os movimentos por cascade (RN-12, RN-22).
+
+### Fase 4 — Lançamentos
+
+Recebimentos e pagamentos com destinações validadas em 100% (RN-04), e
+parcelamento com o resíduo da divisão na última parcela (AD-07). No modo
+mensal, dia 31 em mês curto cai para o último dia do mês em vez de transbordar
+para o mês seguinte, que é o que `setMonth` faria sozinho.
+
+### Testes
+
+63 testes, 29 deles contra Postgres real. Regras do §4 cobertas com caminho
+feliz e casos de borda: RN-01, RN-01a, RN-02, RN-03, RN-04, RN-05, RN-06,
+RN-07, RN-08, RN-09, RN-10, RN-11, RN-12, RN-16, RN-20, RN-21, RN-22, mais a
+equação de conferência caixa × custódia do §2.
+
+Os dois critérios de "pronto" mais importantes da Fase 6 estão verificados:
+conciliar um recebimento com juros credita o valor **efetivamente recebido**,
+e dar baixa manual de outra parcela quita a parcela **sem mexer um centavo**
+na custódia.
+
+### Verificação no navegador
+
+Importar o OFX cria 4 transações; reimportar o mesmo arquivo não duplica
+nenhuma; o casamento automático por valor acerta a parcela; conciliar credita
+exatamente o favorecido da destinação e o dashboard reflete tudo. As 11 rotas
+respondem 200 sem erro de console.
+
+### O que esta etapa NÃO cobriu
+
+- **Fase 3 (Contratos).** A entidade `Contrato` do §5.1 — com partes, itens e
+  propriedade — não existe. O parcelamento gera lançamentos soltos, sem
+  contrato que os agrupe. Não há tela de contrato no Figma.
+- **Fase 8.** Transferência entre contas próprias (RN-15) está modelada no
+  schema (`lancamentoParId`, `contaDestinoId`) mas não tem serviço nem tela.
+  Criar lançamento direto da tela de conciliação também falta.
+- **Fase 9.** Extrato de custódia por favorecido e o relatório de conferência
+  existem como serviço (`extratoDeCustodia`, `conferenciaCaixaCustodia`) mas
+  ainda não têm tela. Exportação CSV não existe.
+- **Fase 10.** Nada de deploy, backup ou monitoramento.
+- **Cadastro de usuários** pela interface, e as rotas `/cadastro` e
+  `/esqueci-senha` que o login referencia. Usuário novo só pelo seed.
+- **Login social** (o botão do Google está desabilitado).

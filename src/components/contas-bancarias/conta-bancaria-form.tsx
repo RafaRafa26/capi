@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,12 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { BANCOS, type ContaBancaria, type NaturezaConta } from "@/lib/mock-data/contas-bancarias";
+import { salvarContaBancariaAction } from "@/app/(app)/contas-bancarias/actions";
+import {
+  BANCOS,
+  type ContaBancaria,
+  type NaturezaConta,
+} from "@/modules/contas-bancarias/tipos";
 
 function FormSection({
   number,
@@ -85,13 +90,26 @@ export function ContaBancariaForm({ conta }: { conta?: ContaBancaria }) {
 
   const [natureza, setNatureza] = useState<NaturezaConta>(conta?.natureza ?? "PROPRIA");
   const [ativa, setAtiva] = useState(conta?.ativa ?? true);
+  const [salvando, iniciar] = useTransition();
 
   const backHref = "/contas-bancarias";
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    toast.success(isEditing ? "Conta bancária atualizada." : "Conta bancária criada.");
-    router.push(backHref);
+    const form = new FormData(event.currentTarget);
+    // Natureza é RadioGroup controlado; não entra no FormData sozinha.
+    form.set("natureza", natureza);
+
+    iniciar(async () => {
+      const resultado = await salvarContaBancariaAction(conta?.id ?? null, form);
+      if (!resultado.ok) {
+        toast.error(resultado.erro);
+        return;
+      }
+      toast.success(isEditing ? "Conta bancária atualizada." : "Conta bancária criada.");
+      router.push(backHref);
+      router.refresh();
+    });
   }
 
   return (
@@ -186,7 +204,7 @@ export function ContaBancariaForm({ conta }: { conta?: ContaBancaria }) {
                 id="dataSaldoInicial"
                 name="dataSaldoInicial"
                 type="date"
-                defaultValue={conta?.dataSaldoInicial}
+                defaultValue={conta?.dataSaldoInicial ?? undefined}
               />
             </div>
           </div>
@@ -214,7 +232,9 @@ export function ContaBancariaForm({ conta }: { conta?: ContaBancaria }) {
         <Button type="button" variant="outline" asChild>
           <Link href={backHref}>Cancelar</Link>
         </Button>
-        <Button type="submit">{isEditing ? "Salvar alterações" : "Salvar conta"}</Button>
+        <Button type="submit" disabled={salvando}>
+          {salvando ? "Salvando..." : isEditing ? "Salvar alterações" : "Salvar conta"}
+        </Button>
       </div>
     </form>
   );

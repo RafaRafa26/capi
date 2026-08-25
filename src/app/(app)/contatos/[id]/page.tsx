@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { getContatoById, papelLabel } from "@/lib/mock-data/contatos";
+import { exigirSessaoOuRedirecionar } from "@/modules/auth/sessao";
+import { buscarContato } from "@/modules/contatos/servico";
+import { papelLabel } from "@/modules/contatos/tipos";
 
-function InfoField({ label, value }: { label: string; value?: string }) {
+function InfoField({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1">
       <p className="text-muted-foreground text-xs">{label}</p>
@@ -21,7 +23,8 @@ export default async function ContatoDetalhePage({
   params,
 }: PageProps<"/contatos/[id]">) {
   const { id } = await params;
-  const contato = getContatoById(id);
+  const sessao = await exigirSessaoOuRedirecionar();
+  const contato = await buscarContato(sessao.organizacaoId, id);
 
   if (!contato) {
     notFound();
@@ -50,12 +53,12 @@ export default async function ContatoDetalhePage({
                 variant="secondary"
                 className={cn(
                   "rounded-full text-[11px] font-semibold",
-                  contato.situacao === "ATIVO"
+                  contato.ativo
                     ? "bg-[#ecfdf5] text-[#218358]"
                     : "bg-muted text-muted-foreground",
                 )}
               >
-                {contato.situacao === "ATIVO" ? "Ativo" : "Inativo"}
+                {contato.ativo ? "Ativo" : "Inativo"}
               </Badge>
             </div>
           </div>
@@ -64,7 +67,7 @@ export default async function ContatoDetalhePage({
               <Link href={`/contatos/${contato.id}/editar`}>Editar</Link>
             </Button>
             <Button variant="outline" className="border-destructive text-destructive hover:text-destructive">
-              {contato.situacao === "ATIVO" ? "Inativar" : "Ativar"}
+              {contato.ativo ? "Inativar" : "Ativar"}
             </Button>
           </div>
         </div>

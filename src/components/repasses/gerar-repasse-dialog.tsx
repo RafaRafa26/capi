@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -23,20 +24,33 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatMoney } from "@/lib/format";
-import { contasBancarias } from "@/lib/mock-data/contas-bancarias";
-import type { FavorecidoRepasse } from "@/lib/mock-data/repasses";
-
-const contasProprias = contasBancarias.filter((c) => c.natureza === "PROPRIA" && c.ativa);
+import { gerarRepasseAction } from "@/app/(app)/repasses/actions";
+import { paraCentavos } from "@/shared/dinheiro";
+import type { PosicaoFavorecido } from "@/modules/custodia/tipos";
 
 function toCents(value: string) {
-  const parsed = Number(value.replace(/\./g, "").replace(",", "."));
-  return Number.isFinite(parsed) ? Math.round(parsed * 100) : 0;
+  try {
+    return paraCentavos(value);
+  } catch {
+    return 0;
+  }
 }
 
-export function GerarRepasseDialog({ favorecido }: { favorecido: FavorecidoRepasse }) {
+export function GerarRepasseDialog({
+  favorecido,
+  contasProprias,
+  categoriaRepasseId,
+}: {
+  favorecido: PosicaoFavorecido;
+  contasProprias: { id: string; nome: string; banco: string }[];
+  categoriaRepasseId: string | null;
+}) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [valor, setValor] = useState((favorecido.disponivel / 100).toFixed(2).replace(".", ","));
   const [contaId, setContaId] = useState("");
+  const [vencimento, setVencimento] = useState(() => new Date().toISOString().slice(0, 10));
+  const [gerando, iniciar] = useTransition();
 
   const valorCents = toCents(valor);
   const excedeSaldo = valorCents > favorecido.disponivel;
@@ -44,8 +58,34 @@ export function GerarRepasseDialog({ favorecido }: { favorecido: FavorecidoRepas
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (excedeSaldo || valorCents <= 0) return;
-    toast.success(`Repasse de ${formatMoney(valorCents)} gerado para ${favorecido.nome}.`);
-    setOpen(false);
+
+    if (!categoriaRepasseId) {
+      toast.error("Cadastre uma categoria de despesa para classificar o repasse.");
+      return;
+    }
+
+    iniciar(async () => {
+      const r = await gerarRepasseAction({
+        favorecidoId: favorecido.favorecidoId,
+        valor: valorCents,
+        vencimento,
+        categoriaId: categoriaRepasseId,
+      });
+
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+
+      // Fica PENDENTE (RN-11): o saldo já está reservado, mas o débito de
+      // custódia só nasce quando a saída for conciliada no extrato.
+      toast.success(
+        `Repasse de ${formatMoney(valorCents)} gerado para ${favorecido.nome}. ` +
+          "Concilie a saída no extrato para concluí-lo.",
+      );
+      setOpen(false);
+      router.refresh();
+    });
   }
 
   return (
@@ -82,6 +122,16 @@ export function GerarRepasseDialog({ favorecido }: { favorecido: FavorecidoRepas
           </div>
 
           <div className="flex flex-col gap-2">
+            <Label htmlFor="repasse-vencimento">Data prevista</Label>
+            <Input
+              id="repasse-vencimento"
+              type="date"
+              value={vencimento}
+              onChange={(event) => setVencimento(event.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
             <Label htmlFor="repasse-conta">Conta de pagamento</Label>
             <Select value={contaId} onValueChange={setContaId}>
               <SelectTrigger id="repasse-conta" className="w-full">
@@ -98,8 +148,8 @@ export function GerarRepasseDialog({ favorecido }: { favorecido: FavorecidoRepas
           </div>
 
           <DialogFooter>
-            <Button type="submit" disabled={excedeSaldo || valorCents <= 0}>
-              Confirmar repasse
+            <Button type="submit" disabled={gerando || excedeSaldo || valorCents <= 0}>
+              {gerando ? "Gerando..." : "Confirmar repasse"}
             </Button>
           </DialogFooter>
         </form>

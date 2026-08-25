@@ -1,11 +1,15 @@
 import { ContasBancariasTable } from "@/components/contas-bancarias/contas-bancarias-table";
-import { contasBancarias } from "@/lib/mock-data/contas-bancarias";
+import { exigirSessaoOuRedirecionar } from "@/modules/auth/sessao";
+import { listarContasBancarias } from "@/modules/contas-bancarias/servico";
 
-export default function ContasBancariasPage() {
+export default async function ContasBancariasPage() {
+  const sessao = await exigirSessaoOuRedirecionar();
+  const contas = await listarContasBancarias(sessao.organizacaoId);
+
   return (
     <div className="flex flex-1 flex-col gap-7 p-6 md:p-10">
       <h1 className="text-2xl font-bold">Contas bancárias</h1>
-      <ContasBancariasTable contas={contasBancarias} />
+      <ContasBancariasTable contas={contas} />
     </div>
   );
 }

@@ -16,7 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatMoney } from "@/lib/format";
-import type { FavorecidoRepasse } from "@/lib/mock-data/repasses";
+import type { PosicaoFavorecido } from "@/modules/custodia/tipos";
 import { GerarRepasseDialog } from "@/components/repasses/gerar-repasse-dialog";
 
 function SummaryCard({
@@ -37,13 +37,21 @@ function SummaryCard({
   );
 }
 
-export function RepassesView({ favorecidos }: { favorecidos: FavorecidoRepasse[] }) {
+export function RepassesView({
+  favorecidos,
+  contasProprias,
+  categoriaRepasseId,
+}: {
+  favorecidos: PosicaoFavorecido[];
+  contasProprias: { id: string; nome: string; banco: string }[];
+  categoriaRepasseId: string | null;
+}) {
   const [tab, setTab] = useState<"todos" | "com_saldo" | "sem_saldo">("todos");
   const [busca, setBusca] = useState("");
 
   const totalDisponivel = favorecidos.reduce((sum, f) => sum + f.disponivel, 0);
-  const totalPendente = favorecidos.reduce((sum, f) => sum + f.pendente, 0);
-  const totalRealizado = favorecidos.reduce((sum, f) => sum + f.realizado, 0);
+  const totalPendente = favorecidos.reduce((sum, f) => sum + f.reservado, 0);
+  const totalRealizado = favorecidos.reduce((sum, f) => sum + f.debitos, 0);
 
   const filtrados = useMemo(() => {
     let list = favorecidos;
@@ -120,7 +128,7 @@ export function RepassesView({ favorecidos }: { favorecidos: FavorecidoRepasse[]
           </TableHeader>
           <TableBody>
             {filtrados.map((favorecido) => (
-              <TableRow key={favorecido.id}>
+              <TableRow key={favorecido.favorecidoId}>
                 <TableCell>
                   <p className="font-semibold">{favorecido.nome}</p>
                   <p className="text-muted-foreground text-xs">{favorecido.documento}</p>
@@ -129,9 +137,9 @@ export function RepassesView({ favorecidos }: { favorecidos: FavorecidoRepasse[]
                   {formatMoney(favorecido.disponivel)}
                 </TableCell>
                 <TableCell className="text-right">
-                  {favorecido.pendente ? formatMoney(favorecido.pendente) : "—"}
+                  {favorecido.reservado ? formatMoney(favorecido.reservado) : "—"}
                 </TableCell>
-                <TableCell className="text-right">{formatMoney(favorecido.realizado)}</TableCell>
+                <TableCell className="text-right">{formatMoney(favorecido.debitos)}</TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-2">
                     <Button
@@ -141,7 +149,11 @@ export function RepassesView({ favorecidos }: { favorecidos: FavorecidoRepasse[]
                     >
                       Extrato
                     </Button>
-                    <GerarRepasseDialog favorecido={favorecido} />
+                    <GerarRepasseDialog
+                      favorecido={favorecido}
+                      contasProprias={contasProprias}
+                      categoriaRepasseId={categoriaRepasseId}
+                    />
                   </div>
                 </TableCell>
               </TableRow>

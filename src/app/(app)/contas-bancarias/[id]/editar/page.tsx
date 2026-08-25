@@ -1,17 +1,17 @@
 import { notFound } from "next/navigation";
 
 import { ContaBancariaForm } from "@/components/contas-bancarias/conta-bancaria-form";
-import { getContaBancariaById } from "@/lib/mock-data/contas-bancarias";
+import { exigirSessaoOuRedirecionar } from "@/modules/auth/sessao";
+import { buscarContaBancaria } from "@/modules/contas-bancarias/servico";
 
 export default async function EditarContaBancariaPage({
   params,
 }: PageProps<"/contas-bancarias/[id]/editar">) {
   const { id } = await params;
-  const conta = getContaBancariaById(id);
+  const sessao = await exigirSessaoOuRedirecionar();
+  const conta = await buscarContaBancaria(sessao.organizacaoId, id);
 
-  if (!conta) {
-    notFound();
-  }
+  if (!conta) notFound();
 
   return <ContaBancariaForm conta={conta} />;
 }
