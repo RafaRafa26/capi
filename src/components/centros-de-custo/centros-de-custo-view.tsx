@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { MoreHorizontal, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,19 +32,32 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import type { CentroCusto } from "@/lib/mock-data/centros-de-custo";
+import {
+  alternarAtivoCentroCustoAction,
+  criarCentroCustoAction,
+  excluirCentroCustoAction,
+} from "@/app/(app)/centros-de-custo/actions";
+import type { CentroCusto } from "@/modules/centros-de-custo/servico";
 
-function NovoCentroCustoDialog({ onCreate }: { onCreate: (nome: string) => void }) {
+function NovoCentroCustoDialog() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [nome, setNome] = useState("");
+  const [salvando, iniciar] = useTransition();
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!nome.trim()) return;
-    onCreate(nome.trim());
-    toast.success("Centro de custo criado.");
-    setNome("");
-    setOpen(false);
+    iniciar(async () => {
+      const r = await criarCentroCustoAction(nome);
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+      toast.success("Centro de custo criado.");
+      setNome("");
+      setOpen(false);
+      router.refresh();
+    });
   }
 
   return (
@@ -70,7 +84,9 @@ function NovoCentroCustoDialog({ onCreate }: { onCreate: (nome: string) => void 
             />
           </div>
           <DialogFooter>
-            <Button type="submit">Salvar centro de custo</Button>
+            <Button type="submit" disabled={salvando}>
+              {salvando ? "Salvando..." : "Salvar centro de custo"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -79,16 +95,36 @@ function NovoCentroCustoDialog({ onCreate }: { onCreate: (nome: string) => void 
 }
 
 export function CentrosDeCustoView({ centros }: { centros: CentroCusto[] }) {
-  const [list, setList] = useState(centros);
+  const router = useRouter();
   const [query, setQuery] = useState("");
+  const [, iniciar] = useTransition();
 
   const filtered = useMemo(
-    () => list.filter((centro) => centro.nome.toLowerCase().includes(query.toLowerCase())),
-    [list, query],
+    () => centros.filter((centro) => centro.nome.toLowerCase().includes(query.toLowerCase())),
+    [centros, query],
   );
 
-  function handleCreate(nome: string) {
-    setList((current) => [...current, { id: `${Date.now()}`, nome, ativo: true }]);
+  function alternarAtivo(id: string) {
+    iniciar(async () => {
+      const r = await alternarAtivoCentroCustoAction(id);
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  function excluir(id: string) {
+    iniciar(async () => {
+      const r = await excluirCentroCustoAction(id);
+      if (!r.ok) {
+        toast.error(r.erro);
+        return;
+      }
+      toast.success("Centro de custo excluído.");
+      router.refresh();
+    });
   }
 
   return (
@@ -104,7 +140,7 @@ export function CentrosDeCustoView({ centros }: { centros: CentroCusto[] }) {
           />
         </div>
         <div className="flex-1" />
-        <NovoCentroCustoDialog onCreate={handleCreate} />
+        <NovoCentroCustoDialog />
       </div>
 
       <div className="bg-card border-border w-full overflow-hidden rounded-[10px] border shadow-sm">
@@ -141,9 +177,14 @@ export function CentrosDeCustoView({ centros }: { centros: CentroCusto[] }) {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Editar</DropdownMenuItem>
-                      <DropdownMenuItem variant="destructive">
+                      <DropdownMenuItem onSelect={() => alternarAtivo(centro.id)}>
                         {centro.ativo ? "Inativar" : "Ativar"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={() => excluir(centro.id)}
+                      >
+                        Excluir
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

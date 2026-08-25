@@ -1,13 +1,14 @@
 import { CategoriasView } from "@/components/categorias/categorias-view";
-import { categorias } from "@/lib/mock-data/categorias";
+import { exigirSessaoOuRedirecionar } from "@/modules/auth/sessao";
+import { listarCategorias } from "@/modules/categorias/servico";
 
-export default function CategoriasPage() {
+export default async function CategoriasPage() {
+  const sessao = await exigirSessaoOuRedirecionar();
+  const categorias = await listarCategorias(sessao.organizacaoId);
+
   return (
     <div className="flex flex-1 flex-col gap-7 p-6 md:p-10">
-      <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-xs">Configurações {'>'} Categorias</p>
-        <h1 className="text-2xl font-bold">Categorias</h1>
-      </div>
+      <h1 className="text-2xl font-bold">Categorias</h1>
       <CategoriasView categorias={categorias} />
     </div>
   );

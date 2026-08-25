@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ContaBancaria } from "@/lib/mock-data/contas-bancarias";
+import type { ContaBancaria } from "@/modules/contas-bancarias/tipos";
 
 export function ContaSelector({
   contas,

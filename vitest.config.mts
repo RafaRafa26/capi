@@ -7,10 +7,14 @@ export default defineConfig({
     // faria um truncar os dados do outro no meio da execução.
     fileParallelism: false,
     include: ["src/**/*.test.ts"],
+    setupFiles: ["./src/db/__testes__/carregar-env.ts"],
   },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
+      "server-only": fileURLToPath(
+        new URL("./src/db/__testes__/server-only-stub.ts", import.meta.url),
+      ),
     },
   },
 });
