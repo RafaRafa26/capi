@@ -395,4 +395,22 @@ Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase
 
 ## 11. Próximo passo
 
-Fase 1, primeira tarefa: **inicializar o projeto Next.js com TypeScript e subir o Postgres local**, antes de qualquer modelagem no Prisma.
+**Estado atual (ver `PROGRESS.md`):** Fases 1, 2, 4, 5 e 6 implementadas e
+cobertas por testes. O ciclo do dinheiro funciona de ponta a ponta —
+importar OFX, conciliar, creditar custódia, gerar repasse.
+
+**Próximo passo: Fase 7 (repasses), terminando o que ficou pela metade.**
+A geração de repasse com validação de saldo e a conciliação N:N de pagamento
+já existem e estão testadas (RN-08, RN-09, RN-10). Falta o **cancelamento de
+repasse liberando o saldo reservado** (RN-11) na interface, e a tela de
+extrato de custódia por favorecido, cujo serviço já existe.
+
+Depois, na ordem: Fase 8 (transferência entre contas próprias — RN-15, já
+modelada no schema mas sem serviço), Fase 9 (relatório de conferência e
+exportação CSV — o cálculo já existe em `custodia/servico.ts`) e Fase 10
+(deploy).
+
+A Fase 3 (contratos) segue em aberto e **não bloqueia** as demais: o
+parcelamento gera lançamentos soltos, o que atende a operação atual. Abrir a
+Fase 3 quando houver necessidade real de agrupar parcelas por contrato — por
+exemplo, para mostrar a posição de recebimento de uma venda específica.
