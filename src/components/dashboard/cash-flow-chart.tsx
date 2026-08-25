@@ -58,7 +58,7 @@ function niceTicks(min: number, max: number, tickCount = 4): number[] {
 const chartConfig = {
   saldo: {
     label: "Saldo",
-    color: "#0a0a0a",
+    color: "var(--foreground)",
   },
   entradas: {
     label: "Entradas",

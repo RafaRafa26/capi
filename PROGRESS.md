@@ -375,3 +375,42 @@ padrão ao abrir o dashboard.
   extensão correta abaixo de zero com um período de saldo negativo
   (selecionando 01/jul/2026, o único dia com saldo acumulado negativo
   nos dados mockados).
+
+## Etapa — Dark mode no rodapé do sidebar
+
+**Pedido do usuário:** "implemente o toggle de dark mode no sidebar
+footer", seguindo o guia `ui.shadcn.com/docs/dark-mode/next`.
+
+**O que foi feito:**
+- `src/components/mode-toggle.tsx` (novo): segue o padrão canônico do
+  guia — `DropdownMenu` + `useTheme()` de `next-themes` — adaptado
+  para caber no rodapé do sidebar-07 como um `SidebarMenuButton` (em
+  vez do `<Button variant="outline" size="icon">` do exemplo
+  original), com ícones sol/lua que alternam via classes `dark:` do
+  Tailwind, e opções em pt-BR: Claro / Escuro / Sistema.
+- `src/components/app-sidebar.tsx`: `<ModeToggle />` adicionado no
+  `SidebarFooter`, acima do `NavUser`.
+- `src/app/layout.tsx`: `enableSystem` do `ThemeProvider` voltou a
+  `true` (estava `false` desde a configuração inicial do projeto) —
+  necessário para a opção "Sistema" realmente seguir a preferência do
+  SO, como no guia.
+- Os tokens de cor `.dark` já existiam em `globals.css` desde a
+  configuração inicial do tema (shadcn new-york-v4), então a maior
+  parte do app já se adaptava corretamente ao trocar de tema.
+
+**Bug encontrado e corrigido durante a validação:** o número do card
+"Saldo" no gráfico de fluxo de caixa (`cash-flow-chart.tsx`) usava uma
+cor preta fixa (`#0a0a0a`, de um ajuste de etapa anterior) tanto no
+texto quanto no `stroke` da linha do gráfico — no modo escuro isso
+ficava quase invisível sobre o fundo escuro do card. Trocado por
+`var(--foreground)`, que já resolve para os tokens claro/escuro
+corretos (confirmado que o navegador resolve `var(--foreground)`
+tanto em `style.color` de HTML quanto no atributo `stroke` de um
+`<path>` SVG do recharts).
+
+**Validado com:** `next build`, `eslint .`, e Playwright — abertura do
+menu do rodapé (Claro/Escuro/Sistema), seleção de "Escuro" confirmando
+a classe `dark` aplicada em `<html>`, captura de tela de página inteira
+no modo escuro (sidebar, cards, gráfico e barras todos legíveis), e
+comparação da cor computada do número "Saldo" e do `stroke` da linha
+do gráfico nos dois temas.
