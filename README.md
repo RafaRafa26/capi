@@ -45,8 +45,11 @@ inteira por baixo (rafael@email.com / capi1234, criado pelo seed).
 
 A decisão é automática e por requisição: se o banco responde, os dados reais
 mandam; se não responde — env ausente, servidor fora, credencial errada — as
-telas caem para os mocks e uma faixa no topo avisa. Volta sozinho quando o
-banco retorna, sem reiniciar.
+telas caem para os mocks. Volta sozinho quando o banco retorna, sem
+reiniciar.
+
+Não há aviso visual na tela (removido a pedido): a única indicação de que os
+dados são de exemplo aparece ao tentar salvar, quando a escrita é recusada.
 
 As escritas são recusadas com aviso em vez de fingir que salvaram. Para
 demonstrar sem tocar em dados reais mesmo com banco no ar,

@@ -573,3 +573,8 @@ respondem 200 com dados nas telas e a faixa visível, e a escrita é recusada
 com aviso; com `.env` e Postgres no ar, os dados reais aparecem e a faixa
 some; derrubando o Postgres em execução, cai para demo sem erro; subindo de
 volta, volta ao real sozinho. 63 testes seguem passando.
+
+**Ajuste seguinte, a pedido:** a faixa "Modo demonstração" no topo foi
+removida — ocupava espaço em todas as telas e atrapalhava a avaliação visual
+do app. O modo demo continua igual; o que sinaliza que os dados são de
+exemplo agora é apenas a recusa das escritas, com mensagem explicando.
