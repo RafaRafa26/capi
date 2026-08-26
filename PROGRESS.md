@@ -546,3 +546,30 @@ Verificado: navegador sem nenhum cookie abre /dashboard, /contatos,
 /conciliacao e /repasses direto (200); /login e / redirecionam para o
 dashboard; escrita (criar centro de custo) funciona sem sessão; e um banco
 zerado, só com migrações, serve o dashboard e cria org+admin sozinho.
+
+---
+
+## Etapa — Modo demonstração (app navegável sem banco)
+
+Com acesso livre, toda rota passou a buscar a sessão no banco — e sem banco
+o preview quebrava. Em vez de mandar para uma página de orientação (solução
+anterior), o app agora **abre com dados de exemplo**.
+
+Como funciona: `modoDemo()` faz uma consulta trivial por requisição
+(cacheada pelo `cache` do React). Se o banco responde, nada muda — os dados
+reais mandam. Se não responde, `comQuedaParaDemo()` devolve o mock de
+`src/modules/demo/dados.ts` em cada página, a sessão vira fictícia só para o
+sidebar ter nome, e uma faixa no topo avisa que os dados são de exemplo.
+
+As 21 server actions chamam `recusarEscritaNoDemo()` antes de tocar no
+serviço: sem banco não há onde gravar, e anunciar "salvo com sucesso" para o
+registro sumir em seguida seria pior do que recusar.
+
+`CAPI_MODO_DEMO=1` força o modo mesmo com banco disponível — útil para
+demonstrar sem tocar em dados reais.
+
+Verificado em build de produção, no mesmo processo: sem `.env`, as 11 rotas
+respondem 200 com dados nas telas e a faixa visível, e a escrita é recusada
+com aviso; com `.env` e Postgres no ar, os dados reais aparecem e a faixa
+some; derrubando o Postgres em execução, cai para demo sem erro; subindo de
+volta, volta ao real sozinho. 63 testes seguem passando.

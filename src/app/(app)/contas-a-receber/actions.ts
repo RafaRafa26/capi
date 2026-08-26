@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { exigirSessao } from "@/modules/auth/sessao";
+import { recusarEscritaNoDemo } from "@/modules/demo/modo";
 import {
   cancelarLancamento,
   criarLancamento,
@@ -34,6 +35,7 @@ export async function criarLancamentoAction(
   entrada: EntradaLancamento,
 ): Promise<Resultado<{ criados: number }>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
 
     const parsed = lancamentoEsquema.safeParse(entrada);
@@ -63,6 +65,7 @@ export async function criarLancamentoAction(
 
 export async function cancelarLancamentoAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await cancelarLancamento(sessao.organizacaoId, id);
     revalidatePath("/contas-a-receber");

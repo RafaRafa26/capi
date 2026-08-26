@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { exigirSessao } from "@/modules/auth/sessao";
+import { recusarEscritaNoDemo } from "@/modules/demo/modo";
 import {
   contatoDoFormulario,
   contatoEsquema,
@@ -24,6 +25,7 @@ export async function salvarContatoAction(
   form: FormData,
 ): Promise<Resultado<{ id: string }>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
 
     const parsed = contatoEsquema.safeParse(contatoDoFormulario(form));
@@ -46,6 +48,7 @@ export async function salvarContatoAction(
 
 export async function excluirContatoAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await excluirContato(sessao.organizacaoId, id);
     revalidatePath("/contatos");
@@ -57,6 +60,7 @@ export async function excluirContatoAction(id: string): Promise<Resultado> {
 
 export async function alternarAtivoContatoAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await alternarAtivoContato(sessao.organizacaoId, id);
     revalidatePath("/contatos");

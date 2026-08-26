@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { exigirSessao } from "@/modules/auth/sessao";
+import { recusarEscritaNoDemo } from "@/modules/demo/modo";
 import { gerarRepasse } from "@/modules/lancamentos/servico";
 import { falha, type Resultado } from "@/shared/erros";
 
@@ -13,6 +14,7 @@ export async function gerarRepasseAction(entrada: {
   categoriaId: string;
 }): Promise<Resultado<{ id: string }>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
 
     if (!entrada.categoriaId) {

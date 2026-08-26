@@ -21,6 +21,8 @@ import {
   listarContasBancarias,
 } from "@/modules/contas-bancarias/servico";
 import { extratoDaConta } from "@/modules/extrato/servico";
+import { contasBancariasDemo, extratoDemo } from "@/modules/demo/dados";
+import { comQuedaParaDemo } from "@/modules/demo/modo";
 
 const statusBadge: Record<string, string> = {
   PENDENTE: "bg-muted text-muted-foreground",
@@ -42,12 +44,18 @@ export default async function ExtratoContaBancariaPage({
   const { id } = await params;
   const sessao = await exigirSessaoOuRedirecionar();
 
-  const conta = await buscarContaBancaria(sessao.organizacaoId, id);
+  const conta = await comQuedaParaDemo(
+    () => buscarContaBancaria(sessao.organizacaoId, id),
+    () => contasBancariasDemo.find((c) => c.id === id) ?? contasBancariasDemo[1],
+  );
   if (!conta) notFound();
 
   const [contas, extrato] = await Promise.all([
-    listarContasBancarias(sessao.organizacaoId),
-    extratoDaConta(sessao.organizacaoId, id),
+    comQuedaParaDemo(() => listarContasBancarias(sessao.organizacaoId), contasBancariasDemo),
+    comQuedaParaDemo(
+      () => extratoDaConta(sessao.organizacaoId, id),
+      () => extratoDemo(conta.saldoInicial),
+    ),
   ]);
 
   const { linhas, saldoInicial, saldoFinal } = extrato;

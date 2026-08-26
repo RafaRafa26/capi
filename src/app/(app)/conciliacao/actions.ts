@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { exigirSessao } from "@/modules/auth/sessao";
+import { recusarEscritaNoDemo } from "@/modules/demo/modo";
 import { ignorarTransacao, importarOfx, reabrirTransacao } from "@/modules/extrato/servico";
 import {
   conciliar,
@@ -26,6 +27,7 @@ export async function importarOfxAction(
   form: FormData,
 ): Promise<Resultado<ResumoImportacao>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
 
     const contaId = String(form.get("contaId") ?? "");
@@ -75,6 +77,7 @@ export async function conciliarAction(
   rateioConfirmado?: Record<string, number[]>,
 ): Promise<Resultado<{ restante: number }>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     const r = await conciliar(
       sessao.organizacaoId,
@@ -99,6 +102,7 @@ export async function darBaixaManualAction(
   observacao?: string,
 ): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await darBaixaManual(
       sessao.organizacaoId,
@@ -121,6 +125,7 @@ export async function desfazerLiquidacaoAction(
   liquidacaoId: string,
 ): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await desfazerLiquidacao(sessao.organizacaoId, liquidacaoId);
 
@@ -135,6 +140,7 @@ export async function desfazerLiquidacaoAction(
 
 export async function ignorarTransacaoAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await ignorarTransacao(sessao.organizacaoId, id);
     revalidatePath("/conciliacao");
@@ -146,6 +152,7 @@ export async function ignorarTransacaoAction(id: string): Promise<Resultado> {
 
 export async function reabrirTransacaoAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await reabrirTransacao(sessao.organizacaoId, id);
     revalidatePath("/conciliacao");

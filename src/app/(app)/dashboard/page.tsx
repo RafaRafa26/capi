@@ -21,6 +21,12 @@ import {
   resumoDoDashboard,
   type ResumoPorSituacao,
 } from "@/modules/dashboard/servico";
+import {
+  fluxoDeCaixaDemo,
+  recebimentosPorMesDemo,
+  resumoDashboardDemo,
+} from "@/modules/demo/dados";
+import { comQuedaParaDemo } from "@/modules/demo/modo";
 
 const toneDot: Record<string, string> = {
   destructive: "bg-[#e5484d]",
@@ -95,9 +101,9 @@ export default async function DashboardPage() {
   const sessao = await exigirSessaoOuRedirecionar();
 
   const [resumo, serieFluxo, meses] = await Promise.all([
-    resumoDoDashboard(sessao.organizacaoId),
-    fluxoDeCaixaDiario(sessao.organizacaoId),
-    recebimentosPorMes(sessao.organizacaoId),
+    comQuedaParaDemo(() => resumoDoDashboard(sessao.organizacaoId), resumoDashboardDemo),
+    comQuedaParaDemo(() => fluxoDeCaixaDiario(sessao.organizacaoId), fluxoDeCaixaDemo),
+    comQuedaParaDemo(() => recebimentosPorMes(sessao.organizacaoId), recebimentosPorMesDemo),
   ]);
 
   return (
