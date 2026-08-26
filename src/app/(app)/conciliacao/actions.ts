@@ -11,6 +11,11 @@ import {
   desfazerLiquidacao,
   type LinhaConciliacao,
 } from "@/modules/liquidacao/servico";
+import {
+  criarLancamentoParaTransacao,
+  criarTransferenciaParaTransacao,
+  type LancamentoAvulso,
+} from "@/modules/conciliacao/servico";
 import { falha, type Resultado } from "@/shared/erros";
 
 // 8 MB: extrato de um ano de uma conta movimentada não passa disso, e o limite
@@ -155,6 +160,102 @@ export async function reabrirTransacaoAction(id: string): Promise<Resultado> {
     await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await reabrirTransacao(sessao.organizacaoId, id);
+    revalidatePath("/conciliacao");
+    return { ok: true, dados: undefined };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+
+/**
+ * Aprova o par sugerido: concilia a transação com o lançamento indicado.
+ * É o botão ✓ de cada linha da tela.
+ */
+export async function aprovarParAction(
+  transacaoId: string,
+  lancamentoId: string,
+  valor: number,
+): Promise<Resultado> {
+  try {
+    await recusarEscritaNoDemo();
+    const sessao = await exigirSessao();
+
+    await conciliar(sessao.organizacaoId, sessao.usuarioId, transacaoId, [
+      { lancamentoId, valor },
+    ]);
+
+    revalidatePath("/conciliacao");
+    revalidatePath("/contas-a-receber");
+    revalidatePath("/repasses");
+    return { ok: true, dados: undefined };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+/**
+ * Cria o lançamento que falta e concilia na sequência — o formulário que a
+ * linha mostra quando não há par sugerido.
+ */
+export async function criarEConciliarAction(
+  transacaoId: string,
+  dados: LancamentoAvulso,
+): Promise<Resultado> {
+  try {
+    await recusarEscritaNoDemo();
+    const sessao = await exigirSessao();
+
+    if (!dados.categoriaId) {
+      return { ok: false, erro: "Selecione a categoria.", campo: "categoriaId" };
+    }
+
+    const { lancamentoId, valor } = await criarLancamentoParaTransacao(
+      sessao.organizacaoId,
+      transacaoId,
+      dados,
+    );
+
+    // O valor veio da própria transação, então a conciliação fecha exato.
+    await conciliar(sessao.organizacaoId, sessao.usuarioId, transacaoId, [
+      { lancamentoId, valor },
+    ]);
+
+    revalidatePath("/conciliacao");
+    revalidatePath("/contas-a-receber");
+    return { ok: true, dados: undefined };
+  } catch (erro) {
+    return falha(erro);
+  }
+}
+
+/**
+ * Registra a transferência entre contas próprias (RN-15) e concilia a perna
+ * que corresponde a esta transação. A perna oposta fica prevista, aguardando
+ * o extrato da outra conta.
+ */
+export async function criarTransferenciaEConciliarAction(
+  transacaoId: string,
+  contaContrariaId: string,
+): Promise<Resultado> {
+  try {
+    await recusarEscritaNoDemo();
+    const sessao = await exigirSessao();
+
+    if (!contaContrariaId) {
+      return { ok: false, erro: "Selecione a conta de destino." };
+    }
+
+    const { lancamentoId, valor } = await criarTransferenciaParaTransacao(
+      sessao.organizacaoId,
+      transacaoId,
+      contaContrariaId,
+    );
+
+    await conciliar(sessao.organizacaoId, sessao.usuarioId, transacaoId, [
+      { lancamentoId, valor },
+    ]);
+
     revalidatePath("/conciliacao");
     return { ok: true, dados: undefined };
   } catch (erro) {

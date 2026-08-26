@@ -2,18 +2,29 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDownLeft, ArrowUpRight, Check, EyeOff, Plus, X } from "lucide-react";
+import type { DateRange } from "react-day-picker";
+import {
+  ArrowDownLeft,
+  ArrowLeftRight,
+  ArrowUpRight,
+  Check,
+  Landmark,
+  Receipt,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  conciliarAction,
+  aprovarParAction,
+  criarEConciliarAction,
+  criarTransferenciaEConciliarAction,
   ignorarTransacaoAction,
 } from "@/app/(app)/conciliacao/actions";
+import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { ImportarOfxDialog } from "@/components/extrato/importar-ofx-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,27 +35,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMoney } from "@/lib/format";
-import { paraCentavos } from "@/shared/dinheiro";
+import { cn } from "@/lib/utils";
+import type { ParConciliacao, CandidatoDaTela } from "@/modules/conciliacao/servico";
 
-export type TransacaoPendente = {
-  id: string;
-  data: string;
-  descricao: string;
-  valor: number;
-  contaId: string;
-  contaNome: string;
-};
+type Opcao = { id: string; nome: string };
+type Conta = { id: string; nome: string; banco: string };
 
-export type Candidato = {
-  id: string;
-  tipo: "RECEBIMENTO" | "PAGAMENTO" | "TRANSFERENCIA";
-  vencimento: string;
-  descricao: string;
-  contato: string;
-  categoria: string;
-  valorPrevisto: number;
-  emAberto: number;
-};
+const SEM_CONTATO = "__sem_contato__";
 
 function formatarData(iso: string) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("pt-BR", {
@@ -55,373 +52,608 @@ function formatarData(iso: string) {
   });
 }
 
-/** Uma linha selecionada para conciliar contra a transação. */
-type Selecao = { lancamentoId: string; valorTexto: string; jurosTexto: string };
+// ------------------------------------------------- coluna do extrato (OFX)
 
-function CartaoTransacao({
+function ColunaBanco({
   transacao,
-  candidatos,
-  onConciliado,
+  onIgnorar,
+  ocupado,
 }: {
-  transacao: TransacaoPendente;
-  candidatos: Candidato[];
-  onConciliado: () => void;
+  transacao: ParConciliacao["transacao"];
+  onIgnorar: () => void;
+  ocupado: boolean;
 }) {
   const entrada = transacao.valor > 0;
-  const valorAbsoluto = Math.abs(transacao.valor);
-
-  // Entrada de extrato só casa com recebimento; saída, só com pagamento.
-  const elegiveis = useMemo(
-    () => candidatos.filter((c) => c.tipo === (entrada ? "RECEBIMENTO" : "PAGAMENTO")),
-    [candidatos, entrada],
-  );
-
-  // Sugestão: lançamento em aberto com exatamente o valor da transação.
-  const sugestao = useMemo(
-    () => elegiveis.find((c) => c.emAberto === valorAbsoluto),
-    [elegiveis, valorAbsoluto],
-  );
-
-  const [selecoes, setSelecoes] = useState<Selecao[]>(() =>
-    sugestao
-      ? [
-          {
-            lancamentoId: sugestao.id,
-            valorTexto: (sugestao.emAberto / 100).toFixed(2).replace(".", ","),
-            jurosTexto: "",
-          },
-        ]
-      : [],
-  );
-  const [processando, iniciar] = useTransition();
-
-  const totalSelecionado = selecoes.reduce((soma, s) => {
-    try {
-      return soma + paraCentavos(s.valorTexto || "0");
-    } catch {
-      return soma;
-    }
-  }, 0);
-
-  const diferenca = valorAbsoluto - totalSelecionado;
-
-  function adicionarLinha(lancamentoId: string) {
-    const candidato = elegiveis.find((c) => c.id === lancamentoId);
-    if (!candidato) return;
-    if (selecoes.some((s) => s.lancamentoId === lancamentoId)) return;
-
-    // Propõe o menor entre o que falta na transação e o que falta no lançamento.
-    const restante = Math.max(0, diferenca);
-    const proposto = Math.min(candidato.emAberto, restante || candidato.emAberto);
-
-    setSelecoes((atual) => [
-      ...atual,
-      {
-        lancamentoId,
-        valorTexto: (proposto / 100).toFixed(2).replace(".", ","),
-        jurosTexto: "",
-      },
-    ]);
-  }
-
-  function conciliar() {
-    if (selecoes.length === 0) {
-      toast.error("Selecione ao menos um lançamento.");
-      return;
-    }
-
-    let linhas;
-    try {
-      linhas = selecoes.map((s) => ({
-        lancamentoId: s.lancamentoId,
-        valor: paraCentavos(s.valorTexto || "0"),
-        ...(s.jurosTexto ? { juros: paraCentavos(s.jurosTexto) } : {}),
-      }));
-    } catch {
-      toast.error("Há valor inválido entre os lançamentos selecionados.");
-      return;
-    }
-
-    iniciar(async () => {
-      const r = await conciliarAction(transacao.id, linhas);
-      if (!r.ok) {
-        toast.error(r.erro);
-        return;
-      }
-      toast.success(
-        r.dados.restante > 0
-          ? `Conciliado. Restam ${formatMoney(r.dados.restante)} nesta transação.`
-          : "Transação conciliada.",
-      );
-      onConciliado();
-    });
-  }
-
-  function ignorar() {
-    iniciar(async () => {
-      const r = await ignorarTransacaoAction(transacao.id);
-      if (!r.ok) {
-        toast.error(r.erro);
-        return;
-      }
-      toast.success("Transação ignorada.");
-      onConciliado();
-    });
-  }
 
   return (
-    <div className="bg-card border-border flex flex-col gap-4 rounded-xl border p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div
-            className={
-              entrada
-                ? "mt-0.5 flex size-8 items-center justify-center rounded-full bg-[#ecfdf5] text-[#218358]"
-                : "mt-0.5 flex size-8 items-center justify-center rounded-full bg-[#fff5f5] text-[#e5484d]"
-            }
-          >
-            {entrada ? (
-              <ArrowDownLeft className="size-4" />
-            ) : (
-              <ArrowUpRight className="size-4" />
-            )}
-          </div>
-          <div>
-            <p className="text-sm font-semibold">{transacao.descricao}</p>
-            <p className="text-muted-foreground text-xs">
-              {formatarData(transacao.data)} · {transacao.contaNome}
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p
-            className={
-              entrada
-                ? "text-lg font-bold text-[#0d9488]"
-                : "text-lg font-bold text-[#e5484d]"
-            }
-          >
-            {formatMoney(valorAbsoluto)}
-          </p>
-          <Badge variant="secondary" className="rounded-full text-[11px]">
-            {entrada ? "Entrada" : "Saída"}
-          </Badge>
-        </div>
+    <div className="relative flex min-w-0 flex-1 flex-col gap-2">
+      <div
+        className={cn(
+          "flex size-9 items-center justify-center rounded-full",
+          entrada ? "bg-[#f0fdfa]" : "bg-[#fef2f2]",
+        )}
+      >
+        {entrada ? (
+          <ArrowUpRight className="size-[18px] text-[#0d9488]" />
+        ) : (
+          <ArrowDownLeft className="size-[18px] text-[#dc2626]" />
+        )}
       </div>
 
-      <Separator />
-
-      {elegiveis.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          Nenhum {entrada ? "recebimento" : "pagamento"} em aberto para casar com esta
-          transação. Cadastre o lançamento primeiro ou ignore a transação.
+      <div className="flex flex-col gap-1 pr-8">
+        <p className="truncate text-[13px] font-semibold" title={transacao.descricao}>
+          {transacao.descricao}
         </p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {selecoes.map((selecao) => {
-            const candidato = elegiveis.find((c) => c.id === selecao.lancamentoId);
-            if (!candidato) return null;
+        <div className="text-muted-foreground flex items-center gap-2 text-[11px]">
+          <span>{formatarData(transacao.data)}</span>
+          <span className="text-[#99a1ab]">|</span>
+          <span>{entrada ? "Entrada" : "Saída"}</span>
+          <span className="text-[#99a1ab]">|</span>
+          <span className="truncate">{transacao.contaNome}</span>
+        </div>
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            entrada ? "text-[#0d9488]" : "text-[#dc2626]",
+          )}
+        >
+          {entrada ? "" : "− "}
+          {formatMoney(Math.abs(transacao.valor))}
+        </p>
+      </div>
 
-            return (
-              <div
-                key={selecao.lancamentoId}
-                className="border-border flex flex-wrap items-end gap-3 rounded-lg border p-3"
-              >
-                <div className="min-w-[220px] flex-1">
-                  <p className="text-sm font-medium">{candidato.descricao}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {candidato.contato} · vence {formatarData(candidato.vencimento)} · em
-                    aberto {formatMoney(candidato.emAberto)}
-                  </p>
-                </div>
-                <div className="flex w-[140px] flex-col gap-1">
-                  <Label className="text-xs" htmlFor={`valor-${selecao.lancamentoId}`}>
-                    Valor conciliado
-                  </Label>
-                  <Input
-                    id={`valor-${selecao.lancamentoId}`}
-                    value={selecao.valorTexto}
-                    onChange={(e) =>
-                      setSelecoes((atual) =>
-                        atual.map((s) =>
-                          s.lancamentoId === selecao.lancamentoId
-                            ? { ...s, valorTexto: e.target.value }
-                            : s,
-                        ),
-                      )
-                    }
-                  />
-                </div>
-                <div className="flex w-[120px] flex-col gap-1">
-                  <Label className="text-xs" htmlFor={`juros-${selecao.lancamentoId}`}>
-                    Juros/multa
-                  </Label>
-                  <Input
-                    id={`juros-${selecao.lancamentoId}`}
-                    placeholder="0,00"
-                    value={selecao.jurosTexto}
-                    onChange={(e) =>
-                      setSelecoes((atual) =>
-                        atual.map((s) =>
-                          s.lancamentoId === selecao.lancamentoId
-                            ? { ...s, jurosTexto: e.target.value }
-                            : s,
-                        ),
-                      )
-                    }
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remover lançamento"
-                  onClick={() =>
-                    setSelecoes((atual) =>
-                      atual.filter((s) => s.lancamentoId !== selecao.lancamentoId),
-                    )
-                  }
-                >
-                  <X className="size-4" />
-                </Button>
-              </div>
-            );
-          })}
+      <button
+        type="button"
+        onClick={onIgnorar}
+        disabled={ocupado}
+        aria-label="Ignorar esta transação"
+        title="Ignorar esta transação"
+        className="text-muted-foreground hover:text-destructive absolute right-2 bottom-0 disabled:opacity-40"
+      >
+        <Trash2 className="size-4" />
+      </button>
+    </div>
+  );
+}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <Select value="" onValueChange={adicionarLinha}>
-              <SelectTrigger className="w-[380px]">
-                <SelectValue
-                  placeholder={
-                    selecoes.length === 0
-                      ? "Selecionar lançamento..."
-                      : "Adicionar outro lançamento..."
-                  }
-                />
+// -------------------------------------- coluna do Capi: lançamento pareado
+
+function LancamentoPareado({
+  sugestao,
+  onTrocar,
+}: {
+  sugestao: CandidatoDaTela;
+  onTrocar: () => void;
+}) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <p className="truncate text-[13px] font-semibold">
+        {sugestao.contato !== "—" ? `${sugestao.contato} — ` : ""}
+        {sugestao.descricao}
+      </p>
+      <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-[11px]">
+        {sugestao.favorecido ? (
+          <>
+            <span className="truncate">{sugestao.favorecido}</span>
+            <span className="text-[#99a1ab]">|</span>
+          </>
+        ) : null}
+        <span>{formatarData(sugestao.vencimento)}</span>
+        <span className="text-[#99a1ab]">|</span>
+        <span className="truncate">{sugestao.categoria}</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <p className="text-sm font-semibold">{formatMoney(sugestao.emAberto)}</p>
+        <button
+          type="button"
+          onClick={onTrocar}
+          className="text-muted-foreground hover:text-foreground text-[11px] underline underline-offset-2"
+        >
+          trocar lançamento
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------- coluna do Capi: formulário quando não há par
+
+function FormularioLancamento({
+  transacao,
+  candidatos,
+  contas,
+  contatos,
+  categorias,
+  ocupado,
+  onCriar,
+  onTransferir,
+  onVincular,
+}: {
+  transacao: ParConciliacao["transacao"];
+  candidatos: CandidatoDaTela[];
+  contas: Conta[];
+  contatos: Opcao[];
+  categorias: { id: string; nome: string; tipo: "RECEITA" | "DESPESA" }[];
+  ocupado: boolean;
+  onCriar: (dados: {
+    tipo: "RECEBIMENTO" | "PAGAMENTO";
+    contatoId: string | null;
+    categoriaId: string;
+    descricao: string;
+  }) => void;
+  onTransferir: (contaContrariaId: string) => void;
+  onVincular: (lancamentoId: string) => void;
+}) {
+  const entrada = transacao.valor > 0;
+  const tipoLancamento = entrada ? "RECEBIMENTO" : "PAGAMENTO";
+
+  const [modo, setModo] = useState<"LANCAMENTO" | "TRANSFERENCIA">("LANCAMENTO");
+  const [buscando, setBuscando] = useState(false);
+  const [contatoId, setContatoId] = useState(SEM_CONTATO);
+  const [categoriaId, setCategoriaId] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [contaDestino, setContaDestino] = useState("");
+  const [vinculoId, setVinculoId] = useState("");
+
+  // A categoria precisa combinar com o sentido do dinheiro no extrato.
+  const categoriasDoTipo = useMemo(
+    () => categorias.filter((c) => c.tipo === (entrada ? "RECEITA" : "DESPESA")),
+    [categorias, entrada],
+  );
+
+  // Só faz sentido oferecer lançamentos do mesmo sentido da transação.
+  const elegiveis = useMemo(
+    () => candidatos.filter((c) => c.tipo === tipoLancamento),
+    [candidatos, tipoLancamento],
+  );
+
+  const outrasContas = contas.filter((c) => c.id !== transacao.contaId);
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-3">
+      <div className="flex items-center justify-between gap-3">
+        <Select
+          value={modo}
+          onValueChange={(v) => {
+            setModo(v as typeof modo);
+            setBuscando(false);
+          }}
+        >
+          <SelectTrigger className="h-9 w-[150px]" aria-label="O que é esta transação">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="LANCAMENTO">
+              {entrada ? "Recebimento" : "Pagamento"}
+            </SelectItem>
+            <SelectItem value="TRANSFERENCIA">Transferência</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9"
+          aria-pressed={buscando}
+          onClick={() => setBuscando((v) => !v)}
+        >
+          <Search className="size-4" />
+          Buscar
+        </Button>
+      </div>
+
+      {buscando ? (
+        <Select value={vinculoId} onValueChange={setVinculoId}>
+          <SelectTrigger className="h-9 w-full" aria-label="Lançamento existente">
+            <SelectValue
+              placeholder={`Vincular a um dos ${elegiveis.length} lançamentos em aberto...`}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {elegiveis.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.descricao} — {c.contato} — {formatMoney(c.emAberto)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      ) : null}
+
+      {!buscando && modo === "LANCAMENTO" ? (
+        <>
+          <div className="flex gap-3">
+            <Select value={contatoId} onValueChange={setContatoId}>
+              <SelectTrigger className="h-9 flex-1" aria-label="Contato">
+                <SelectValue placeholder="Contato" />
               </SelectTrigger>
               <SelectContent>
-                {elegiveis
-                  .filter((c) => !selecoes.some((s) => s.lancamentoId === c.id))
-                  .map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.descricao} — {c.contato} — {formatMoney(c.emAberto)}
-                    </SelectItem>
-                  ))}
+                <SelectItem value={SEM_CONTATO}>Sem contato</SelectItem>
+                {contatos.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
-            {selecoes.length > 0 ? (
-              <p
-                className={
-                  diferenca === 0
-                    ? "text-sm font-medium text-[#218358]"
-                    : "text-sm font-medium text-[#f76b15]"
-                }
-              >
-                {diferenca === 0
-                  ? "Valores batem exatamente."
-                  : diferenca > 0
-                    ? `Faltam ${formatMoney(diferenca)} para fechar a transação.`
-                    : `Excedendo em ${formatMoney(-diferenca)}.`}
-              </p>
-            ) : null}
+            <Select value={categoriaId} onValueChange={setCategoriaId}>
+              <SelectTrigger className="h-9 flex-1" aria-label="Categoria">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                {categoriasDoTipo.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </div>
-      )}
 
-      <div className="flex flex-wrap items-center gap-2">
+          <Input
+            className="h-9"
+            placeholder="Descrição"
+            value={descricao}
+            onChange={(e) => setDescricao(e.target.value)}
+          />
+
+          <p className="text-muted-foreground text-[11px]">
+            Valor e data vêm do extrato: {formatMoney(Math.abs(transacao.valor))} em{" "}
+            {formatarData(transacao.data)}.
+          </p>
+        </>
+      ) : null}
+
+      {!buscando && modo === "TRANSFERENCIA" ? (
+        <>
+          <Select value={contaDestino} onValueChange={setContaDestino}>
+            <SelectTrigger className="h-9 w-full" aria-label="Conta contrária">
+              <SelectValue
+                placeholder={entrada ? "Conta de origem" : "Conta de destino"}
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {outrasContas.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.nome} — {c.banco}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-muted-foreground text-[11px]">
+            A outra perna fica prevista, aguardando o extrato da conta contrária.
+          </p>
+        </>
+      ) : null}
+
+      <div className="flex justify-end">
         <Button
-          onClick={conciliar}
-          disabled={processando || selecoes.length === 0 || diferenca < 0}
+          size="sm"
+          variant="outline"
+          disabled={ocupado}
+          onClick={() => {
+            if (buscando) return onVincular(vinculoId);
+            if (modo === "TRANSFERENCIA") return onTransferir(contaDestino);
+            onCriar({
+              tipo: tipoLancamento,
+              contatoId: contatoId === SEM_CONTATO ? null : contatoId,
+              categoriaId,
+              descricao,
+            });
+          }}
         >
           <Check className="size-4" />
-          Conciliar
-        </Button>
-        <Button variant="outline" onClick={ignorar} disabled={processando}>
-          <EyeOff className="size-4" />
-          Ignorar
+          {buscando ? "Vincular e conciliar" : "Criar e conciliar"}
         </Button>
       </div>
     </div>
   );
 }
 
-export function ConciliacaoView({
-  transacoes,
+// ------------------------------------------------------------- Match Row
+
+function LinhaConciliacao({
+  par,
   candidatos,
   contas,
+  contatos,
+  categorias,
+  onFeito,
 }: {
-  transacoes: TransacaoPendente[];
-  candidatos: Candidato[];
-  contas: { id: string; nome: string; banco: string }[];
+  par: ParConciliacao;
+  candidatos: CandidatoDaTela[];
+  contas: Conta[];
+  contatos: Opcao[];
+  categorias: { id: string; nome: string; tipo: "RECEITA" | "DESPESA" }[];
+  onFeito: () => void;
 }) {
-  const router = useRouter();
-  const [tab, setTab] = useState<"todas" | "entradas" | "saidas">("todas");
+  const [ocupado, iniciar] = useTransition();
+  const [trocando, setTrocando] = useState(false);
+  const sugestao = trocando ? null : par.sugestao;
 
-  const filtradas = useMemo(() => {
-    if (tab === "entradas") return transacoes.filter((t) => t.valor > 0);
-    if (tab === "saidas") return transacoes.filter((t) => t.valor < 0);
-    return transacoes;
-  }, [transacoes, tab]);
+  function executar(acao: () => Promise<{ ok: boolean; erro?: string }>, sucesso: string) {
+    iniciar(async () => {
+      const r = await acao();
+      if (!r.ok) {
+        toast.error(r.erro ?? "Não foi possível concluir.");
+        return;
+      }
+      toast.success(sucesso);
+      onFeito();
+    });
+  }
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6 md:p-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Conciliação bancária</h1>
-          <p className="text-muted-foreground text-sm">
-            Transações do extrato que ainda não foram vinculadas a um lançamento.
-          </p>
-        </div>
-        {contas.length > 0 ? (
-          <ImportarOfxDialog contaId={contas[0].id} contaNome={contas[0].nome} />
-        ) : null}
-      </div>
+    <div className="flex flex-col gap-4 p-4 md:flex-row md:items-center md:gap-4">
+      <ColunaBanco
+        transacao={par.transacao}
+        ocupado={ocupado}
+        onIgnorar={() =>
+          executar(
+            () => ignorarTransacaoAction(par.transacao.id),
+            "Transação ignorada.",
+          )
+        }
+      />
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as typeof tab)}>
-        <TabsList>
-          <TabsTrigger value="todas">Todas ({transacoes.length})</TabsTrigger>
-          <TabsTrigger value="entradas">
-            Entradas ({transacoes.filter((t) => t.valor > 0).length})
-          </TabsTrigger>
-          <TabsTrigger value="saidas">
-            Saídas ({transacoes.filter((t) => t.valor < 0).length})
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <Separator orientation="vertical" className="hidden self-stretch md:block" />
+      <Separator className="md:hidden" />
 
-      {filtradas.length === 0 ? (
-        <div className="bg-card border-border flex flex-col items-center gap-3 rounded-xl border p-12 text-center shadow-sm">
-          <p className="font-medium">Nenhuma transação pendente.</p>
-          <p className="text-muted-foreground text-sm">
-            {transacoes.length === 0
-              ? "Importe um extrato OFX para começar a conciliar."
-              : "Não há transações neste filtro."}
-          </p>
-          {contas.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Cadastre uma conta bancária própria antes de importar o extrato.
-            </p>
-          ) : null}
-        </div>
+      {sugestao ? (
+        <LancamentoPareado sugestao={sugestao} onTrocar={() => setTrocando(true)} />
       ) : (
-        <div className="flex flex-col gap-4">
-          {filtradas.map((transacao) => (
-            <CartaoTransacao
-              key={transacao.id}
-              transacao={transacao}
-              candidatos={candidatos}
-              onConciliado={() => router.refresh()}
-            />
-          ))}
-        </div>
+        <FormularioLancamento
+          transacao={par.transacao}
+          candidatos={candidatos}
+          contas={contas}
+          contatos={contatos}
+          categorias={categorias}
+          ocupado={ocupado}
+          onCriar={(dados) => {
+            if (!dados.categoriaId) return toast.error("Selecione a categoria.");
+            executar(
+              () => criarEConciliarAction(par.transacao.id, dados),
+              "Lançamento criado e conciliado.",
+            );
+          }}
+          onTransferir={(contaId) => {
+            if (!contaId) return toast.error("Selecione a conta contrária.");
+            executar(
+              () => criarTransferenciaEConciliarAction(par.transacao.id, contaId),
+              "Transferência registrada e conciliada.",
+            );
+          }}
+          onVincular={(lancamentoId) => {
+            if (!lancamentoId) return toast.error("Selecione o lançamento.");
+            const alvo = candidatos.find((c) => c.id === lancamentoId);
+            if (!alvo) return;
+            executar(
+              () =>
+                aprovarParAction(
+                  par.transacao.id,
+                  lancamentoId,
+                  Math.min(alvo.emAberto, Math.abs(par.transacao.valor)),
+                ),
+              "Transação conciliada.",
+            );
+          }}
+        />
       )}
 
-      <p className="text-muted-foreground text-xs">
-        <Plus className="mr-1 inline size-3" />
-        Lançamentos precisam existir antes de aparecer aqui: cadastre em Contas a
-        receber ou Contas a pagar.
-      </p>
+      <div className="flex items-center gap-3 md:shrink-0">
+        {sugestao ? (
+          <>
+            <button
+              type="button"
+              disabled={ocupado}
+              aria-label="Aprovar conciliação"
+              title="Aprovar conciliação"
+              onClick={() =>
+                executar(
+                  () =>
+                    aprovarParAction(
+                      par.transacao.id,
+                      sugestao.id,
+                      Math.min(sugestao.emAberto, Math.abs(par.transacao.valor)),
+                    ),
+                  "Transação conciliada.",
+                )
+              }
+              className="flex size-9 items-center justify-center rounded-full bg-[#dcfce7] text-[#166534] transition-opacity hover:opacity-80 disabled:opacity-40"
+            >
+              <Check className="size-[18px]" />
+            </button>
+            <button
+              type="button"
+              disabled={ocupado}
+              aria-label="Trocar lançamento"
+              title="Trocar lançamento"
+              onClick={() => setTrocando(true)}
+              className="flex size-9 items-center justify-center rounded-full bg-[#fef2f2] text-[#dc2626] transition-opacity hover:opacity-80 disabled:opacity-40"
+            >
+              <ArrowLeftRight className="size-[18px]" />
+            </button>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- a tela
+
+export function ConciliacaoView({
+  pares,
+  candidatos,
+  contas,
+  contatos,
+  categorias,
+  contaSelecionada,
+}: {
+  pares: ParConciliacao[];
+  candidatos: CandidatoDaTela[];
+  contas: Conta[];
+  contatos: Opcao[];
+  categorias: { id: string; nome: string; tipo: "RECEITA" | "DESPESA" }[];
+  contaSelecionada: string | null;
+}) {
+  const router = useRouter();
+  const [aba, setAba] = useState<"todas" | "entradas" | "saidas">("todas");
+  const [busca, setBusca] = useState("");
+  const [periodo, setPeriodo] = useState<DateRange | undefined>(undefined);
+  const [ordem, setOrdem] = useState<"data" | "maior" | "menor">("data");
+
+  const contaAtual = contas.find((c) => c.id === contaSelecionada) ?? contas[0];
+
+  const visiveis = useMemo(() => {
+    const termo = busca.trim().toLowerCase();
+    const de = periodo?.from ? periodo.from.getTime() : null;
+    const ate = periodo?.to ? periodo.to.getTime() : de;
+
+    return pares.filter(({ transacao }) => {
+      if (aba === "entradas" && transacao.valor <= 0) return false;
+      if (aba === "saidas" && transacao.valor >= 0) return false;
+
+      if (termo && !transacao.descricao.toLowerCase().includes(termo)) return false;
+
+      if (de !== null) {
+        const dia = Date.parse(`${transacao.data}T00:00:00`);
+        if (dia < de || (ate !== null && dia > ate)) return false;
+      }
+      return true;
+    });
+  }, [pares, aba, busca, periodo]);
+
+  // Ordenar por valor ajuda a atacar primeiro o que mais move o caixa.
+  const ordenados = useMemo(() => {
+    if (ordem === "data") return visiveis;
+    const porValor = [...visiveis];
+    porValor.sort((a, b) => {
+      const va = Math.abs(a.transacao.valor);
+      const vb = Math.abs(b.transacao.valor);
+      return ordem === "maior" ? vb - va : va - vb;
+    });
+    return porValor;
+  }, [visiveis, ordem]);
+
+  const entradas = pares.filter((p) => p.transacao.valor > 0).length;
+  const saidas = pares.length - entradas;
+
+  return (
+    <div className="flex flex-1 flex-col gap-3 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-[22px] font-semibold">Conciliação</h1>
+
+        <div className="flex flex-wrap items-center gap-3">
+          {contas.length > 0 ? (
+            <Select
+              value={contaAtual?.id ?? ""}
+              onValueChange={(id) => router.push(`/conciliacao?conta=${id}`)}
+            >
+              <SelectTrigger className="h-9" aria-label="Conta bancária">
+                <span className="text-muted-foreground mr-1 text-[13px]">Conta:</span>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {contas.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.banco} — {c.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
+
+          {contaAtual ? (
+            <ImportarOfxDialog contaId={contaAtual.id} contaNome={contaAtual.nome} />
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Tabs value={aba} onValueChange={(v) => setAba(v as typeof aba)}>
+          <TabsList>
+            <TabsTrigger value="todas">Todas ({pares.length})</TabsTrigger>
+            <TabsTrigger value="entradas">Entradas ({entradas})</TabsTrigger>
+            <TabsTrigger value="saidas">Saídas ({saidas})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangePicker value={periodo} onChange={setPeriodo} />
+          <div className="relative">
+            <Input
+              className="h-9 w-[228px] pr-9"
+              placeholder="Buscar..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2" />
+          </div>
+
+          <Select value={ordem} onValueChange={(v) => setOrdem(v as typeof ordem)}>
+            <SelectTrigger className="h-9" aria-label="Ordenar por valor">
+              <span className="text-muted-foreground mr-1 text-[13px]">Valor</span>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="data">Por data</SelectItem>
+              <SelectItem value="maior">Maior primeiro</SelectItem>
+              <SelectItem value="menor">Menor primeiro</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Cabeçalho das duas colunas: de um lado o que o banco diz, do outro o
+          que o sistema tem. É a leitura que a tela inteira propõe. */}
+      <div className="flex items-center py-3">
+        <div className="flex flex-1 items-center gap-2 pl-6">
+          <Landmark className="size-[18px]" />
+          <p className="text-sm font-semibold">Lançamentos do Banco</p>
+        </div>
+        <div className="hidden flex-1 items-center gap-2 pl-4 md:flex">
+          <Receipt className="size-[18px]" />
+          <p className="text-sm font-semibold">Lançamentos do Capi</p>
+        </div>
+        <div className="w-[84px] shrink-0" />
+      </div>
+
+      <Separator />
+
+      <div className="bg-card border-border overflow-hidden rounded-[10px] border">
+        {ordenados.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 p-12 text-center">
+            <p className="font-medium">
+              {pares.length === 0
+                ? "Nenhuma transação pendente."
+                : "Nada neste filtro."}
+            </p>
+            <p className="text-muted-foreground text-sm">
+              {pares.length === 0
+                ? "Importe um extrato OFX para começar a conciliar."
+                : "Ajuste a aba, a busca ou o período."}
+            </p>
+          </div>
+        ) : (
+          ordenados.map((par, i) => (
+            <div key={par.transacao.id}>
+              {i > 0 ? <div className="bg-[#d9d9d9] h-px w-full" /> : null}
+              <LinhaConciliacao
+                par={par}
+                candidatos={candidatos}
+                contas={contas}
+                contatos={contatos}
+                categorias={categorias}
+                onFeito={() => router.refresh()}
+              />
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

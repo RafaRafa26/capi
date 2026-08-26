@@ -208,15 +208,122 @@ export const lancamentosEmAbertoDemo = contasAReceberDemo
 
 // ------------------------------------------------------------- conciliação
 
-export const transacoesPendentesDemo = [
-  { id: "t1", data: "2026-08-05", descricao: "TED RECEB JOAO FRANCISCO SILVA",
-    valor: 1245000, contaId: "b2", contaNome: "Conta Operacional" },
-  { id: "t2", data: "2026-08-10", descricao: "PIX RECEB MARCOS VIEIRA",
-    valor: 981240, contaId: "b2", contaNome: "Conta Operacional" },
-  { id: "t3", data: "2026-08-12", descricao: "PAGAMENTO FORNECEDOR NF 3421",
-    valor: -423000, contaId: "b2", contaNome: "Conta Operacional" },
-  { id: "t4", data: "2026-08-15", descricao: "TARIFA MENSAL PACOTE",
-    valor: -1290, contaId: "b2", contaNome: "Conta Operacional" },
+/** Contatos no formato dos <select> da tela de conciliação. */
+export const contatosSelecaoDemo = contatosDemo.map((c) => ({
+  id: c.id,
+  nome: c.nome,
+}));
+
+export const contasPropriasDemo = contasBancariasDemo
+  .filter((c) => c.natureza === "PROPRIA")
+  .map((c) => ({ id: c.id, nome: c.nome, banco: c.banco }));
+
+/** Categorias achatadas (pai › filha), como `listarCategoriasPlanas` devolve. */
+export const categoriasPlanasDemo = categoriasDemo.flatMap((c) => [
+  { id: c.id, tipo: c.tipo, nome: c.nome },
+  ...c.subcategorias.map((s) => ({
+    id: s.id,
+    tipo: c.tipo,
+    nome: `${c.nome} › ${s.nome}`,
+  })),
+]);
+
+/** Lançamentos em aberto — candidatos do lado direito da conciliação. */
+export const candidatosDemo = [
+  {
+    id: "l1",
+    tipo: "RECEBIMENTO" as const,
+    vencimento: "2026-08-08",
+    descricao: "Parcela 7/10 — Contrato 2026-000000",
+    contato: "João Francisco da Silva",
+    categoria: "Receita com vendas › Venda de gado",
+    favorecido: "Fazenda Boa Esperança",
+    valorPrevisto: 1245000,
+    emAberto: 1245000,
+  },
+  {
+    id: "l2",
+    tipo: "RECEBIMENTO" as const,
+    vencimento: "2026-08-10",
+    descricao: "Parcela 5/10 — Contrato 2026-000000",
+    contato: "Marcos Vieira da Silva",
+    categoria: "Receita com vendas › Venda de gado",
+    favorecido: "Agropecuária Bom Retiro",
+    valorPrevisto: 981240,
+    emAberto: 981240,
+  },
+  {
+    id: "l3",
+    tipo: "PAGAMENTO" as const,
+    vencimento: "2026-08-05",
+    descricao: "REPASSE ref. vendas de julho",
+    contato: "Fazenda Santa Rita",
+    categoria: "Repasses a favorecidos",
+    favorecido: "Fazenda Santa Rita",
+    valorPrevisto: 897000,
+    emAberto: 897000,
+  },
+];
+
+/** As transações do extrato, com o par que o sistema sugere para cada uma. */
+export const paresConciliacaoDemo = [
+  {
+    transacao: {
+      id: "t1",
+      data: "2026-08-05",
+      descricao: "Cobrança recebida - fatura nr. xxxxxxxx JOÃO FRANCISCO DA SILVA",
+      valor: 1245000,
+      contaId: "b2",
+      contaNome: "Conta Operacional",
+    },
+    sugestao: candidatosDemo[0],
+  },
+  {
+    transacao: {
+      id: "t2",
+      data: "2026-08-06",
+      descricao: "Cobrança recebida - fatura nr. xxxxxxxx MARCOS VIEIRA DA SILVA",
+      valor: 981240,
+      contaId: "b2",
+      contaNome: "Conta Operacional",
+    },
+    sugestao: candidatosDemo[1],
+  },
+  {
+    // Sem par: taxa do banco, que o operador classifica na hora (RN-14).
+    transacao: {
+      id: "t3",
+      data: "2026-08-07",
+      descricao: "Taxa de boleto - fatura nr. XXXXXXXX MARCOS VIEIRA DA SILVA",
+      valor: -199,
+      contaId: "b2",
+      contaNome: "Conta Operacional",
+    },
+    sugestao: null,
+  },
+  {
+    transacao: {
+      id: "t4",
+      data: "2026-08-05",
+      descricao: "Transação via Pix com chave para FAZENDA SANTA RITA",
+      valor: -897000,
+      contaId: "b2",
+      contaNome: "Conta Operacional",
+    },
+    sugestao: candidatosDemo[2],
+  },
+  {
+    // Sem par: transferência entre contas próprias (RN-15).
+    transacao: {
+      id: "t5",
+      data: "2026-08-07",
+      descricao: "Transação via Pix com chave para AGROPECUARIA BOI SOBERANO",
+      valor: -350000,
+      contaId: "b2",
+      contaNome: "Conta Operacional",
+    },
+    sugestao: null,
+  },
 ];
 
 // ------------------------------------------------------------------ extrato

@@ -330,6 +330,13 @@ export async function lancamentosEmAberto(
         valorLiquidado: true,
         contato: { select: { nome: true } },
         categoria: { select: { nome: true } },
+        // O favorecido aparece na metadata da tela de conciliação: é ele que
+        // recebe o crédito quando esta linha for conciliada.
+        destinacoes: {
+          orderBy: { ordem: "asc" },
+          take: 1,
+          select: { favorecido: { select: { nome: true } } },
+        },
       },
     }),
   );
@@ -341,6 +348,7 @@ export async function lancamentosEmAberto(
     descricao: l.descricao ?? "—",
     contato: l.contato?.nome ?? "—",
     categoria: l.categoria?.nome ?? "—",
+    favorecido: l.destinacoes[0]?.favorecido.nome ?? null,
     valorPrevisto: l.valorPrevisto,
     emAberto:
       l.valorPrevisto + l.juros + l.multa - l.desconto - l.valorLiquidado,
