@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 
 import { ehBancoIndisponivel } from "@/db/indisponivel";
+import { ORGANIZACAO_DEMO, USUARIO_DEMO } from "@/modules/demo/dados";
 import { NaoAutenticado } from "@/shared/erros";
 import {
   ACESSO_LIVRE,
@@ -15,6 +16,17 @@ import {
 } from "./servico";
 
 export const COOKIE_SESSAO = "capi_sessao";
+
+/** Sessão fictícia do modo demonstração — nada disso vem do banco. */
+const SESSAO_DEMO: SessaoAtiva = {
+  usuarioId: USUARIO_DEMO.id,
+  organizacaoId: ORGANIZACAO_DEMO.id,
+  nome: USUARIO_DEMO.nome,
+  email: USUARIO_DEMO.email,
+  papel: "ADMIN",
+  organizacaoNome: ORGANIZACAO_DEMO.nome,
+  organizacaoDocumento: ORGANIZACAO_DEMO.documento,
+};
 
 export async function gravarCookieDeSessao(token: string, expiraEm: Date) {
   const jar = await cookies();
@@ -55,10 +67,10 @@ export const sessaoAtual = cache(async (): Promise<SessaoAtiva | null> => {
 
     return null;
   } catch (erro) {
-    // Sem banco utilizável (env ausente, servidor fora, credencial errada),
-    // nenhuma rota funciona — toda página começa por aqui, então este é o
-    // lugar de trocar o error boundary genérico por uma orientação clara.
-    if (ehBancoIndisponivel(erro)) redirect("/configuracao-pendente");
+    // Sem banco utilizável, o app entra em MODO DEMONSTRAÇÃO: as telas caem
+    // para dados de exemplo (ver modules/demo/) em vez de quebrar. A sessão
+    // aqui é fictícia, só para o sidebar ter nome e organização.
+    if (ehBancoIndisponivel(erro)) return SESSAO_DEMO;
     throw erro;
   }
 });

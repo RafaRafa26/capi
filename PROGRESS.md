@@ -546,3 +546,86 @@ Verificado: navegador sem nenhum cookie abre /dashboard, /contatos,
 /conciliacao e /repasses direto (200); /login e / redirecionam para o
 dashboard; escrita (criar centro de custo) funciona sem sessão; e um banco
 zerado, só com migrações, serve o dashboard e cria org+admin sozinho.
+
+---
+
+## Etapa — Modo demonstração (app navegável sem banco)
+
+Com acesso livre, toda rota passou a buscar a sessão no banco — e sem banco
+o preview quebrava. Em vez de mandar para uma página de orientação (solução
+anterior), o app agora **abre com dados de exemplo**.
+
+Como funciona: `modoDemo()` faz uma consulta trivial por requisição
+(cacheada pelo `cache` do React). Se o banco responde, nada muda — os dados
+reais mandam. Se não responde, `comQuedaParaDemo()` devolve o mock de
+`src/modules/demo/dados.ts` em cada página, a sessão vira fictícia só para o
+sidebar ter nome, e uma faixa no topo avisa que os dados são de exemplo.
+
+As 21 server actions chamam `recusarEscritaNoDemo()` antes de tocar no
+serviço: sem banco não há onde gravar, e anunciar "salvo com sucesso" para o
+registro sumir em seguida seria pior do que recusar.
+
+`CAPI_MODO_DEMO=1` força o modo mesmo com banco disponível — útil para
+demonstrar sem tocar em dados reais.
+
+Verificado em build de produção, no mesmo processo: sem `.env`, as 11 rotas
+respondem 200 com dados nas telas e a faixa visível, e a escrita é recusada
+com aviso; com `.env` e Postgres no ar, os dados reais aparecem e a faixa
+some; derrubando o Postgres em execução, cai para demo sem erro; subindo de
+volta, volta ao real sozinho. 63 testes seguem passando.
+
+**Ajuste seguinte, a pedido:** a faixa "Modo demonstração" no topo foi
+removida — ocupava espaço em todas as telas e atrapalhava a avaliação visual
+do app. O modo demo continua igual; o que sinaliza que os dados são de
+exemplo agora é apenas a recusa das escritas, com mensagem explicando.
+
+---
+
+## Etapa — Tela de conciliação reimplementada a partir do Figma
+
+A tela que eu tinha feito não seguia o design: era uma lista de cartões, um por
+transação, com seletor de lançamento embutido. O design (node 320-908) propõe
+outra leitura — **duas colunas lado a lado**, "Lançamentos do Banco" à esquerda
+e "Lançamentos do Capi" à direita, cada linha pareando a transação do extrato
+com o lançamento que a explica.
+
+Reimplementada seguindo o design:
+- Header com seletor de conta e importação de OFX; barra com abas
+  Todas/Entradas/Saídas, período, busca e ordenação por valor.
+- Legend bar das duas colunas e Match Rows com ícone direcional em círculo
+  (entrada verde, saída vermelha), metadata e valor.
+- Ações por linha: ✓ aprovar o par, ⇄ trocar o lançamento, 🗑 ignorar.
+- Linha sem par vira formulário inline — tipo, contato, categoria, descrição —
+  ou transferência com a conta contrária, além do botão Buscar para vincular a
+  um lançamento já existente.
+
+**Backend que faltava, implementado junto (Fase 8):**
+- `criarLancamentoParaTransacao` — cria o lançamento direto da conciliação,
+  herdando valor e data da transação. Sem destinação de propósito: este
+  caminho é para dinheiro da própria organização (taxa, aporte), que não gera
+  custódia (RN-14). Recebimento de terceiro continua exigindo destinação na
+  tela própria (RN-04).
+- `criarTransferenciaParaTransacao` — transferência entre contas próprias
+  (RN-15), com as duas pernas ligadas; concilia a desta transação e deixa a
+  oposta prevista para o extrato da outra conta. Recusa conta de terceiro:
+  dinheiro que sai para lá é repasse, não transferência interna.
+- Pareamento como função pura (`conciliacao/dominio.ts`), com 10 testes: só
+  sugere valor **exato** e do tipo compatível, nunca cruza entrada com
+  pagamento, e não propõe o mesmo lançamento para duas transações.
+
+**Verificado** contra Postgres real, pelo navegador: importar OFX traz 4
+transações, 2 recebem par automático, aprovar ✓ concilia, criar+conciliar a
+tarifa funciona (11 categorias de despesa oferecidas) e a lixeira ignora — a
+fila caiu de 4 para 1 no fluxo. 73 testes passando (eram 63).
+
+**Divergência consciente do design:** na linha de transferência o Figma mostra
+um campo Descrição, mas a RN-15 diz que a descrição é gerada automaticamente
+("Transferência de [conta A] para [conta B]"). Mantive a regra e troquei o
+campo por uma nota explicando que a perna oposta fica prevista.
+
+**Observação:** aparece um `DeprecationWarning` do `pg` ("client.query() when
+the client is already executing a query") durante uso via dev server. Investiguei
+e não vem do nosso código — reproduzi os padrões que usamos (`comOrganizacao`
+em paralelo e consultas paralelas na mesma transação) sem gerar o aviso; ele
+sai de dentro do `@prisma/adapter-pg`. É aviso, não erro, mas vira erro no
+pg@9 — acompanhar nas próximas atualizações do Prisma.

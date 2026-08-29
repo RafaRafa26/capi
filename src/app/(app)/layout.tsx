@@ -3,7 +3,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { exigirSessaoOuRedirecionar } from "@/modules/auth/sessao";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  // Porta única de entrada da área logada: sem sessão, ninguém passa daqui.
+  // Com acesso livre, isto sempre resolve: sessão do cookie, admin padrão do
+  // banco, ou — sem banco — a sessão fictícia do modo demonstração.
   const sessao = await exigirSessaoOuRedirecionar();
 
   return (

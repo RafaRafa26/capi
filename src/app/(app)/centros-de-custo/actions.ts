@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { exigirSessao } from "@/modules/auth/sessao";
+import { recusarEscritaNoDemo } from "@/modules/demo/modo";
 import {
   alternarAtivoCentroCusto,
   centroCustoEsquema,
@@ -15,6 +16,7 @@ export async function criarCentroCustoAction(
   nome: string,
 ): Promise<Resultado<{ id: string }>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     const parsed = centroCustoEsquema.safeParse({ nome });
     if (!parsed.success) {
@@ -33,6 +35,7 @@ export async function alternarAtivoCentroCustoAction(
   id: string,
 ): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await alternarAtivoCentroCusto(sessao.organizacaoId, id);
     revalidatePath("/centros-de-custo");
@@ -44,6 +47,7 @@ export async function alternarAtivoCentroCustoAction(
 
 export async function excluirCentroCustoAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await excluirCentroCusto(sessao.organizacaoId, id);
     revalidatePath("/centros-de-custo");

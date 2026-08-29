@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { exigirSessao } from "@/modules/auth/sessao";
+import { recusarEscritaNoDemo } from "@/modules/demo/modo";
 import {
   categoriaEsquema,
   criarCategoria,
@@ -17,6 +18,7 @@ export async function criarCategoriaAction(entrada: {
   paiId?: string | null;
 }): Promise<Resultado<{ id: string }>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     const parsed = categoriaEsquema.safeParse(entrada);
     if (!parsed.success) {
@@ -36,6 +38,7 @@ export async function renomearCategoriaAction(
   nome: string,
 ): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     if (nome.trim().length < 2) {
       return { ok: false, erro: "Informe o nome da categoria." };
@@ -50,6 +53,7 @@ export async function renomearCategoriaAction(
 
 export async function excluirCategoriaAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await excluirCategoria(sessao.organizacaoId, id);
     revalidatePath("/categorias");

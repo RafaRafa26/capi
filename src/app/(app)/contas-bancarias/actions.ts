@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { exigirSessao } from "@/modules/auth/sessao";
+import { recusarEscritaNoDemo } from "@/modules/demo/modo";
 import {
   alternarAtivaContaBancaria,
   atualizarContaBancaria,
@@ -17,6 +18,7 @@ export async function salvarContaBancariaAction(
   form: FormData,
 ): Promise<Resultado<{ id: string }>> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
 
     const parsed = contaBancariaEsquema.safeParse({
@@ -49,6 +51,7 @@ export async function alternarAtivaContaBancariaAction(
   id: string,
 ): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await alternarAtivaContaBancaria(sessao.organizacaoId, id);
     revalidatePath("/contas-bancarias");
@@ -60,6 +63,7 @@ export async function alternarAtivaContaBancariaAction(
 
 export async function excluirContaBancariaAction(id: string): Promise<Resultado> {
   try {
+    await recusarEscritaNoDemo();
     const sessao = await exigirSessao();
     await excluirContaBancaria(sessao.organizacaoId, id);
     revalidatePath("/contas-bancarias");
