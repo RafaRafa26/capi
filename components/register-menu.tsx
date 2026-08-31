@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { ChevronDownIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function RegisterMenu() {
+  const router = useRouter()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger render={<Button size="lg" />}>
@@ -19,7 +22,9 @@ export function RegisterMenu() {
         <ChevronDownIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem>Venda</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/new-sale")}>
+          Venda
+        </DropdownMenuItem>
         <DropdownMenuItem>Despesa</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
