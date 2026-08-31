@@ -18,11 +18,8 @@ import {
 import { organizacao, usuario } from "@/lib/mock/dashboard"
 import {
   LayoutGridIcon,
-  CreditCardIcon,
   RefreshCwIcon,
-  UserIcon,
-  Building2Icon,
-  UsersIcon,
+  BanknoteIcon,
 } from "lucide-react"
 
 const data = {
@@ -34,33 +31,8 @@ const data = {
     },
   ],
   navFinanceiro: [
-    {
-      title: "Contas e Extratos",
-      url: "#",
-      icon: <CreditCardIcon />,
-      isActive: true,
-      items: [
-        { title: "Contas bancárias", url: "/dashboard/contas-bancarias" },
-        { title: "Categorias", url: "/dashboard/categorias" },
-        { title: "Centros de custo", url: "/dashboard/centros-de-custo" },
-      ],
-    },
-    {
-      title: "Conciliação",
-      url: "#",
-      icon: <RefreshCwIcon />,
-      isActive: true,
-      items: [
-        { title: "Conciliação bancária", url: "/reconciliation" },
-        { title: "Contas a receber", url: "/dashboard/contas-a-receber" },
-        { title: "Repasses", url: "/payout" },
-      ],
-    },
-  ],
-  navContatos: [
-    { title: "Favorecidos", url: "/dashboard/favorecidos", icon: <UsersIcon /> },
-    { title: "Fornecedores", url: "/dashboard/fornecedores", icon: <Building2Icon /> },
-    { title: "Clientes", url: "/dashboard/clientes", icon: <UserIcon /> },
+    { title: "Conciliação bancária", url: "/reconciliation", icon: <RefreshCwIcon /> },
+    { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
   ],
 }
 
@@ -83,8 +55,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             },
           ]}
         />
-        <NavMain label="Financeiro" items={data.navFinanceiro} />
-        <NavMain label="Contatos" items={data.navContatos} />
+        <NavMain
+          label="Financeiro"
+          items={data.navFinanceiro.map((item) => ({
+            ...item,
+            isActive: pathname === item.url,
+          }))}
+        />
       </SidebarContent>
       <SidebarFooter>
         <ThemeToggle />
