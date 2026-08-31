@@ -51,7 +51,7 @@ const data = {
       icon: <RefreshCwIcon />,
       isActive: true,
       items: [
-        { title: "Conciliação bancária", url: "/dashboard/conciliacao" },
+        { title: "Conciliação bancária", url: "/reconciliation" },
         { title: "Contas a receber", url: "/dashboard/contas-a-receber" },
         { title: "Repasses", url: "/dashboard/repasses" },
       ],
