@@ -8,7 +8,7 @@ const titles: Record<string, string> = {
   "/dashboard/contas-bancarias": "Contas bancárias",
   "/dashboard/categorias": "Categorias",
   "/dashboard/centros-de-custo": "Centros de custo",
-  "/dashboard/conciliacao": "Conciliação bancária",
+  "/reconciliation": "Conciliação",
   "/dashboard/contas-a-receber": "Contas a receber",
   "/dashboard/repasses": "Repasses",
   "/dashboard/favorecidos": "Favorecidos",
