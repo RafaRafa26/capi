@@ -10,7 +10,7 @@ const titles: Record<string, string> = {
   "/dashboard/centros-de-custo": "Centros de custo",
   "/reconciliation": "Conciliação",
   "/dashboard/contas-a-receber": "Contas a receber",
-  "/dashboard/repasses": "Repasses",
+  "/payout": "Repasses",
   "/dashboard/favorecidos": "Favorecidos",
   "/dashboard/fornecedores": "Fornecedores",
   "/dashboard/clientes": "Clientes",

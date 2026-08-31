@@ -53,7 +53,7 @@ const data = {
       items: [
         { title: "Conciliação bancária", url: "/reconciliation" },
         { title: "Contas a receber", url: "/dashboard/contas-a-receber" },
-        { title: "Repasses", url: "/dashboard/repasses" },
+        { title: "Repasses", url: "/payout" },
       ],
     },
   ],
