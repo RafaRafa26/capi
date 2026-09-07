@@ -1,0 +1,95 @@
+// Domain model — see ARQUITETURA.md §5.
+//
+// Conventions:
+// - Every monetary value is an integer in cents (AD-07). Never Float/Decimal.
+// - Every table carrying `organizationId` has RLS enabled (AD-02) — see
+//   src/db/migrations/*_rls/migration.sql.
+// - snake_case column/table names in the database, camelCase in the client.
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- enums
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+
+  @@map("user_role")
+}
+
+enum PersonType {
+  INDIVIDUAL
+  COMPANY
+
+  @@map("person_type")
+}
+
+// -------------------------------------------------------------- entities
+
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  document  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users    User[]
+  contacts Contact[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  email          String   @unique
+  passwordHash   String   @map("password_hash")
+  role           UserRole @default(ADMIN)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sessions     Session[]
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Contact {
+  id             String     @id @default(uuid()) @db.Uuid
+  organizationId String     @map("organization_id") @db.Uuid
+  name           String
+  document       String
+  personType     PersonType @map("person_type")
+  phone          String?
+  email          String?
+  city           String?
+  state          String?
+  active         Boolean    @default(true)
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, document])
+  @@index([organizationId])
+  @@map("contacts")
+}

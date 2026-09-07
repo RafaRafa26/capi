@@ -8,12 +8,20 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { requireSessionOrRedirect } from "@/modules/auth/session";
 
-export default function AppLayout({ children }: LayoutProps<"/">) {
+export default async function AppLayout({ children }: LayoutProps<"/">) {
+  const session = await requireSessionOrRedirect();
+
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar />
+        <AppSidebar
+          organizationName={session.organizationName}
+          organizationDocument={session.organizationDocument}
+          userName={session.name}
+          userEmail={session.email}
+        />
         <SidebarInset>
           <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 rounded-t-xl border-b bg-background transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
             <div className="flex items-center gap-2 px-4">

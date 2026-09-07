@@ -13,34 +13,48 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { organizacao, usuario } from "@/lib/mock/dashboard"
 import {
   LayoutGridIcon,
   RefreshCwIcon,
   BanknoteIcon,
+  UsersIcon,
 } from "lucide-react"
 
-const data = {
-  teams: [
-    {
-      name: organizacao.nome,
-      logo: <span className="text-sm font-semibold">C</span>,
-      plan: organizacao.documento,
-    },
-  ],
-  navFinanceiro: [
-    { title: "Conciliação bancária", url: "/reconciliation", icon: <RefreshCwIcon /> },
-    { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
-  ],
+const navFinanceiro = [
+  { title: "Conciliação bancária", url: "/reconciliation", icon: <RefreshCwIcon /> },
+  { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
+]
+
+const navCadastros = [{ title: "Contatos", url: "/contacts", icon: <UsersIcon /> }]
+
+export interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  organizationName: string
+  organizationDocument: string
+  userName: string
+  userEmail: string
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  organizationName,
+  organizationDocument,
+  userName,
+  userEmail,
+  ...props
+}: AppSidebarProps) {
   const pathname = usePathname()
 
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
+        <TeamSwitcher
+          teams={[
+            {
+              name: organizationName,
+              logo: <span className="text-sm font-semibold">C</span>,
+              plan: organizationDocument,
+            },
+          ]}
+        />
       </SidebarHeader>
       <SidebarContent>
         <NavMain
@@ -55,14 +69,21 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         />
         <NavMain
           label="Financeiro"
-          items={data.navFinanceiro.map((item) => ({
+          items={navFinanceiro.map((item) => ({
+            ...item,
+            isActive: pathname === item.url,
+          }))}
+        />
+        <NavMain
+          label="Cadastros"
+          items={navCadastros.map((item) => ({
             ...item,
             isActive: pathname === item.url,
           }))}
         />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={{ name: usuario.nome, email: usuario.email, avatar: "" }} />
+        <NavUser user={{ name: userName, email: userEmail, avatar: "" }} />
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
