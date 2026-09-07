@@ -1,5 +1,7 @@
 "use client"
 
+import { useTheme } from "next-themes"
+
 import {
   Avatar,
   AvatarFallback,
@@ -12,6 +14,9 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -20,7 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
+import { ChevronsUpDownIcon, SparklesIcon, BadgeCheckIcon, CreditCardIcon, BellIcon, LogOutIcon, SunIcon, MoonIcon, MonitorIcon } from "lucide-react"
 
 function getInitials(name: string) {
   return name
@@ -41,6 +46,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const { theme, setTheme } = useTheme()
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -105,6 +111,26 @@ export function NavUser({
                 />
                 Notifications
               </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  {theme === "light" ? <SunIcon /> : <MoonIcon />}
+                  Tema
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  <DropdownMenuItem onClick={() => setTheme("light")}>
+                    <SunIcon />
+                    Claro
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("dark")}>
+                    <MoonIcon />
+                    Escuro
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTheme("system")}>
+                    <MonitorIcon />
+                    Sistema
+                  </DropdownMenuItem>
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem>

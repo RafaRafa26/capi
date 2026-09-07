@@ -11,6 +11,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,25 +37,27 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarInset>
-              <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 rounded-t-xl border-b bg-background transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-                <div className="flex items-center gap-2 px-4">
-                  <SidebarTrigger className="-ml-1" />
-                  <Separator
-                    orientation="vertical"
-                    className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-                  />
-                  <PageTitle />
-                </div>
-                <div className="px-4">
-                  <RegisterMenu />
-                </div>
-              </header>
-              {children}
-            </SidebarInset>
-          </SidebarProvider>
+          <TooltipProvider>
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 rounded-t-xl border-b bg-background transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+                  <div className="flex items-center gap-2 px-4">
+                    <SidebarTrigger className="-ml-1" />
+                    <Separator
+                      orientation="vertical"
+                      className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+                    />
+                    <PageTitle />
+                  </div>
+                  <div className="px-4">
+                    <RegisterMenu />
+                  </div>
+                </header>
+                {children}
+              </SidebarInset>
+            </SidebarProvider>
+          </TooltipProvider>
         </ThemeProvider>
       </body>
     </html>
