@@ -29,8 +29,8 @@ const data = {
     },
   ],
   navFinanceiro: [
-    { title: "Conciliação bancária", url: "/reconciliation", icon: <RefreshCwIcon /> },
-    { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
+    { title: "Conciliação bancária", url: "/conciliacao", icon: <RefreshCwIcon /> },
+    { title: "Repasses", url: "/repasses", icon: <BanknoteIcon /> },
   ],
 }
 
@@ -47,9 +47,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           items={[
             {
               title: "Visão geral",
-              url: "/dashboard",
+              url: "/visao-geral",
               icon: <LayoutGridIcon />,
-              isActive: pathname === "/dashboard",
+              isActive: pathname === "/visao-geral",
             },
           ]}
         />

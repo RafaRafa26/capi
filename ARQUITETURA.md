@@ -11,9 +11,9 @@
 
 **Parágrafo-síntese:** o sistema ajuda empresas de BPO financeiro e afins a controlar recebimentos e repasses de terceiros num único lugar; diferente do modelo de uma planilha por cliente, ele mantém uma conta corrente por favorecido cujo saldo é consequência dos movimentos conciliados, eliminando a soma manual e o erro silencioso.
 
-**Primeiro usuário:** BPO financeiro com 8 fazendas em carteira, cada uma com dezenas de contratos de venda de gado parcelada, recebidos via Asaas e repassados integralmente.
+**Primeiro usuário:** BPO financeiro com 8 fazendas em carteira, cada uma com dezenas de vendas de gado parceladas, recebidas via Asaas e repassadas integralmente.
 
-**Mercado adjacente (mesmo problema, outra roupa):** imobiliárias (aluguel → locador), construtoras (despesa de obra → cliente), escritórios de advocacia (custas → cliente), administradoras de condomínio. O vocabulário do domínio é deliberadamente genérico — *favorecido*, *contrato*, *destinação* — para atender todos sem gambiarra.
+**Mercado adjacente (mesmo problema, outra roupa):** imobiliárias (aluguel → locador), construtoras (despesa de obra → cliente), escritórios de advocacia (custas → cliente), administradoras de condomínio. O vocabulário do domínio é deliberadamente genérico — *favorecido*, *venda*, *destinação* — para atender todos sem gambiarra.
 
 **O que o sistema NÃO é (v1):** não emite cobrança, boleto ou PIX. Não integra com API de banco. Não emite documento fiscal. Não faz DRE nem contabilidade. Não compete com Nibo ou Conta Azul em amplitude — compete com a planilha, e precisa ser bom o bastante para substituí-la.
 
@@ -49,9 +49,9 @@ Se esse número for negativo ou não bater com a expectativa, há erro de lança
 1. Cadastro de organizações e usuários, com isolamento total de dados entre organizações.
 2. Cadastro de contatos com múltiplos papéis (pagador, favorecido, fornecedor).
 3. Cadastro de contas bancárias — próprias e de terceiros — e categorias de receita/despesa.
-4. Cadastro de contratos com itens, partes, valor total e geração automática das parcelas.
-5. Criação manual de lançamentos de recebimento e de pagamento, avulsos ou vinculados a contrato.
-6. Definição de destinação por lançamento de recebimento: um ou mais favorecidos, por percentual ou valor fixo, incluindo a própria organização como destinatária.
+4. Cadastro de vendas — cliente, categoria, descrição, valor, vencimento, forma de pagamento e conta de recebimento — com geração automática das parcelas.
+5. Criação manual de lançamentos de recebimento e de pagamento, avulsos ou vinculados a uma venda.
+6. Repasse opcional por venda: quando habilitado, um ou mais favorecidos recebem por percentual ou valor fixo. Quando não habilitado, o valor recebido é integralmente da organização e nenhuma destinação é gerada.
 7. Importação de extrato bancário em OFX, com prevenção de duplicidade.
 8. Conciliação de transação bancária com um ou mais lançamentos, incluindo ajuste de juros, multa e desconto na própria tela.
 9. Baixa manual de uma ou mais parcelas pagas diretamente ao favorecido, sem gerar crédito de repasse.
@@ -80,19 +80,19 @@ Numeradas para referência em código, testes e conversas.
 
 **RN-01 — Origem do crédito.** Saldo de custódia só é creditado quando um lançamento de recebimento é conciliado com uma transação bancária de entrada em conta própria. Lançamento previsto, vencido ou em aberto **não** gera saldo.
 
-**RN-01a — Baixa manual não gera custódia.** Recebimento liquidado por baixa manual quita a parcela e atualiza a posição do contrato, mas **não gera movimento de custódia nem afeta o caixa**. O dinheiro foi direto para o dono da fazenda — a organização não recebeu nada e não tem o que repassar.
+**RN-01a — Baixa manual não gera custódia.** Recebimento liquidado por baixa manual quita a parcela e atualiza a posição da venda, mas **não gera movimento de custódia nem afeta o caixa**. O dinheiro foi direto para o dono da fazenda — a organização não recebeu nada e não tem o que repassar.
 
 **RN-02 — Valor do crédito.** O crédito é sempre o valor **efetivamente recebido** (líquido conciliado, incluindo juros e multa), nunca o valor previsto.
 
 **RN-03 — Juros, multa e desconto.** Pertencem ao favorecido no modelo de repasse integral. São informados na tela de conciliação para que o valor do lançamento feche com a transação bancária, e compõem o crédito.
 
-**RN-04 — Destinação.** Todo lançamento de recebimento tem uma ou mais linhas de destinação. A soma das linhas deve corresponder a 100% do valor recebido. A parcela retida pela empresa é uma linha de destinação apontando para a própria organização — não existe mecanismo separado para retenção.
+**RN-04 — Destinação é opcional.** Uma venda pode ou não ter repasse. Quando não tem, seus lançamentos de recebimento não têm nenhuma linha de destinação — o valor recebido é integralmente da organização, sem mecanismo separado de retenção. Quando tem, cada lançamento de recebimento carrega uma ou mais linhas de destinação cuja soma deve corresponder a exatamente 100% do valor recebido. Não existe estado intermediário: é zero linhas ou soma igual a 100%.
 
 **RN-05 — Rateio em recebimento parcial.** Quando um recebimento com múltiplas destinações é conciliado por valor inferior ao previsto, o sistema **propõe** a divisão proporcional mas **exige confirmação ou ajuste manual** antes de creditar. O sistema nunca decide a divisão sozinho. A decisão fica registrada com usuário e data.
 
 **RN-06 — Recebimento parcial.** Conciliação por valor menor que o previsto deixa o lançamento com status `PARCIAL` e saldo em aberto, disponível para nova conciliação futura.
 
-**RN-07 — Quitação antecipada.** Uma transação bancária pode ser conciliada com múltiplos lançamentos de recebimento do mesmo contrato, quitando várias parcelas de uma vez.
+**RN-07 — Quitação antecipada.** Uma transação bancária pode ser conciliada com múltiplos lançamentos de recebimento da mesma venda, quitando várias parcelas de uma vez.
 
 **RN-08 — Repasse agrupado.** Uma transação bancária de saída pode ser conciliada com múltiplos lançamentos de pagamento. A soma dos valores conciliados deve ser igual ao valor da transação.
 
@@ -112,9 +112,9 @@ Numeradas para referência em código, testes e conversas.
 
 **RN-16 — Deduplicação de extrato.** Transação bancária é única por (conta bancária + identificador do banco). Reimportar o mesmo arquivo OFX não cria duplicatas.
 
-**RN-17 — Geração de parcelas.** Ao criar um contrato com N parcelas, o sistema gera N lançamentos de recebimento numerados, com vencimentos e valores conforme definido, editáveis individualmente antes da conciliação. A base do parcelamento é sempre o `valor_total` do contrato.
+**RN-17 — Geração de parcelas.** Ao criar uma venda com N parcelas, o sistema gera N lançamentos de recebimento numerados, com vencimentos e valores conforme definido, editáveis individualmente antes da conciliação. A base do parcelamento é sempre o `valor` da venda.
 
-**RN-19 — Itens são opcionais.** Um contrato pode existir sem itens. Quando houver, a divergência entre a soma dos itens e o `valor_total` gera aviso, nunca bloqueio.
+**RN-19 — Retirada.** Existia para o detalhamento em itens do antigo `Contrato`. Removida junto com `ItemContrato` quando o conceito de contrato foi substituído por Venda (§5.1) — Venda não tem itens.
 
 **RN-20 — Baixa manual.** Parcelas pagas diretamente ao dono da fazenda — em espécie ou na conta pessoal dele — são liquidadas por baixa manual, sem transação bancária. O usuário seleciona uma ou mais parcelas, informa data e valor recebido, opcionalmente a conta de terceiro onde caiu, e conclui a baixa. Aplicam-se as regras de recebimento parcial (RN-06) e de juros e multa (RN-03); **não** se aplica rateio (RN-05), porque nenhum crédito é gerado.
 
@@ -134,11 +134,12 @@ erDiagram
     ORGANIZACAO ||--o{ CONTATO : tem
     ORGANIZACAO ||--o{ CONTA_BANCARIA : tem
     ORGANIZACAO ||--o{ CATEGORIA : tem
-    ORGANIZACAO ||--o{ CONTRATO : tem
+    ORGANIZACAO ||--o{ VENDA : tem
 
-    CONTRATO ||--o{ ITEM_CONTRATO : contem
-    CONTRATO ||--o{ LANCAMENTO : gera
-    CONTATO ||--o{ CONTRATO : "comprador/vendedor"
+    VENDA ||--o{ LANCAMENTO : gera
+    VENDA }o--|| CATEGORIA : classifica
+    VENDA }o--|| CONTA_BANCARIA : "conta de recebimento"
+    CONTATO ||--o{ VENDA : cliente
 
     LANCAMENTO ||--o{ DESTINACAO : define
     LANCAMENTO ||--o{ LIQUIDACAO : possui
@@ -172,27 +173,21 @@ erDiagram
 
 **Categoria** — `id`, `organizacao_id`, `nome`, `tipo` (RECEITA | DESPESA).
 
-**Contrato** — `id`, `organizacao_id`, `numero`, `comprador_id`, `vendedor_id`, `propriedade`, `data`, `valor_total`, `quantidade_parcelas`, `observacoes`, `status`.
+**Venda** — `id`, `organizacao_id`, `numero`, `cliente_id`, `categoria_id`, `descricao`, `valor`, `vencimento`, `forma_pagamento`, `conta_bancaria_id`, `quantidade_parcelas`, `status`.
 
-> `propriedade` é o nome da fazenda (ou imóvel, obra, processo — conforme o segmento) a que o contrato se refere. Fica no contrato, não no contato, porque um mesmo vendedor pode ter mais de uma propriedade e vender de cada uma delas.
+> Agrupa as parcelas que gera — cada uma é um `Lancamento` com `venda_id`. Sem itens, sem propriedade/fazenda, sem vendedor explícito: quem recebe é definido pelas `Destinacao` das suas parcelas (RN-04), não por um campo da venda. `valor` é sempre a fonte da verdade e é ele que define as parcelas (RN-17).
 >
-> Os dados das partes — nome, documento, telefone, e-mail, cidade e estado — vivem em `Contato` e são exibidos na tela do contrato por referência, nunca copiados. Assim, corrigir um telefone atualiza todos os contratos daquela pessoa de uma vez.
+> Substitui o antigo `Contrato`/`ItemContrato`. A mudança existe porque o vocabulário de contrato — partes, propriedade, itens — carregava campos que nenhuma tela usa; venda descreve exatamente o que é cadastrado hoje em `/vendas/nova`.
 
-**ItemContrato** — `id`, `contrato_id`, `descricao`, `quantidade`, `valor_unitario`.
+**Lancamento** — a previsão de movimento. `id`, `organizacao_id`, `tipo` (RECEBIMENTO | PAGAMENTO | TRANSFERENCIA), `venda_id?`, `contato_id?`, `categoria_id?`, `conta_bancaria_id?`, `numero_parcela?`, `vencimento`, `valor_previsto`, `juros`, `multa`, `desconto`, `valor_liquidado`, `status` (PREVISTO | PARCIAL | LIQUIDADO | CANCELADO), `lancamento_par_id?` (perna oposta de transferência), `descricao?`.
 
-> **Opcional.** Um contrato é válido sem nenhum item. Os itens são detalhamento descritivo — úteis para saber o que foi vendido, irrelevantes para o fluxo financeiro. O `valor_total` do contrato é sempre a fonte da verdade e é ele que define as parcelas.
->
-> Se houver itens e a soma deles não bater com o `valor_total`, o sistema **avisa mas não bloqueia** — a divergência pode ser legítima (frete, desconto negociado, arredondamento), e travar o cadastro por isso atrapalharia mais do que ajudaria. O aviso existe só para você não descobrir um erro de digitação três meses depois.
-
-**Lancamento** — a previsão de movimento. `id`, `organizacao_id`, `tipo` (RECEBIMENTO | PAGAMENTO | TRANSFERENCIA), `contrato_id?`, `contato_id?`, `categoria_id?`, `conta_bancaria_id?`, `numero_parcela?`, `vencimento`, `valor_previsto`, `juros`, `multa`, `desconto`, `valor_liquidado`, `status` (PREVISTO | PARCIAL | LIQUIDADO | CANCELADO), `lancamento_par_id?` (perna oposta de transferência), `descricao?`.
-
-> **Transferência é o caso simples.** Exige apenas valor, conta de origem, conta de destino e uma descrição gerada automaticamente no formato *"Transferência de [conta A] para [conta B]"*. Não tem contato, não tem categoria, não tem contrato, não tem destinação — por isso esses campos são opcionais na entidade e a validação exigida varia conforme o `tipo`.
+> **Transferência é o caso simples.** Exige apenas valor, conta de origem, conta de destino e uma descrição gerada automaticamente no formato *"Transferência de [conta A] para [conta B]"*. Não tem contato, não tem categoria, não tem venda, não tem destinação — por isso esses campos são opcionais na entidade e a validação exigida varia conforme o `tipo`.
 >
 > Criada pela tela de conciliação, a transferência **não pede o valor**: ele é o da própria transação bancária que está sendo conciliada. Nesse caso o usuário informa apenas a conta contrária — a outra ponta do movimento.
 >
-> Recebimento e pagamento seguem a exigência oposta: contato e categoria são obrigatórios, e recebimento exige destinação.
+> Recebimento e pagamento seguem a exigência oposta: contato e categoria são obrigatórios. Destinação é opcional em ambos (RN-04) — a venda decide se há repasse, não o lançamento.
 
-**Destinacao** — como o recebimento se divide. `id`, `lancamento_id`, `favorecido_id`, `modo` (PERCENTUAL | VALOR_FIXO), `valor`, `ordem`.
+**Destinacao** — como o recebimento se divide, quando há repasse. `id`, `lancamento_id`, `favorecido_id`, `modo` (PERCENTUAL | VALOR_FIXO), `valor`, `ordem`. Ausência de linhas para um lançamento significa que o valor recebido é integralmente da organização.
 
 **Importacao** — `id`, `organizacao_id`, `conta_bancaria_id`, `arquivo`, `periodo_inicio`, `periodo_fim`, `importado_em`, `usuario_id`.
 
@@ -208,7 +203,7 @@ erDiagram
 
 ### 5.2 Invariantes do modelo
 
-- Soma das destinações de um lançamento = 100% do valor.
+- Soma das destinações de um lançamento é zero (sem repasse) ou 100% do valor — nunca um valor intermediário.
 - Campos obrigatórios variam por tipo: recebimento e pagamento exigem contato e categoria; transferência exige apenas as duas contas.
 - Transferência não tem destinação e nunca gera movimento de custódia.
 - Soma dos `valor_conciliado` de uma transação ≤ |valor da transação|.
@@ -286,7 +281,7 @@ erDiagram
 src/
   app/                    ← rotas, telas, server actions (BORDA)
   modules/
-    contratos/
+    vendas/
       dominio/            ← regras puras, sem I/O
       servicos/           ← orquestração + transação de banco
       repositorio.ts      ← acesso a dados
@@ -351,10 +346,10 @@ Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase
 **Tarefas:** contas bancárias · categorias · papéis e dados bancários no contato.
 **Pronto quando:** é possível cadastrar uma conta bancária, três categorias e um contato completo — documento, telefone, e-mail, cidade, estado, dados bancários — com papel de favorecido.
 
-### Fase 3 — Contratos e parcelas
-**Objetivo:** registrar um contrato de venda e ver suas parcelas geradas.
-**Tarefas:** entidades `Contrato` e `ItemContrato` (itens opcionais) · geração de parcelas a partir do `valor_total` (RN-17) · listagem de contratos com posição de recebimento · edição de parcela individual.
-**Pronto quando:** cadastrar um contrato de 12 parcelas gera 12 lançamentos corretos, a tela do contrato mostra os dados completos de comprador e vendedor com a propriedade, e exibe quanto já foi recebido e quanto falta.
+### Fase 3 — Vendas e parcelas
+**Objetivo:** registrar uma venda e ver suas parcelas geradas.
+**Tarefas:** entidade `Venda` (cliente, categoria, descrição, valor, vencimento, forma de pagamento, conta de recebimento) · geração de parcelas a partir do `valor` (RN-17) · repasse opcional por percentual ou valor fixo (RN-04) · listagem de vendas com posição de recebimento.
+**Pronto quando:** cadastrar uma venda de 12 parcelas gera 12 lançamentos corretos que somam exatamente o valor total, e a tela da venda exibe quanto já foi recebido e quanto falta.
 
 ### Fase 4 — Lançamentos e destinações
 **Objetivo:** lançamento manual completo, com a divisão entre favorecidos definida.
@@ -369,7 +364,7 @@ Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase
 ### Fase 6 — Liquidação de recebimento
 **Objetivo:** o coração do sistema — recebimento vira crédito na custódia, pelos dois caminhos possíveis.
 **Tarefas:** tela de conciliação com busca de lançamentos candidatos · ajuste de juros, multa e desconto (RN-03) · recebimento parcial (RN-06) · quitação múltipla (RN-07) · confirmação de rateio em parcial (RN-05) · baixa manual de uma ou mais parcelas com data, valor e conta de terceiro opcional (RN-20, RN-21) · geração dos movimentos de custódia dentro de transação, apenas na conciliação de extrato (RN-01, RN-01a) · desfazer liquidação (RN-12, RN-22) · testes das RN-01 a RN-07 e RN-20 a RN-22.
-**Pronto quando:** conciliar um recebimento com juros credita o favorecido pelo valor efetivamente recebido; dar baixa manual de outra parcela do mesmo contrato quita a parcela e **não** altera em nada o saldo de custódia; e desfazer qualquer uma das duas devolve o lançamento ao status anterior.
+**Pronto quando:** conciliar um recebimento com juros credita o favorecido pelo valor efetivamente recebido; dar baixa manual de outra parcela da mesma venda quita a parcela e **não** altera em nada o saldo de custódia; e desfazer qualquer uma das duas devolve o lançamento ao status anterior.
 
 ### Fase 7 — Repasses
 **Objetivo:** fechar o ciclo do dinheiro.
@@ -395,4 +390,4 @@ Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase
 
 ## 11. Próximo passo
 
-Fase 1, primeira tarefa: **inicializar o projeto Next.js com TypeScript e subir o Postgres local**, antes de qualquer modelagem no Prisma.
+A interface das Fases 3, 6 e 7 já existe (`/vendas/nova`, `/conciliacao`, `/repasses`), construída a partir do Figma e hoje lendo dados mocados — sem banco, sem autenticação, sem persistência. Fase 1, primeira tarefa: **subir o Postgres local via Docker e modelar o schema Prisma com RLS**, antes de ligar qualquer tela ao banco.

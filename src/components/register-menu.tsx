@@ -22,7 +22,7 @@ export function RegisterMenu() {
         <ChevronDownIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={() => router.push("/new-sale")}>
+        <DropdownMenuItem onClick={() => router.push("/vendas/nova")}>
           Venda
         </DropdownMenuItem>
         <DropdownMenuItem>Despesa</DropdownMenuItem>
