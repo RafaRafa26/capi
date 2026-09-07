@@ -3,13 +3,10 @@
 import { usePathname } from "next/navigation"
 
 const titles: Record<string, string> = {
-  "/visao-geral": "Visão geral",
-  "/vendas/nova": "Nova venda",
-  "/contas-bancarias": "Contas bancárias",
-  "/categorias": "Categorias",
-  "/conciliacao": "Conciliação",
-  "/repasses": "Repasses",
-  "/contatos": "Contatos",
+  "/dashboard": "Visão geral",
+  "/new-sale": "Nova venda",
+  "/reconciliation": "Conciliação",
+  "/payout": "Repasses",
 }
 
 export function PageTitle() {

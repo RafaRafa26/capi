@@ -177,7 +177,7 @@ erDiagram
 
 > Agrupa as parcelas que gera — cada uma é um `Lancamento` com `venda_id`. Sem itens, sem propriedade/fazenda, sem vendedor explícito: quem recebe é definido pelas `Destinacao` das suas parcelas (RN-04), não por um campo da venda. `valor` é sempre a fonte da verdade e é ele que define as parcelas (RN-17).
 >
-> Substitui o antigo `Contrato`/`ItemContrato`. A mudança existe porque o vocabulário de contrato — partes, propriedade, itens — carregava campos que nenhuma tela usa; venda descreve exatamente o que é cadastrado hoje em `/vendas/nova`.
+> Substitui o antigo `Contrato`/`ItemContrato`. A mudança existe porque o vocabulário de contrato — partes, propriedade, itens — carregava campos que nenhuma tela usa; venda descreve exatamente o que é cadastrado hoje em `/new-sale`.
 
 **Lancamento** — a previsão de movimento. `id`, `organizacao_id`, `tipo` (RECEBIMENTO | PAGAMENTO | TRANSFERENCIA), `venda_id?`, `contato_id?`, `categoria_id?`, `conta_bancaria_id?`, `numero_parcela?`, `vencimento`, `valor_previsto`, `juros`, `multa`, `desconto`, `valor_liquidado`, `status` (PREVISTO | PARCIAL | LIQUIDADO | CANCELADO), `lancamento_par_id?` (perna oposta de transferência), `descricao?`.
 
@@ -390,4 +390,4 @@ Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase
 
 ## 11. Próximo passo
 
-A interface das Fases 3, 6 e 7 já existe (`/vendas/nova`, `/conciliacao`, `/repasses`), construída a partir do Figma e hoje lendo dados mocados — sem banco, sem autenticação, sem persistência. Fase 1, primeira tarefa: **subir o Postgres local via Docker e modelar o schema Prisma com RLS**, antes de ligar qualquer tela ao banco.
+A interface das Fases 3, 6 e 7 já existe (`/new-sale`, `/reconciliation`, `/payout`), construída a partir do Figma e hoje lendo dados mocados — sem banco, sem autenticação, sem persistência. Fase 1, primeira tarefa: **subir o Postgres local via Docker e modelar o schema Prisma com RLS**, antes de ligar qualquer tela ao banco.

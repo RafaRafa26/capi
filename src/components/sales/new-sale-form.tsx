@@ -702,10 +702,10 @@ export function NewSaleForm() {
       </div>
 
       <div className="sticky bottom-0 z-10 -mx-4 flex justify-end gap-2 border-t bg-background px-4 py-4">
-        <Button variant="outline" onClick={() => router.push("/visao-geral")}>
+        <Button variant="outline" onClick={() => router.push("/dashboard")}>
           Cancelar
         </Button>
-        <Button onClick={() => router.push("/visao-geral")}>Salvar</Button>
+        <Button onClick={() => router.push("/dashboard")}>Salvar</Button>
       </div>
     </div>
   )
