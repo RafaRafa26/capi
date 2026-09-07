@@ -50,9 +50,10 @@ export function ReceivableCard({
                 <ScrollArea className="h-72 pr-4">
                   <div className="space-y-4">
                     {bucket.itens.map((item, index) => (
-                      <div
+                      <a
                         key={index}
-                        className="flex items-center justify-between gap-4 text-sm"
+                        href="#"
+                        className="-mx-2 flex items-center justify-between gap-4 rounded-2xl px-2 py-1.5 text-sm transition-colors hover:bg-accent"
                       >
                         <div className="min-w-0">
                           <p className="truncate font-medium">{item.contato}</p>
@@ -63,7 +64,7 @@ export function ReceivableCard({
                         <span className="shrink-0 font-medium">
                           {formatBRL(item.valor)}
                         </span>
-                      </div>
+                      </a>
                     ))}
                   </div>
                 </ScrollArea>

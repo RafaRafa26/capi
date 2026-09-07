@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { CartesianGrid, Line, LineChart, XAxis } from "recharts"
 import type { DateRange } from "react-day-picker"
 import { ptBR } from "date-fns/locale"
 
@@ -11,12 +10,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
+import { Grid } from "@/components/charts/grid"
+import { Line, LineChart } from "@/components/charts/line-chart"
+import { ChartTooltip } from "@/components/charts/tooltip"
+import { XAxis } from "@/components/charts/x-axis"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -41,7 +38,7 @@ const chartConfig = {
     label: "Saídas",
     color: "var(--color-red-500)",
   },
-} satisfies ChartConfig
+}
 
 const valueClassName: Record<keyof typeof chartConfig, string> = {
   saldo: "",
@@ -136,42 +133,34 @@ export function ChartCashFlow() {
             )
           )}
         </div>
-        <ChartContainer config={chartConfig} className="aspect-auto h-62.5 w-full">
+        <div className="h-62.5 w-full">
           <LineChart
-            accessibilityLayer
+            aspectRatio=""
+            className="h-full"
             data={filteredData}
-            margin={{ left: 12, right: 12 }}
+            margin={{ left: 12, right: 12, top: 24, bottom: 28 }}
+            xDataKey="data"
           >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="data"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
-              tickFormatter={(value) => formatDayMonth(value)}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  labelFormatter={(_, payload) =>
-                    formatDayMonth(
-                      (payload?.[0]?.payload as { data: Date })?.data
-                    )
-                  }
-                  formatter={(value) => formatBRL(value as number)}
-                />
-              }
-            />
+            <Grid />
+            <XAxis />
             <Line
               dataKey={activeSeries}
-              type="monotone"
-              stroke={`var(--color-${activeSeries})`}
+              stroke={chartConfig[activeSeries].color}
               strokeWidth={2}
-              dot={false}
+            />
+            <ChartTooltip
+              showCrosshair={false}
+              showDatePill={false}
+              rows={(point) => [
+                {
+                  color: chartConfig[activeSeries].color,
+                  label: chartConfig[activeSeries].label,
+                  value: formatBRL(point[activeSeries] as number),
+                },
+              ]}
             />
           </LineChart>
-        </ChartContainer>
+        </div>
         <a
           href="#"
           className="mt-4 inline-block text-sm font-medium text-primary hover:underline"
