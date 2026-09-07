@@ -7,6 +7,7 @@ const titles: Record<string, string> = {
   "/new-sale": "Nova venda",
   "/reconciliation": "Conciliação",
   "/payout": "Repasses",
+  "/contacts": "Contatos",
 }
 
 export function PageTitle() {

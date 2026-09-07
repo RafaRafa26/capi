@@ -2,6 +2,7 @@
 
 import { useTheme } from "next-themes"
 
+import { signOutAction } from "@/app/(auth)/login/actions"
 import {
   Avatar,
   AvatarFallback,
@@ -133,7 +134,7 @@ export function NavUser({
               </DropdownMenuSub>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOutAction()}>
               <LogOutIcon
               />
               Log out
