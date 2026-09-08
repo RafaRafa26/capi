@@ -48,7 +48,7 @@ Se esse número for negativo ou não bater com a expectativa, há erro de lança
 
 1. Cadastro de organizações e usuários, com isolamento total de dados entre organizações.
 2. Cadastro de contatos, cada um com um único tipo — cliente, fornecedor, favorecido, funcionário ou sócio.
-3. Cadastro de contas bancárias da organização e categorias de receita/despesa, com subcategorias.
+3. Cadastro de contas bancárias — próprias e de terceiros — e categorias de receita/despesa, com subcategorias.
 4. Cadastro de vendas — cliente, categoria, descrição, valor, vencimento, forma de pagamento e conta de recebimento — com geração automática das parcelas.
 5. Criação manual de lançamentos de recebimento e de pagamento, avulsos ou vinculados a uma venda.
 6. Repasse opcional por venda: quando habilitado, um ou mais favorecidos recebem por percentual ou valor fixo. Quando não habilitado, o valor recebido é integralmente da organização e nenhuma destinação é gerada.
