@@ -10,7 +10,9 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/db/seed.ts",
+    "db:create-admin": "tsx src/db/create-admin.ts",
     "test": "vitest run"
   },
   "dependencies": {
