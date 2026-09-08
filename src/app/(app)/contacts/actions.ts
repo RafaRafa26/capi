@@ -11,15 +11,8 @@ export async function createContactAction(form: FormData): Promise<Result> {
   try {
     const session = await requireSession();
 
-    const parsed = contactInputSchema.safeParse({
-      name: String(form.get("name") ?? ""),
-      document: String(form.get("document") ?? ""),
-      personType: String(form.get("personType") ?? ""),
-      phone: String(form.get("phone") ?? ""),
-      email: String(form.get("email") ?? ""),
-      city: String(form.get("city") ?? ""),
-      state: String(form.get("state") ?? ""),
-    });
+    const payload = JSON.parse(String(form.get("payload") ?? "{}"));
+    const parsed = contactInputSchema.safeParse(payload);
 
     if (!parsed.success) {
       const issue = parsed.error.issues[0];

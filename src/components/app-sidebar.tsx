@@ -18,6 +18,8 @@ import {
   RefreshCwIcon,
   BanknoteIcon,
   UsersIcon,
+  LandmarkIcon,
+  TagIcon,
 } from "lucide-react"
 
 const navFinanceiro = [
@@ -25,7 +27,11 @@ const navFinanceiro = [
   { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
 ]
 
-const navCadastros = [{ title: "Contatos", url: "/contacts", icon: <UsersIcon /> }]
+const navCadastros = [
+  { title: "Contatos", url: "/contacts", icon: <UsersIcon /> },
+  { title: "Contas bancárias", url: "/bank-accounts", icon: <LandmarkIcon /> },
+  { title: "Categorias", url: "/categories", icon: <TagIcon /> },
+]
 
 export interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   organizationName: string

@@ -15,6 +15,8 @@ export type TestOrg = {
   id: string;
   userId: string;
   contactId: string;
+  bankAccountId: string;
+  categoryId: string;
 };
 
 let counter = 0;
@@ -42,10 +44,33 @@ export async function createTestOrganization(label: string): Promise<TestOrg> {
       name: "Test Contact",
       document: `contact-${suffix}`,
       personType: "INDIVIDUAL",
+      contactType: "CLIENT",
     },
   });
 
-  return { id: organization.id, userId: user.id, contactId: contact.id };
+  const bankAccount = await prismaAdmin.bankAccount.create({
+    data: {
+      organizationId: organization.id,
+      name: "Test Bank Account",
+      bank: "Test Bank",
+      branchNumber: "0001",
+      accountNumber: `acc-${suffix}`,
+      holderType: "COMPANY",
+      controlStartDate: new Date(),
+    },
+  });
+
+  const category = await prismaAdmin.category.create({
+    data: { organizationId: organization.id, name: `Test Category ${suffix}`, type: "INCOME" },
+  });
+
+  return {
+    id: organization.id,
+    userId: user.id,
+    contactId: contact.id,
+    bankAccountId: bankAccount.id,
+    categoryId: category.id,
+  };
 }
 
 export async function removeTestOrganizations(ids: string[]) {
