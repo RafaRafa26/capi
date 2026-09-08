@@ -696,6 +696,7 @@ function SidebarMenuSubButton({
 }
 
 export {
+  SIDEBAR_COOKIE_NAME,
   Sidebar,
   SidebarContent,
   SidebarFooter,
