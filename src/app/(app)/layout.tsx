@@ -1,8 +1,11 @@
+import { cookies } from "next/headers";
+
 import { AppSidebar } from "@/components/app-sidebar";
 import { PageTitle } from "@/components/page-title";
 import { RegisterMenu } from "@/components/register-menu";
 import { Separator } from "@/components/ui/separator";
 import {
+  SIDEBAR_COOKIE_NAME,
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
@@ -12,10 +15,11 @@ import { requireSessionOrRedirect } from "@/modules/auth/session";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
   const session = await requireSessionOrRedirect();
+  const sidebarState = (await cookies()).get(SIDEBAR_COOKIE_NAME)?.value;
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={sidebarState !== "false"}>
         <AppSidebar
           organizationName={session.organizationName}
           organizationDocument={session.organizationDocument}
