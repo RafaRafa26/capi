@@ -52,6 +52,7 @@ describe("row level security (AD-02)", () => {
             name: "Should not be allowed",
             document: `leak-${Date.now()}`,
             personType: "INDIVIDUAL",
+            contactType: "CLIENT",
           },
         }),
       ),
@@ -63,5 +64,23 @@ describe("row level security (AD-02)", () => {
       where: { id: { in: [orgA.contactId, orgB.contactId] } },
     });
     expect(all).toHaveLength(2);
+  });
+});
+
+describe("row level security — bank accounts and categories (AD-02)", () => {
+  it("one organization does not see the other's bank accounts", async () => {
+    const fromA = await withOrganization(orgA.id, (tx) => tx.bankAccount.findMany({}));
+    const idsFromA = new Set(fromA.map((a) => a.id));
+
+    expect(idsFromA.has(orgA.bankAccountId)).toBe(true);
+    expect(idsFromA.has(orgB.bankAccountId)).toBe(false);
+  });
+
+  it("one organization does not see the other's categories", async () => {
+    const fromA = await withOrganization(orgA.id, (tx) => tx.category.findMany({}));
+    const idsFromA = new Set(fromA.map((c) => c.id));
+
+    expect(idsFromA.has(orgA.categoryId)).toBe(true);
+    expect(idsFromA.has(orgB.categoryId)).toBe(false);
   });
 });

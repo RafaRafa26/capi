@@ -42,14 +42,25 @@ async function main() {
       {
         organizationId: organization.id,
         name: "Fazenda Santa Rita",
+        legalName: "Fazenda Santa Rita Agropecuária Ltda",
         document: "12.345.678/0001-90",
         personType: "COMPANY",
+        contactType: "BENEFICIARY",
+        bankDetails: {
+          pixKey: "12.345.678/0001-90",
+          bank: "001 - Banco do Brasil",
+          branchNumber: "1234",
+          accountNumber: "56789-0",
+          accountType: "Conta Corrente",
+          accountHolder: "Fazenda Santa Rita Agropecuária Ltda",
+        },
       },
       {
         organizationId: organization.id,
         name: "Paulo Roberto da Silva",
         document: "123.456.789-00",
         personType: "INDIVIDUAL",
+        contactType: "CLIENT",
       },
     ],
   });

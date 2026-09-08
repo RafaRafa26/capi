@@ -8,6 +8,8 @@ const titles: Record<string, string> = {
   "/reconciliation": "Conciliação",
   "/payout": "Repasses",
   "/contacts": "Contatos",
+  "/bank-accounts": "Contas bancárias",
+  "/categories": "Categorias",
 }
 
 export function PageTitle() {

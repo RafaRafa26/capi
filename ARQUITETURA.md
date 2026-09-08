@@ -33,10 +33,10 @@ Taxas do Asaas, aportes para cobrir taxas e transferências entre contas própri
 **Equação de conferência:**
 
 ```
-Σ saldos das contas PRÓPRIAS − Σ saldos de custódia = dinheiro próprio da empresa
+Σ saldos das contas bancárias − Σ saldos de custódia = dinheiro próprio da empresa
 ```
 
-Contas de natureza TERCEIRO ficam fora dos dois lados da equação — servem apenas para documentar pagamentos que não transitaram pela organização.
+Toda `ContaBancaria` cadastrada é da organização (§5.1) — dinheiro que não passa por ela, como um pagamento recebido direto na conta pessoal do dono da fazenda, nunca entra no Caixa: não existe uma linha de conta bancária para excluir da equação, porque essa transação nunca teve extrato dentro do sistema. Ela é liquidada por baixa manual (RN-20) e documentada de outro jeito, fora do Caixa.
 
 Se esse número for negativo ou não bater com a expectativa, há erro de lançamento ou conciliação. Esta é a verificação que a planilha nunca ofereceu e é o principal argumento de venda do sistema.
 
@@ -47,8 +47,8 @@ Se esse número for negativo ou não bater com a expectativa, há erro de lança
 ### 3.1 Funcionais — MVP
 
 1. Cadastro de organizações e usuários, com isolamento total de dados entre organizações.
-2. Cadastro de contatos com múltiplos papéis (pagador, favorecido, fornecedor).
-3. Cadastro de contas bancárias — próprias e de terceiros — e categorias de receita/despesa.
+2. Cadastro de contatos, cada um com um único tipo — cliente, fornecedor, favorecido, funcionário ou sócio.
+3. Cadastro de contas bancárias da organização e categorias de receita/despesa, com subcategorias.
 4. Cadastro de vendas — cliente, categoria, descrição, valor, vencimento, forma de pagamento e conta de recebimento — com geração automática das parcelas.
 5. Criação manual de lançamentos de recebimento e de pagamento, avulsos ou vinculados a uma venda.
 6. Repasse opcional por venda: quando habilitado, um ou mais favorecidos recebem por percentual ou valor fixo. Quando não habilitado, o valor recebido é integralmente da organização e nenhuma destinação é gerada.
@@ -135,6 +135,7 @@ erDiagram
     ORGANIZACAO ||--o{ CONTA_BANCARIA : tem
     ORGANIZACAO ||--o{ CATEGORIA : tem
     ORGANIZACAO ||--o{ VENDA : tem
+    CATEGORIA ||--o{ CATEGORIA : subcategoriza
 
     VENDA ||--o{ LANCAMENTO : gera
     VENDA }o--|| CATEGORIA : classifica
@@ -163,15 +164,21 @@ erDiagram
 
 **Usuario** — pertence a uma organização. `id`, `organizacao_id`, `nome`, `email`, `papel`.
 
-**Contato** — pessoa ou empresa. `id`, `organizacao_id`, `nome`, `documento`, `tipo_pessoa`, `telefone`, `email`, `cidade`, `estado`, `dados_bancarios`, `papeis[]` (PAGADOR, FAVORECIDO, FORNECEDOR — um contato pode acumular).
+**Contato** — pessoa ou empresa. `id`, `organizacao_id`, `nome`, `razao_social`, `documento`, `tipo_pessoa` (FISICA | JURIDICA), `tipo_contato` (CLIENTE | FORNECEDOR | FAVORECIDO | FUNCIONARIO | SOCIO), `telefone`, `email`, `cidade`, `estado`, `dados_bancarios`.
 
-**ContaBancaria** — `id`, `organizacao_id`, `nome`, `banco`, `agencia`, `conta`, `natureza` (PROPRIA | TERCEIRO), `saldo_inicial`, `ativa`.
+> `tipo_contato` é único por contato, não um acúmulo de papéis — cada contato tem exatamente um propósito no sistema. `razao_social` só se aplica a pessoa jurídica; nesse caso `nome` passa a guardar o nome fantasia, e `documento` é o CNPJ. Para pessoa física, `nome` é o nome da pessoa e `documento` é o CPF.
 
-> **`natureza`** decide tudo. Conta PRÓPRIA é da organização: tem extrato importável, liquida por conciliação, gera custódia e entra na equação de conferência. Conta de TERCEIRO existe apenas para documentar onde o pagamento caiu — a conta pessoal do dono da fazenda, por exemplo. Não tem extrato, liquida por baixa manual, nunca gera custódia e fica fora da conferência.
+**ContaBancaria** — `id`, `organizacao_id`, `nome`, `banco`, `agencia`, `conta`, `tipo_conta` (CORRENTE | CAIXINHA), `tipo_titular` (FISICA | JURIDICA), `data_inicio_controle`, `saldo_inicial`, `ativa`.
+
+> Toda `ContaBancaria` cadastrada é da organização — não existe mais a distinção PRÓPRIA/TERCEIRO que uma versão anterior deste documento descrevia aqui. `tipo_titular` (PF ou PJ) é sobre em qual CPF/CNPJ a conta está registrada, não sobre a quem ela pertence — uma conta da organização pode estar no CNPJ da empresa ou no CPF de um sócio, por exemplo.
 >
-> Um único atributo governa as duas dimensões porque, na operação real, dinheiro que não passa pela organização nunca tem extrato disponível, e dinheiro que passa sempre tem. Se um dia existir conta própria sem extrato — caixa físico da empresa — será preciso separar as dimensões de novo. Hoje, não existe.
+> `data_inicio_controle` e `saldo_inicial` andam juntos: `saldo_inicial` é o saldo no fim do dia anterior a `data_inicio_controle`, o ponto de partida a partir do qual o sistema passa a acompanhar a conta.
+>
+> **Pendência para a Fase 6:** RN-20 permite informar, na baixa manual, uma "conta de terceiro" onde o pagamento caiu — a conta pessoal do dono da fazenda, por exemplo. Isso não é mais uma `ContaBancaria` (que agora é sempre da organização); será modelado quando a Liquidação for implementada, provavelmente como um campo de documentação mais leve em `Liquidacao`, não como um cadastro completo de conta.
 
-**Categoria** — `id`, `organizacao_id`, `nome`, `tipo` (RECEITA | DESPESA).
+**Categoria** — `id`, `organizacao_id`, `categoria_pai_id?`, `nome`, `tipo` (RECEITA | DESPESA).
+
+> Uma subcategoria é uma Categoria com `categoria_pai_id` preenchido, e sempre herda o `tipo` da categoria-pai — não existe subcategoria de receita dentro de uma categoria de despesa. Subcategoria não tem subcategoria própria: a hierarquia tem no máximo dois níveis.
 
 **Venda** — `id`, `organizacao_id`, `numero`, `cliente_id`, `categoria_id`, `descricao`, `valor`, `vencimento`, `forma_pagamento`, `conta_bancaria_id`, `quantidade_parcelas`, `status`.
 
@@ -344,7 +351,7 @@ Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase
 ### Fase 2 — Cadastros de base
 **Objetivo:** todos os cadastros que os lançamentos precisam.
 **Tarefas:** contas bancárias · categorias · papéis e dados bancários no contato.
-**Pronto quando:** é possível cadastrar uma conta bancária, três categorias e um contato completo — documento, telefone, e-mail, cidade, estado, dados bancários — com papel de favorecido.
+**Pronto quando:** é possível cadastrar uma conta bancária, três categorias e um contato completo — documento, telefone, e-mail, cidade, estado, dados bancários — do tipo Favorecido.
 
 ### Fase 3 — Vendas e parcelas
 **Objetivo:** registrar uma venda e ver suas parcelas geradas.

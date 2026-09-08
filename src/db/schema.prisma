@@ -31,6 +31,30 @@ enum PersonType {
   @@map("person_type")
 }
 
+enum ContactType {
+  CLIENT
+  SUPPLIER
+  BENEFICIARY
+  EMPLOYEE
+  PARTNER
+
+  @@map("contact_type")
+}
+
+enum AccountKind {
+  CHECKING
+  SAVINGS_POCKET
+
+  @@map("account_kind")
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+
+  @@map("category_type")
+}
+
 // -------------------------------------------------------------- entities
 
 model Organization {
@@ -39,8 +63,10 @@ model Organization {
   document  String
   createdAt DateTime @default(now()) @map("created_at")
 
-  users    User[]
-  contacts Contact[]
+  users        User[]
+  contacts     Contact[]
+  bankAccounts BankAccount[]
+  categories   Category[]
 
   @@map("organizations")
 }
@@ -74,22 +100,74 @@ model Session {
   @@map("sessions")
 }
 
+// `name` is the display name: the person's name for an INDIVIDUAL, the trade
+// name ("nome fantasia") for a COMPANY. `legalName` ("razão social") only
+// applies to COMPANY.
 model Contact {
-  id             String     @id @default(uuid()) @db.Uuid
-  organizationId String     @map("organization_id") @db.Uuid
+  id             String      @id @default(uuid()) @db.Uuid
+  organizationId String      @map("organization_id") @db.Uuid
   name           String
+  legalName      String?     @map("legal_name")
   document       String
-  personType     PersonType @map("person_type")
+  personType     PersonType  @map("person_type")
+  contactType    ContactType @map("contact_type")
   phone          String?
   email          String?
   city           String?
   state          String?
-  active         Boolean    @default(true)
-  createdAt      DateTime   @default(now()) @map("created_at")
+  bankDetails    Json?       @map("bank_details")
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
   @@unique([organizationId, document])
   @@index([organizationId])
   @@map("contacts")
+}
+
+// Every row here is one of the organization's own accounts — there is no
+// "third-party account" concept at this level. Documenting where a manual
+// write-off landed (RN-20) belongs to Liquidacao when Fase 6 is built, not
+// to this table.
+model BankAccount {
+  id               String      @id @default(uuid()) @db.Uuid
+  organizationId   String      @map("organization_id") @db.Uuid
+  name             String
+  bank             String
+  branchNumber     String      @map("branch_number")
+  accountNumber    String      @map("account_number")
+  kind             AccountKind @default(CHECKING)
+  holderType       PersonType  @map("holder_type")
+  controlStartDate DateTime    @map("control_start_date") @db.Date
+  // Balance at the end of the day before `controlStartDate` — the opening
+  // balance the app's own ledger starts counting from.
+  initialBalance   Int         @default(0) @map("initial_balance")
+  active           Boolean     @default(true)
+  createdAt        DateTime    @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@map("bank_accounts")
+}
+
+// A subcategory is a Category with a non-null `parentId`. It always shares
+// its parent's `type` — see src/modules/categories/service.ts.
+model Category {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  parentId       String?      @map("parent_id") @db.Uuid
+  name           String
+  type           CategoryType
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  organization  Organization @relation(fields: [organizationId], references: [id])
+  parent        Category?    @relation("CategorySubcategories", fields: [parentId], references: [id])
+  subcategories Category[]   @relation("CategorySubcategories")
+
+  @@unique([organizationId, parentId, name])
+  @@index([organizationId])
+  @@index([parentId])
+  @@map("categories")
 }
