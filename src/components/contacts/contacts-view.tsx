@@ -100,7 +100,8 @@ export function ContactsView({ contacts }: { contacts: Contact[] }) {
                     <Badge variant="secondary">{contactTypeLabel[contact.contactType]}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {contact.document} · {personTypeLabel[contact.personType]}
+                    {contact.document ? `${contact.document} · ` : "Documento pendente · "}
+                    {personTypeLabel[contact.personType]}
                     {contact.legalName && ` · ${contact.legalName}`}
                   </p>
                 </div>

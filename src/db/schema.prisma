@@ -55,6 +55,55 @@ enum CategoryType {
   @@map("category_type")
 }
 
+enum PaymentMethod {
+  BOLETO
+  PIX
+  CREDIT_CARD
+  BANK_TRANSFER
+
+  @@map("payment_method")
+}
+
+enum BillingFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  YEARLY
+
+  @@map("billing_frequency")
+}
+
+enum BillingType {
+  INSTALLMENTS
+  RECURRING
+
+  @@map("billing_type")
+}
+
+enum EntryType {
+  RECEIVABLE
+  PAYABLE
+  TRANSFER
+
+  @@map("entry_type")
+}
+
+enum EntryStatus {
+  FORECAST
+  PARTIAL
+  SETTLED
+  CANCELED
+
+  @@map("entry_status")
+}
+
+enum AllocationMode {
+  PERCENTAGE
+  FIXED_AMOUNT
+
+  @@map("allocation_mode")
+}
+
 // -------------------------------------------------------------- entities
 
 model Organization {
@@ -67,6 +116,9 @@ model Organization {
   contacts     Contact[]
   bankAccounts BankAccount[]
   categories   Category[]
+  sales        Sale[]
+  entries      Entry[]
+  allocations  Allocation[]
 
   @@map("organizations")
 }
@@ -103,12 +155,18 @@ model Session {
 // `name` is the display name: the person's name for an INDIVIDUAL, the trade
 // name ("nome fantasia") for a COMPANY. `legalName` ("razão social") only
 // applies to COMPANY.
+//
+// `document` is nullable only for contacts quick-added from the new-sale
+// screen (name only, see src/modules/contacts/service.ts#createQuickClient)
+// — the full contact registration screen still requires it at the zod layer
+// in src/modules/contacts/schema.ts. Postgres treats every NULL as distinct
+// for the unique index below, so multiple quick-added contacts can coexist.
 model Contact {
   id             String      @id @default(uuid()) @db.Uuid
   organizationId String      @map("organization_id") @db.Uuid
   name           String
   legalName      String?     @map("legal_name")
-  document       String
+  document       String?
   personType     PersonType  @map("person_type")
   contactType    ContactType @map("contact_type")
   phone          String?
@@ -119,7 +177,10 @@ model Contact {
   active         Boolean     @default(true)
   createdAt      DateTime    @default(now()) @map("created_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
+  organization           Organization @relation(fields: [organizationId], references: [id])
+  sales                  Sale[]       @relation("SaleContact")
+  entries                Entry[]      @relation("EntryContact")
+  beneficiaryAllocations Allocation[] @relation("AllocationBeneficiary")
 
   @@unique([organizationId, document])
   @@index([organizationId])
@@ -147,6 +208,8 @@ model BankAccount {
   createdAt        DateTime    @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id])
+  sales        Sale[]
+  entries      Entry[]
 
   @@index([organizationId])
   @@map("bank_accounts")
@@ -165,9 +228,102 @@ model Category {
   organization  Organization @relation(fields: [organizationId], references: [id])
   parent        Category?    @relation("CategorySubcategories", fields: [parentId], references: [id])
   subcategories Category[]   @relation("CategorySubcategories")
+  sales         Sale[]
+  entries       Entry[]
 
   @@unique([organizationId, parentId, name])
   @@index([organizationId])
   @@index([parentId])
   @@map("categories")
+}
+
+// A Venda (Sale) groups its installments. Repasse (Allocation) is optional —
+// no rows means the money is entirely the organization's own, per RN-04.
+model Sale {
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  contactId         String           @map("contact_id") @db.Uuid
+  categoryId        String           @map("category_id") @db.Uuid
+  bankAccountId     String           @map("bank_account_id") @db.Uuid
+  description       String
+  // For INSTALLMENTS, the total to be split across `installmentsCount`
+  // entries (RN-17). For RECURRING, the fixed amount charged every period —
+  // see src/modules/sales/domain.ts#generateRecurringInstallments.
+  totalAmount       Int              @map("total_amount")
+  paymentMethod     PaymentMethod    @map("payment_method")
+  billingType       BillingType      @default(INSTALLMENTS) @map("billing_type")
+  installmentsCount Int              @default(1) @map("installments_count")
+  billingFrequency  BillingFrequency @default(MONTHLY) @map("billing_frequency")
+  firstDueDate      DateTime         @map("first_due_date") @db.Date
+  // RECURRING only: null means indeterminado (open-ended) — entries are
+  // generated in a rolling window instead (RECURRING_ROLLING_WINDOW). See
+  // the "Pendência para a Fase 6" note in ARQUITETURA.md §5.1.
+  recurrenceEndDate DateTime?        @map("recurrence_end_date") @db.Date
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  contact      Contact      @relation("SaleContact", fields: [contactId], references: [id])
+  category     Category     @relation(fields: [categoryId], references: [id])
+  bankAccount  BankAccount  @relation(fields: [bankAccountId], references: [id])
+  entries      Entry[]
+  allocations  Allocation[]
+
+  @@index([organizationId])
+  @@map("sales")
+}
+
+// One installment. `saleId`/`installmentNumber` are set for every entry in
+// this slice — Entry also models standalone payables/transfers from Fase 5+,
+// which is why they're nullable rather than the primary key.
+model Entry {
+  id                String        @id @default(uuid()) @db.Uuid
+  organizationId    String        @map("organization_id") @db.Uuid
+  saleId            String?       @map("sale_id") @db.Uuid
+  installmentNumber Int?          @map("installment_number")
+  contactId         String        @map("contact_id") @db.Uuid
+  categoryId        String        @map("category_id") @db.Uuid
+  bankAccountId     String        @map("bank_account_id") @db.Uuid
+  type              EntryType
+  status            EntryStatus   @default(FORECAST)
+  description       String
+  dueDate           DateTime      @map("due_date") @db.Date
+  amount            Int
+  interest          Int           @default(0)
+  fine              Int           @default(0)
+  discount          Int           @default(0)
+  settledAmount     Int?          @map("settled_amount")
+  paymentMethod     PaymentMethod @map("payment_method")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sale         Sale?        @relation(fields: [saleId], references: [id])
+  contact      Contact      @relation("EntryContact", fields: [contactId], references: [id])
+  category     Category     @relation(fields: [categoryId], references: [id])
+  bankAccount  BankAccount  @relation(fields: [bankAccountId], references: [id])
+
+  @@index([organizationId])
+  @@index([saleId])
+  @@map("entries")
+}
+
+// A repasse line. `percentage` is only set when `mode` is PERCENTAGE;
+// `amount` is always the computed cents value, in both modes.
+model Allocation {
+  id             String         @id @default(uuid()) @db.Uuid
+  organizationId String         @map("organization_id") @db.Uuid
+  saleId         String         @map("sale_id") @db.Uuid
+  beneficiaryId  String         @map("beneficiary_id") @db.Uuid
+  mode           AllocationMode
+  percentage     Int?
+  amount         Int
+  order          Int
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sale         Sale         @relation(fields: [saleId], references: [id])
+  beneficiary  Contact      @relation("AllocationBeneficiary", fields: [beneficiaryId], references: [id])
+
+  @@index([organizationId])
+  @@index([saleId])
+  @@map("allocations")
 }

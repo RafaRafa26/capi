@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { formatBRLInput, formatDate, parseBRLInput } from "@/lib/format"
+import type { BankAccount } from "@/modules/bank-accounts/types"
 
 type Kind = "CHECKING" | "SAVINGS_POCKET"
 type HolderType = "INDIVIDUAL" | "COMPANY"
@@ -32,7 +33,12 @@ type HolderType = "INDIVIDUAL" | "COMPANY"
 const kindLabel: Record<Kind, string> = { CHECKING: "Corrente", SAVINGS_POCKET: "Caixinha" }
 const holderTypeLabel: Record<HolderType, string> = { INDIVIDUAL: "Pessoa física", COMPANY: "Pessoa jurídica" }
 
-export function NewBankAccountDialog() {
+export function NewBankAccountDialog({
+  onCreated,
+}: {
+  /** Called with the created account — used by pickers that quick-add. */
+  onCreated?: (account: BankAccount) => void
+} = {}) {
   const [open, setOpen] = React.useState(false)
   const [kind, setKind] = React.useState<Kind>("CHECKING")
   const [holderType, setHolderType] = React.useState<HolderType>("COMPANY")
@@ -64,6 +70,7 @@ export function NewBankAccountDialog() {
     setInitialBalance("0,00")
     setControlStartDate(new Date())
     event.currentTarget.reset()
+    onCreated?.(result.data)
   }
 
   return (
