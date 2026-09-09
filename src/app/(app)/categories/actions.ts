@@ -6,8 +6,9 @@ import { requireSession } from "@/modules/auth/session";
 import { createCategory, moveSubcategory, renameCategory } from "@/modules/categories/service";
 import { categoryInputSchema, renameCategorySchema } from "@/modules/categories/schema";
 import { failure, type Result } from "@/shared/errors";
+import type { Category } from "@/modules/categories/types";
 
-export async function createCategoryAction(form: FormData): Promise<Result> {
+export async function createCategoryAction(form: FormData): Promise<Result<Category>> {
   try {
     const session = await requireSession();
 
@@ -23,10 +24,10 @@ export async function createCategoryAction(form: FormData): Promise<Result> {
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
 
-    await createCategory(session.organizationId, parsed.data);
+    const category = await createCategory(session.organizationId, parsed.data);
     revalidatePath("/categories");
 
-    return { ok: true, data: undefined };
+    return { ok: true, data: category };
   } catch (error) {
     return failure(error);
   }

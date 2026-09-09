@@ -6,8 +6,9 @@ import { requireSession } from "@/modules/auth/session";
 import { createBankAccount } from "@/modules/bank-accounts/service";
 import { bankAccountInputSchema } from "@/modules/bank-accounts/schema";
 import { failure, type Result } from "@/shared/errors";
+import type { BankAccount } from "@/modules/bank-accounts/types";
 
-export async function createBankAccountAction(form: FormData): Promise<Result> {
+export async function createBankAccountAction(form: FormData): Promise<Result<BankAccount>> {
   try {
     const session = await requireSession();
 
@@ -27,10 +28,10 @@ export async function createBankAccountAction(form: FormData): Promise<Result> {
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
 
-    await createBankAccount(session.organizationId, parsed.data);
+    const bankAccount = await createBankAccount(session.organizationId, parsed.data);
     revalidatePath("/bank-accounts");
 
-    return { ok: true, data: undefined };
+    return { ok: true, data: bankAccount };
   } catch (error) {
     return failure(error);
   }

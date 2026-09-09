@@ -112,7 +112,7 @@ Numeradas para referência em código, testes e conversas.
 
 **RN-16 — Deduplicação de extrato.** Transação bancária é única por (conta bancária + identificador do banco). Reimportar o mesmo arquivo OFX não cria duplicatas.
 
-**RN-17 — Geração de parcelas.** Ao criar uma venda com N parcelas, o sistema gera N lançamentos de recebimento numerados, com vencimentos e valores conforme definido, editáveis individualmente antes da conciliação. A base do parcelamento é sempre o `valor` da venda.
+**RN-17 — Geração de parcelas.** Ao criar uma venda com N parcelas, o sistema gera N lançamentos de recebimento numerados, com vencimentos e valores conforme definido, editáveis individualmente antes da conciliação. A base do parcelamento é sempre o `valor` da venda. Para venda RECORRENTE, cada lançamento recebe o mesmo `valor` (não uma fração dele); com `data_termino`, gera-se um lançamento por período até ela; sem `data_termino` (indeterminado), gera-se apenas uma janela fixa de 3 lançamentos — ver pendência da Fase 6 em §5.1.
 
 **RN-19 — Retirada.** Existia para o detalhamento em itens do antigo `Contrato`. Removida junto com `ItemContrato` quando o conceito de contrato foi substituído por Venda (§5.1) — Venda não tem itens.
 
@@ -180,13 +180,21 @@ erDiagram
 
 > Uma subcategoria é uma Categoria com `categoria_pai_id` preenchido, e sempre herda o `tipo` da categoria-pai — não existe subcategoria de receita dentro de uma categoria de despesa. Subcategoria não tem subcategoria própria: a hierarquia tem no máximo dois níveis.
 
-**Venda** — `id`, `organizacao_id`, `numero`, `cliente_id`, `categoria_id`, `descricao`, `valor`, `vencimento`, `forma_pagamento`, `conta_bancaria_id`, `quantidade_parcelas`, `status`.
+**Venda** — `id`, `organizacao_id`, `cliente_id`, `categoria_id`, `conta_bancaria_id`, `descricao`, `valor`, `forma_pagamento`, `tipo_cobranca` (PARCELADA | RECORRENTE), `quantidade_parcelas`, `periodicidade` (SEMANAL | QUINZENAL | MENSAL | ANUAL), `primeiro_vencimento`, `data_termino?`.
 
-> Agrupa as parcelas que gera — cada uma é um `Lancamento` com `venda_id`. Sem itens, sem propriedade/fazenda, sem vendedor explícito: quem recebe é definido pelas `Destinacao` das suas parcelas (RN-04), não por um campo da venda. `valor` é sempre a fonte da verdade e é ele que define as parcelas (RN-17).
+> Agrupa as parcelas que gera — cada uma é um `Lancamento` com `venda_id`. Sem itens, sem propriedade/fazenda, sem vendedor explícito: quem recebe é definido pelas `Destinacao` das suas parcelas (RN-04), não por um campo da venda. Não tem `status` próprio — o andamento de uma venda é o agregado do `status` dos seus lançamentos, nunca duplicado aqui.
 >
 > Substitui o antigo `Contrato`/`ItemContrato`. A mudança existe porque o vocabulário de contrato — partes, propriedade, itens — carregava campos que nenhuma tela usa; venda descreve exatamente o que é cadastrado hoje em `/new-sale`.
+>
+> `tipo_cobranca` muda o que `valor` significa (RN-17):
+> - **PARCELADA** — `valor` é um total, dividido em `quantidade_parcelas` lançamentos a partir de `primeiro_vencimento` conforme `periodicidade`; a soma dos lançamentos deve fechar exatamente no total. `data_termino` não se aplica.
+> - **RECORRENTE** — `valor` é o valor cobrado em **cada** período (não um total a dividir); `quantidade_parcelas` é quantos lançamentos existem hoje no banco, não um limite definitivo. Com `data_termino` informada, geram-se todos os lançamentos até essa data. Sem ela (indeterminado), geram-se só os próximos 3 (janela fixa) — ver pendência abaixo.
+>
+> **Pendência para a Fase 6:** uma venda RECORRENTE indeterminada (sem `data_termino`) nasce com só 3 lançamentos gerados — não dá pra gerar infinitos. Manter essa janela em 3 é responsabilidade da Liquidação: toda vez que um desses lançamentos for conciliado (RN-01/RN-02), o mesmo fluxo precisa criar mais um lançamento futuro na mesma cadência, repondo a janela. Esse comportamento não existe ainda — a Fase 3 só gera o lote inicial; a Fase 6 (Liquidação) é quem vai ter que implementar a reposição.
 
 **Lancamento** — a previsão de movimento. `id`, `organizacao_id`, `tipo` (RECEBIMENTO | PAGAMENTO | TRANSFERENCIA), `venda_id?`, `contato_id?`, `categoria_id?`, `conta_bancaria_id?`, `numero_parcela?`, `vencimento`, `valor_previsto`, `juros`, `multa`, `desconto`, `valor_liquidado`, `status` (PREVISTO | PARCIAL | LIQUIDADO | CANCELADO), `lancamento_par_id?` (perna oposta de transferência), `descricao?`.
+>
+> **Pendência para a Fase 8:** a Fase 3 só gera lançamentos `RECEBIMENTO` a partir de uma Venda, e estes sempre têm `contato_id`/`categoria_id`/`conta_bancaria_id` — por isso essas colunas nascem obrigatórias no banco. Elas precisarão virar opcionais quando `PAGAMENTO` avulso e `TRANSFERENCIA` forem implementados (§10 Fase 8), já que a nota acima descreve transferência sem contato nem categoria.
 
 > **Transferência é o caso simples.** Exige apenas valor, conta de origem, conta de destino e uma descrição gerada automaticamente no formato *"Transferência de [conta A] para [conta B]"*. Não tem contato, não tem categoria, não tem venda, não tem destinação — por isso esses campos são opcionais na entidade e a validação exigida varia conforme o `tipo`.
 >
@@ -355,8 +363,10 @@ Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase
 
 ### Fase 3 — Vendas e parcelas
 **Objetivo:** registrar uma venda e ver suas parcelas geradas.
-**Tarefas:** entidade `Venda` (cliente, categoria, descrição, valor, vencimento, forma de pagamento, conta de recebimento) · geração de parcelas a partir do `valor` (RN-17) · repasse opcional por percentual ou valor fixo (RN-04) · listagem de vendas com posição de recebimento.
-**Pronto quando:** cadastrar uma venda de 12 parcelas gera 12 lançamentos corretos que somam exatamente o valor total, e a tela da venda exibe quanto já foi recebido e quanto falta.
+**Tarefas:** entidade `Venda` (cliente, categoria, descrição, valor, vencimento, forma de pagamento, conta de recebimento) · geração de parcelas a partir do `valor` (RN-17) · repasse opcional por percentual ou valor fixo (RN-04), ligado a `/new-sale`.
+**Pronto quando:** cadastrar uma venda de 12 parcelas gera 12 lançamentos corretos que somam exatamente o valor total, e uma venda sem repasse não grava nenhuma destinação.
+
+> A listagem de vendas com posição de recebimento (quanto já foi recebido, quanto falta) foi adiada — depende de Liquidação (Fase 6) para ter algo real a mostrar além de "tudo previsto". Fica coberta pelo painel da Fase 9.
 
 ### Fase 4 — Lançamentos e destinações
 **Objetivo:** lançamento manual completo, com a divisão entre favorecidos definida.

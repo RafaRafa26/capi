@@ -25,7 +25,7 @@ type ContactRow = {
   id: string;
   name: string;
   legalName: string | null;
-  document: string;
+  document: string | null;
   personType: Contact["personType"];
   contactType: Contact["contactType"];
   phone: string | null;
@@ -94,6 +94,23 @@ export async function createContact(
       select: FIELDS,
     });
   });
+  return fromDatabase(row);
+}
+
+/** Quick-add from the new-sale screen — name only, no document yet. */
+export async function createQuickClient(organizationId: string, name: string): Promise<Contact> {
+  const row = await withOrganization(organizationId, (tx) =>
+    tx.contact.create({
+      data: {
+        organizationId,
+        name,
+        document: null,
+        personType: "INDIVIDUAL",
+        contactType: "CLIENT",
+      },
+      select: FIELDS,
+    }),
+  );
   return fromDatabase(row);
 }
 

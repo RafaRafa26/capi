@@ -14,7 +14,7 @@ export interface Contact {
   id: string
   name: string
   legalName: string | null
-  document: string
+  document: string | null
   personType: PersonType
   contactType: ContactType
   phone: string | null

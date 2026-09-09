@@ -44,3 +44,12 @@ export const contactInputSchema = z
   })
 
 export type ContactInput = z.infer<typeof contactInputSchema>
+
+// Quick-add from the new-sale screen: only the name, so the user never has
+// to leave the sale form to register a client. `document` stays unset until
+// someone completes the contact later on the Contacts screen.
+export const quickClientSchema = z.object({
+  name: z.string().trim().min(1, "Informe o nome."),
+})
+
+export type QuickClientInput = z.infer<typeof quickClientSchema>
