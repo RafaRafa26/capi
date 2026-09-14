@@ -14,10 +14,11 @@ import {
   FileTextIcon,
   SearchIcon,
   Trash2Icon,
-  UploadIcon,
 } from "lucide-react"
 
+import { deleteBankTransactionAction, listBankTransactionsAction } from "@/app/(app)/reconciliation/actions"
 import { Button } from "@/components/ui/button"
+import { ImportOfxButton } from "@/components/reconciliation/import-ofx-button"
 import { Calendar } from "@/components/ui/calendar"
 import {
   DropdownMenu,
@@ -43,26 +44,29 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { formatBRL, formatDate } from "@/lib/format"
 import {
   categoriasDespesa,
-  contaConciliacao,
   contasDestinoDisponiveis,
   contatosDisponiveis,
-  transacoesBancarias,
   type TipoCategorizacao,
   type TransacaoBancaria,
 } from "@/lib/mock/reconciliation"
 import { cn } from "@/lib/utils"
+import type { BankAccount } from "@/modules/bank-accounts/types"
+import type { BankTransaction } from "@/modules/statements/types"
 
 type FiltroTipo = "todas" | "entrada" | "saida"
 type Ordenacao = "data" | "valor-desc" | "valor-asc"
 
-const primeiraData = transacoesBancarias.reduce(
-  (min, t) => (t.data < min ? t.data : min),
-  transacoesBancarias[0].data
-)
-const ultimaData = transacoesBancarias.reduce(
-  (max, t) => (t.data > max ? t.data : max),
-  transacoesBancarias[0].data
-)
+// The bank's own sign says entrada/saída — RN-16's transactions have no
+// match/categorization guess yet, that only exists from Fase 6 (settlement).
+function paraTransacaoBancaria(transacao: BankTransaction): TransacaoBancaria {
+  return {
+    id: transacao.id,
+    descricao: transacao.description,
+    data: new Date(transacao.date),
+    tipo: transacao.amount >= 0 ? "entrada" : "saida",
+    valor: Math.abs(transacao.amount),
+  }
+}
 
 function CategorizacaoForm({
   tipo,
@@ -262,25 +266,48 @@ function ReconciliationRow({
   )
 }
 
-export function ReconciliationView() {
-  const [transacoes, setTransacoes] = React.useState(transacoesBancarias)
+export function ReconciliationView({ bankAccounts }: { bankAccounts: BankAccount[] }) {
+  const [bankAccountId, setBankAccountId] = React.useState(bankAccounts[0]?.id ?? "")
+  const [transacoes, setTransacoes] = React.useState<TransacaoBancaria[]>([])
+  const [carregando, setCarregando] = React.useState(true)
   const [filtroTipo, setFiltroTipo] = React.useState<FiltroTipo>("todas")
   const [busca, setBusca] = React.useState("")
   const [ordenacao, setOrdenacao] = React.useState<Ordenacao>("data")
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>({
-    from: primeiraData,
-    to: ultimaData,
-  })
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
   const [confirmados, setConfirmados] = React.useState<Set<string>>(new Set())
-  const [categorizacoes, setCategorizacoes] = React.useState<
-    Record<string, TipoCategorizacao>
-  >(() =>
-    Object.fromEntries(
-      transacoesBancarias
-        .filter((t) => t.categorizacaoSugerida)
-        .map((t) => [t.id, t.categorizacaoSugerida as TipoCategorizacao])
-    )
-  )
+  const [categorizacoes, setCategorizacoes] = React.useState<Record<string, TipoCategorizacao>>({})
+
+  const [refreshKey, setRefreshKey] = React.useState(0)
+
+  const buscarTransacoes = React.useCallback(async (accountId: string) => {
+    if (!accountId) return []
+    const response = await listBankTransactionsAction(accountId)
+    return response.ok ? response.data.map(paraTransacaoBancaria) : []
+  }, [])
+
+  function handleBankAccountChange(accountId: string) {
+    setBankAccountId(accountId)
+    setCarregando(true)
+  }
+
+  function handleImported() {
+    setCarregando(true)
+    setRefreshKey((key) => key + 1)
+  }
+
+  // `refreshKey` bumping re-runs this effect after an import, even though
+  // the account itself doesn't change.
+  React.useEffect(() => {
+    let ignorar = false
+    buscarTransacoes(bankAccountId).then((dados) => {
+      if (ignorar) return
+      setTransacoes(dados)
+      setCarregando(false)
+    })
+    return () => {
+      ignorar = true
+    }
+  }, [bankAccountId, refreshKey, buscarTransacoes])
 
   const filtradasPorDataEBusca = React.useMemo(() => {
     return transacoes.filter((t) => {
@@ -323,8 +350,11 @@ export function ReconciliationView() {
     })
   }
 
-  function removerTransacao(id: string) {
-    setTransacoes((prev) => prev.filter((t) => t.id !== id))
+  async function removerTransacao(id: string) {
+    const response = await deleteBankTransactionAction(id)
+    if (response.ok) {
+      setTransacoes((prev) => prev.filter((t) => t.id !== id))
+    }
   }
 
   return (
@@ -333,19 +363,29 @@ export function ReconciliationView() {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Conta:</span>
-            <Select defaultValue={contaConciliacao}>
+            <Select
+              value={bankAccountId}
+              onValueChange={(value) => value && handleBankAccountChange(value)}
+              disabled={bankAccounts.length === 0}
+            >
               <SelectTrigger className="w-fit">
-                <SelectValue />
+                <SelectValue placeholder="Nenhuma conta cadastrada">
+                  {(value: string) => bankAccounts.find((account) => account.id === value)?.name}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={contaConciliacao}>{contaConciliacao}</SelectItem>
+                {bankAccounts.map((account) => (
+                  <SelectItem key={account.id} value={account.id}>
+                    {account.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" size="sm">
-            <UploadIcon />
-            Importar
-          </Button>
+          <ImportOfxButton
+            bankAccountId={bankAccountId}
+            onImported={handleImported}
+          />
         </div>
       </div>
 
@@ -446,23 +486,29 @@ export function ReconciliationView() {
       </div>
 
       <div className="space-y-3">
-        {visiveis.map((transacao) => (
-          <ReconciliationRow
-            key={transacao.id}
-            transacao={transacao}
-            confirmado={confirmados.has(transacao.id)}
-            onConfirm={() => toggleConfirmado(transacao.id)}
-            onRemove={() => removerTransacao(transacao.id)}
-            tipoCategorizacao={categorizacoes[transacao.id] ?? "pagamento"}
-            onTipoCategorizacaoChange={(tipo) =>
-              setCategorizacoes((prev) => ({ ...prev, [transacao.id]: tipo }))
-            }
-          />
-        ))}
-        {visiveis.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhum lançamento encontrado para os filtros selecionados.
-          </p>
+        {carregando ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
+        ) : (
+          <>
+            {visiveis.map((transacao) => (
+              <ReconciliationRow
+                key={transacao.id}
+                transacao={transacao}
+                confirmado={confirmados.has(transacao.id)}
+                onConfirm={() => toggleConfirmado(transacao.id)}
+                onRemove={() => removerTransacao(transacao.id)}
+                tipoCategorizacao={categorizacoes[transacao.id] ?? "pagamento"}
+                onTipoCategorizacaoChange={(tipo) =>
+                  setCategorizacoes((prev) => ({ ...prev, [transacao.id]: tipo }))
+                }
+              />
+            ))}
+            {visiveis.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Nenhum lançamento encontrado para os filtros selecionados.
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>

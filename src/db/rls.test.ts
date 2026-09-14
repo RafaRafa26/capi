@@ -2,6 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prismaAdmin, withOrganization } from "@/db/client";
 import { listContacts } from "@/modules/contacts/service";
+import { deleteBankTransaction } from "@/modules/statements/service";
+import { NotFound } from "@/shared/errors";
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "./__tests__/environment";
 
 let orgA: TestOrg;
@@ -82,5 +84,69 @@ describe("row level security — bank accounts and categories (AD-02)", () => {
 
     expect(idsFromA.has(orgA.categoryId)).toBe(true);
     expect(idsFromA.has(orgB.categoryId)).toBe(false);
+  });
+});
+
+describe("row level security — imports and bank transactions (AD-02)", () => {
+  let importA: { id: string };
+  let importB: { id: string };
+  let bankTransactionA: { id: string };
+  let bankTransactionB: { id: string };
+
+  beforeAll(async () => {
+    importA = await prismaAdmin.import.create({
+      data: { organizationId: orgA.id, bankAccountId: orgA.bankAccountId, fileName: "a.ofx" },
+    });
+    importB = await prismaAdmin.import.create({
+      data: { organizationId: orgB.id, bankAccountId: orgB.bankAccountId, fileName: "b.ofx" },
+    });
+    const suffix = Date.now();
+    bankTransactionA = await prismaAdmin.bankTransaction.create({
+      data: {
+        organizationId: orgA.id,
+        bankAccountId: orgA.bankAccountId,
+        importId: importA.id,
+        bankReference: `rls-a-${suffix}`,
+        date: new Date(),
+        amount: 100,
+        description: "Test transaction A",
+      },
+    });
+    bankTransactionB = await prismaAdmin.bankTransaction.create({
+      data: {
+        organizationId: orgB.id,
+        bankAccountId: orgB.bankAccountId,
+        importId: importB.id,
+        bankReference: `rls-b-${suffix}`,
+        date: new Date(),
+        amount: 100,
+        description: "Test transaction B",
+      },
+    });
+  });
+
+  it("one organization does not see the other's imports", async () => {
+    const fromA = await withOrganization(orgA.id, (tx) => tx.import.findMany({}));
+    const idsFromA = new Set(fromA.map((i) => i.id));
+
+    expect(idsFromA.has(importA.id)).toBe(true);
+    expect(idsFromA.has(importB.id)).toBe(false);
+  });
+
+  it("one organization does not see the other's bank transactions", async () => {
+    const fromA = await withOrganization(orgA.id, (tx) => tx.bankTransaction.findMany({}));
+    const idsFromA = new Set(fromA.map((t) => t.id));
+
+    expect(idsFromA.has(bankTransactionA.id)).toBe(true);
+    expect(idsFromA.has(bankTransactionB.id)).toBe(false);
+  });
+
+  it("one organization cannot delete the other's bank transaction", async () => {
+    await expect(deleteBankTransaction(orgA.id, bankTransactionB.id)).rejects.toThrow(NotFound);
+
+    const stillThere = await prismaAdmin.bankTransaction.findUnique({
+      where: { id: bankTransactionB.id },
+    });
+    expect(stillThere).not.toBeNull();
   });
 });

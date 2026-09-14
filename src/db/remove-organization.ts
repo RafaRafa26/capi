@@ -13,6 +13,8 @@ export async function removeOrganization(prisma: PrismaClient, id: string) {
   await prisma.allocation.deleteMany({ where: { organizationId: id } });
   await prisma.entry.deleteMany({ where: { organizationId: id } });
   await prisma.sale.deleteMany({ where: { organizationId: id } });
+  await prisma.bankTransaction.deleteMany({ where: { organizationId: id } });
+  await prisma.import.deleteMany({ where: { organizationId: id } });
   await prisma.contact.deleteMany({ where: { organizationId: id } });
   await prisma.bankAccount.deleteMany({ where: { organizationId: id } });
   await prisma.category.deleteMany({ where: { organizationId: id } });

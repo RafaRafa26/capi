@@ -104,6 +104,14 @@ enum AllocationMode {
   @@map("allocation_mode")
 }
 
+enum BankTransactionStatus {
+  PENDING
+  RECONCILED
+  IGNORED
+
+  @@map("bank_transaction_status")
+}
+
 // -------------------------------------------------------------- entities
 
 model Organization {
@@ -116,9 +124,11 @@ model Organization {
   contacts     Contact[]
   bankAccounts BankAccount[]
   categories   Category[]
-  sales        Sale[]
-  entries      Entry[]
-  allocations  Allocation[]
+  sales            Sale[]
+  entries          Entry[]
+  allocations      Allocation[]
+  imports          Import[]
+  bankTransactions BankTransaction[]
 
   @@map("organizations")
 }
@@ -207,9 +217,11 @@ model BankAccount {
   active           Boolean     @default(true)
   createdAt        DateTime    @default(now()) @map("created_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  sales        Sale[]
-  entries      Entry[]
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  sales            Sale[]
+  entries          Entry[]
+  imports          Import[]
+  bankTransactions BankTransaction[]
 
   @@index([organizationId])
   @@map("bank_accounts")
@@ -326,4 +338,49 @@ model Allocation {
   @@index([organizationId])
   @@index([saleId])
   @@map("allocations")
+}
+
+// One uploaded OFX file. Its transactions land in BankTransaction, deduped
+// at the database level by (bankAccountId, bankReference) — see RN-16.
+model Import {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  bankAccountId  String    @map("bank_account_id") @db.Uuid
+  fileName       String    @map("file_name")
+  periodStart    DateTime? @map("period_start") @db.Date
+  periodEnd      DateTime? @map("period_end") @db.Date
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  bankAccount      BankAccount       @relation(fields: [bankAccountId], references: [id])
+  bankTransactions BankTransaction[]
+
+  @@index([organizationId])
+  @@map("imports")
+}
+
+// The reality of the bank statement — one row per OFX <STMTTRN>. `amount`
+// keeps the bank's sign (credit positive, debit negative). Unique per
+// (bankAccountId, bankReference) so reimporting the same file is a no-op
+// (RN-16) — enforced by the database, not only by the import service.
+model BankTransaction {
+  id             String                @id @default(uuid()) @db.Uuid
+  organizationId String                @map("organization_id") @db.Uuid
+  bankAccountId  String                @map("bank_account_id") @db.Uuid
+  importId       String                @map("import_id") @db.Uuid
+  bankReference  String                @map("bank_reference")
+  date           DateTime              @db.Date
+  amount         Int
+  description    String
+  status         BankTransactionStatus @default(PENDING)
+  createdAt      DateTime              @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  bankAccount  BankAccount  @relation(fields: [bankAccountId], references: [id])
+  import       Import       @relation(fields: [importId], references: [id])
+
+  @@unique([bankAccountId, bankReference])
+  @@index([organizationId])
+  @@index([importId])
+  @@map("bank_transactions")
 }
