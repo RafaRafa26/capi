@@ -8,15 +8,18 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { formatBRL } from "@/lib/format"
-import {
-  contaBancaria,
-  contasAPagar,
-  contasAReceber,
-  saldoTotal,
-} from "@/lib/mock/dashboard"
+import { contaBancaria, saldoTotal } from "@/lib/mock/dashboard"
+import { requireSessionOrRedirect } from "@/modules/auth/session"
+import { getPayablesSummary, getReceivablesSummary } from "@/modules/dashboard/service"
 import { ArrowDownRightIcon, ArrowUpRightIcon, Building2Icon } from "lucide-react"
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await requireSessionOrRedirect()
+  const [contasAReceber, contasAPagar] = await Promise.all([
+    getReceivablesSummary(session.organizationId),
+    getPayablesSummary(session.organizationId),
+  ])
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,340px)_1fr]">
