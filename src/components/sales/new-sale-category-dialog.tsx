@@ -34,13 +34,15 @@ const typeLabel: Record<CategoryType, string> = { INCOME: "Receita", EXPENSE: "D
  */
 export function NewSaleCategoryDialog({
   categories,
+  defaultType = "INCOME",
   onCreated,
 }: {
   categories: Category[]
+  defaultType?: CategoryType
   onCreated: (category: Category) => void
 }) {
   const [open, setOpen] = React.useState(false)
-  const [type, setType] = React.useState<CategoryType>("INCOME")
+  const [type, setType] = React.useState<CategoryType>(defaultType)
   const [parentId, setParentId] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)

@@ -97,8 +97,12 @@ export async function createContact(
   return fromDatabase(row);
 }
 
-/** Quick-add from the new-sale screen — name only, no document yet. */
-export async function createQuickClient(organizationId: string, name: string): Promise<Contact> {
+/** Quick-add from the new-sale/new-expense screens — name and type only, no document yet. */
+export async function createQuickContact(
+  organizationId: string,
+  name: string,
+  contactType: Contact["contactType"],
+): Promise<Contact> {
   const row = await withOrganization(organizationId, (tx) =>
     tx.contact.create({
       data: {
@@ -106,7 +110,7 @@ export async function createQuickClient(organizationId: string, name: string): P
         name,
         document: null,
         personType: "INDIVIDUAL",
-        contactType: "CLIENT",
+        contactType,
       },
       select: FIELDS,
     }),

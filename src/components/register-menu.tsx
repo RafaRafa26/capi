@@ -25,7 +25,9 @@ export function RegisterMenu() {
         <DropdownMenuItem onClick={() => router.push("/new-sale")}>
           Venda
         </DropdownMenuItem>
-        <DropdownMenuItem>Despesa</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/new-expense")}>
+          Despesa
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

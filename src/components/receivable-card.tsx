@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatBRL, formatDate } from "@/lib/format"
-import type { ResumoLancamentos } from "@/lib/mock/dashboard"
+import type { ResumoLancamentos } from "@/modules/dashboard/domain"
 
 const secoes: {
   key: keyof ResumoLancamentos["buckets"]
