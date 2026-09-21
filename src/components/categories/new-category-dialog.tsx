@@ -34,7 +34,8 @@ export function NewCategoryDialog() {
     setError(null)
     setPending(true)
 
-    const form = new FormData(event.currentTarget)
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
     form.set("type", type)
 
     const result = await createCategoryAction(form)
@@ -46,7 +47,7 @@ export function NewCategoryDialog() {
     }
 
     setOpen(false)
-    event.currentTarget.reset()
+    formElement.reset()
   }
 
   return (

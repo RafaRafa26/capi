@@ -49,7 +49,8 @@ export function NewContactDialog() {
     setError(null)
     setPending(true)
 
-    const values = Object.fromEntries(new FormData(event.currentTarget)) as Record<
+    const formElement = event.currentTarget
+    const values = Object.fromEntries(new FormData(formElement)) as Record<
       string,
       string
     >
@@ -88,7 +89,7 @@ export function NewContactDialog() {
 
     setOpen(false)
     setContactType("CLIENT")
-    event.currentTarget.reset()
+    formElement.reset()
   }
 
   return (

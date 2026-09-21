@@ -65,7 +65,8 @@ export function NewSaleCategoryDialog({
     }
 
     setPending(true)
-    const form = new FormData(event.currentTarget)
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
     form.set("parentId", parentId)
 
     const result = await createCategoryAction(form)
@@ -77,7 +78,7 @@ export function NewSaleCategoryDialog({
     }
 
     setOpen(false)
-    event.currentTarget.reset()
+    formElement.reset()
     onCreated(result.data)
   }
 

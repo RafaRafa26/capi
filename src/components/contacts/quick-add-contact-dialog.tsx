@@ -42,7 +42,8 @@ export function QuickAddContactDialog({
     setError(null)
     setPending(true)
 
-    const form = new FormData(event.currentTarget)
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
     form.set("contactType", contactType)
     const result = await createQuickContactAction(form)
 
@@ -53,7 +54,7 @@ export function QuickAddContactDialog({
     }
 
     setOpen(false)
-    event.currentTarget.reset()
+    formElement.reset()
     onCreated(result.data)
   }
 

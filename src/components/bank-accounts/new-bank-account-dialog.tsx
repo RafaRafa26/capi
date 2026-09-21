@@ -52,7 +52,8 @@ export function NewBankAccountDialog({
     setError(null)
     setPending(true)
 
-    const form = new FormData(event.currentTarget)
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
     form.set("kind", kind)
     form.set("holderType", holderType)
     form.set("controlStartDate", controlStartDate.toISOString())
@@ -69,7 +70,7 @@ export function NewBankAccountDialog({
     setOpen(false)
     setInitialBalance("0,00")
     setControlStartDate(new Date())
-    event.currentTarget.reset()
+    formElement.reset()
     onCreated?.(result.data)
   }
 

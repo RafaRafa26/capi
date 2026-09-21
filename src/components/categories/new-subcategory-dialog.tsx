@@ -26,7 +26,8 @@ export function NewSubcategoryDialog({ parentId }: { parentId: string }) {
     setError(null)
     setPending(true)
 
-    const form = new FormData(event.currentTarget)
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
     form.set("parentId", parentId)
 
     const result = await createCategoryAction(form)
@@ -38,7 +39,7 @@ export function NewSubcategoryDialog({ parentId }: { parentId: string }) {
     }
 
     setOpen(false)
-    event.currentTarget.reset()
+    formElement.reset()
   }
 
   return (

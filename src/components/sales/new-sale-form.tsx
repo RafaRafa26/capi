@@ -81,6 +81,57 @@ function oneYearAfter(date: Date): Date {
   return result
 }
 
+/**
+ * A 0–100 number field that tracks its own draft text instead of mirroring
+ * `value` on every keystroke. A plain controlled `<input type="number">`
+ * re-renders with the clamped/coerced number after each change — so clearing
+ * the field to retype it (e.g. 100 → 30) snaps to a displayed "0" mid-edit
+ * and fights whatever digit comes next. Here the draft stays whatever the
+ * user typed (including empty) until it resolves to a valid number.
+ */
+function PercentageInput({
+  className,
+  value,
+  onValueChange,
+}: {
+  className?: string
+  value: number
+  onValueChange: (value: number) => void
+}) {
+  const [draft, setDraft] = React.useState(String(value))
+  const [lastValue, setLastValue] = React.useState(value)
+  if (value !== lastValue) {
+    setLastValue(value)
+    setDraft(String(value))
+  }
+
+  function handleChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const raw = event.target.value
+    setDraft(raw)
+    if (raw === "") return
+    const parsed = Number(raw)
+    if (!Number.isNaN(parsed)) {
+      onValueChange(Math.min(100, Math.max(0, parsed)))
+    }
+  }
+
+  function handleBlur() {
+    setDraft(String(value))
+  }
+
+  return (
+    <Input
+      className={className}
+      type="number"
+      min={0}
+      max={100}
+      value={draft}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  )
+}
+
 interface AllocationRow {
   id: string
   beneficiaryId: string
@@ -112,7 +163,7 @@ interface NewSaleFormProps {
 
 export function NewSaleForm({
   clients: initialClients,
-  beneficiaries,
+  beneficiaries: initialBeneficiaries,
   categories: initialCategories,
   bankAccounts: initialBankAccounts,
 }: NewSaleFormProps) {
@@ -121,6 +172,7 @@ export function NewSaleForm({
   const [aba, setAba] = React.useState<Aba>("contrato")
 
   const [clients, setClients] = React.useState(initialClients)
+  const [beneficiaries, setBeneficiaries] = React.useState(initialBeneficiaries)
   const [categories, setCategories] = React.useState(initialCategories)
   const [bankAccounts, setBankAccounts] = React.useState(initialBankAccounts)
 
@@ -217,7 +269,20 @@ export function NewSaleForm({
   }
 
   function updateAllocationRow(id: string, patch: Partial<AllocationRow>) {
-    setAllocationRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+    setAllocationRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row
+        // RN-04 requires the fixed-amount repasse to add up to exactly the
+        // sale total, so a single row can never be allowed to exceed what's
+        // left once the other rows' amounts are accounted for.
+        if (allocationMode === "FIXED_AMOUNT" && patch.value !== undefined) {
+          const othersTotal = prev.reduce((sum, r) => (r.id === id ? sum : sum + r.value), 0)
+          const maxValue = Math.max(0, totalAmount - othersTotal)
+          return { ...row, ...patch, value: Math.min(patch.value, maxValue) }
+        }
+        return { ...row, ...patch }
+      }),
+    )
   }
 
   const clientOptions: SearchableSelectOption[] = clients.map((client) => ({
@@ -232,6 +297,14 @@ export function NewSaleForm({
     value: account.id,
     label: `${account.name} - Ag ${account.branchNumber} / CC ${account.accountNumber}`,
   }))
+
+  const beneficiaryOptions: SearchableSelectOption[] = beneficiaries.map((beneficiary) => ({
+    value: beneficiary.id,
+    label: beneficiary.name,
+  }))
+
+  const installmentsTotal = installments.reduce((sum, installment) => sum + installment.amount, 0)
+  const summaryTotal = isRecurring ? totalAmount : installmentsTotal
 
   async function handleSubmit() {
     setError(null)
@@ -561,37 +634,29 @@ export function NewSaleForm({
               <div className="space-y-3">
                 {allocationRows.map((row) => (
                   <div key={row.id} className="flex items-center gap-3">
-                    <Select
+                    <SearchableSelect
+                      className="w-full flex-1"
+                      options={beneficiaryOptions}
                       value={row.beneficiaryId}
-                      onValueChange={(value) =>
-                        value && updateAllocationRow(row.id, { beneficiaryId: value })
+                      onValueChange={(value) => updateAllocationRow(row.id, { beneficiaryId: value })}
+                      placeholder="Selecione o favorecido"
+                      footer={
+                        <QuickAddContactDialog
+                          contactType="BENEFICIARY"
+                          triggerLabel="Novo favorecido"
+                          dialogTitle="Novo favorecido"
+                          onCreated={(contact) => {
+                            setBeneficiaries((prev) => [...prev, contact])
+                            updateAllocationRow(row.id, { beneficiaryId: contact.id })
+                          }}
+                        />
                       }
-                    >
-                      <SelectTrigger className="w-full flex-1">
-                        <SelectValue>
-                          {() => beneficiaries.find((b) => b.id === row.beneficiaryId)?.name ?? "Selecione"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {beneficiaries.map((beneficiary) => (
-                          <SelectItem key={beneficiary.id} value={beneficiary.id}>
-                            {beneficiary.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                     {allocationMode === "PERCENTAGE" ? (
-                      <Input
+                      <PercentageInput
                         className="w-20 [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        type="number"
-                        min={0}
-                        max={100}
                         value={row.value}
-                        onChange={(event) =>
-                          updateAllocationRow(row.id, {
-                            value: Math.min(100, Math.max(0, Number(event.target.value) || 0)),
-                          })
-                        }
+                        onValueChange={(value) => updateAllocationRow(row.id, { value })}
                       />
                     ) : (
                       <CurrencyInput
@@ -622,28 +687,24 @@ export function NewSaleForm({
 
         <div className="space-y-4 rounded-lg border p-4">
           <h3 className="text-sm font-semibold">Resumo</h3>
-          <p className="text-2xl font-semibold">{formatBRL(totalAmount)}</p>
+          <p className="text-2xl font-semibold">{formatBRL(summaryTotal)}</p>
 
           <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">
-                {isRecurring
-                  ? "Valor por período"
-                  : effectiveCount > 1
-                    ? `${effectiveCount} parcelas de`
-                    : "Valor da parcela"}
-              </span>
-              <span className="font-medium">{formatBRL(installments[0]?.amount ?? 0)}</span>
-            </div>
             {isRecurring && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Recorrência</span>
-                <span className="font-medium">
-                  {billingFrequencyLabel[billingFrequency]}
-                  {" · "}
-                  {recurrenceIndeterminate ? "Indeterminada" : `até ${formatDate(recurrenceEndDate)}`}
-                </span>
-              </div>
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Valor por período</span>
+                  <span className="font-medium">{formatBRL(installments[0]?.amount ?? 0)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Recorrência</span>
+                  <span className="font-medium">
+                    {billingFrequencyLabel[billingFrequency]}
+                    {" · "}
+                    {recurrenceIndeterminate ? "Indeterminada" : `até ${formatDate(recurrenceEndDate)}`}
+                  </span>
+                </div>
+              </>
             )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">
