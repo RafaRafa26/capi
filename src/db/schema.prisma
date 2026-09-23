@@ -112,6 +112,13 @@ enum BankTransactionStatus {
   @@map("bank_transaction_status")
 }
 
+enum SettlementOrigin {
+  STATEMENT
+  MANUAL
+
+  @@map("settlement_origin")
+}
+
 // -------------------------------------------------------------- entities
 
 model Organization {
@@ -129,6 +136,7 @@ model Organization {
   allocations      Allocation[]
   imports          Import[]
   bankTransactions BankTransaction[]
+  settlements      Settlement[]
 
   @@map("organizations")
 }
@@ -307,11 +315,12 @@ model Entry {
   paymentMethod     PaymentMethod @map("payment_method")
   createdAt         DateTime      @default(now()) @map("created_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  sale         Sale?        @relation(fields: [saleId], references: [id])
-  contact      Contact      @relation("EntryContact", fields: [contactId], references: [id])
-  category     Category     @relation(fields: [categoryId], references: [id])
-  bankAccount  BankAccount  @relation(fields: [bankAccountId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  sale         Sale?         @relation(fields: [saleId], references: [id])
+  contact      Contact       @relation("EntryContact", fields: [contactId], references: [id])
+  category     Category      @relation(fields: [categoryId], references: [id])
+  bankAccount  BankAccount   @relation(fields: [bankAccountId], references: [id])
+  settlements  Settlement[]
 
   @@index([organizationId])
   @@index([saleId])
@@ -375,12 +384,47 @@ model BankTransaction {
   status         BankTransactionStatus @default(PENDING)
   createdAt      DateTime              @default(now()) @map("created_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  bankAccount  BankAccount  @relation(fields: [bankAccountId], references: [id])
-  import       Import       @relation(fields: [importId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  bankAccount  BankAccount   @relation(fields: [bankAccountId], references: [id])
+  import       Import        @relation(fields: [importId], references: [id])
+  settlements  Settlement[]
 
   @@unique([bankAccountId, bankReference])
   @@index([organizationId])
   @@index([importId])
   @@map("bank_transactions")
+}
+
+// The link between a bank statement (or a manual write-off) and an Entry —
+// the only way an Entry's status/settledAmount ever changes after creation.
+// A bank transaction can settle more than one Entry (RN-07, e.g. one
+// transfer paying two installments of the same sale); an Entry can
+// accumulate more than one Settlement over time (partial payments). There is
+// no separate custody ledger — a beneficiary's available balance is computed
+// on demand from these rows (see src/modules/settlements/service.ts), and an
+// Entry's own aggregate (status/settledAmount) is recomputed from its
+// Settlement rows on every create/undo instead of being incrementally
+// patched, so it can never drift.
+model Settlement {
+  id                String           @id @default(uuid()) @db.Uuid
+  organizationId    String           @map("organization_id") @db.Uuid
+  entryId           String           @map("entry_id") @db.Uuid
+  bankTransactionId String?          @map("bank_transaction_id") @db.Uuid
+  origin            SettlementOrigin
+  settledAmount     Int              @map("settled_amount")
+  interest          Int              @default(0)
+  fine              Int              @default(0)
+  discount          Int              @default(0)
+  settledAt         DateTime         @map("settled_at") @db.Date
+  note              String?
+  createdAt         DateTime         @default(now()) @map("created_at")
+
+  organization    Organization     @relation(fields: [organizationId], references: [id])
+  entry           Entry            @relation(fields: [entryId], references: [id])
+  bankTransaction BankTransaction? @relation(fields: [bankTransactionId], references: [id])
+
+  @@index([organizationId])
+  @@index([entryId])
+  @@index([bankTransactionId])
+  @@map("settlements")
 }

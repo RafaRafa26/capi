@@ -10,6 +10,7 @@ import type { PrismaClient } from "./generated/client";
  * Used by tests that create and destroy disposable organizations.
  */
 export async function removeOrganization(prisma: PrismaClient, id: string) {
+  await prisma.settlement.deleteMany({ where: { organizationId: id } });
   await prisma.allocation.deleteMany({ where: { organizationId: id } });
   await prisma.entry.deleteMany({ where: { organizationId: id } });
   await prisma.sale.deleteMany({ where: { organizationId: id } });

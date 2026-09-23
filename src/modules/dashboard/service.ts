@@ -1,6 +1,6 @@
 import "server-only"
 
-import { withOrganization, type Tx } from "@/db/client"
+import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { bucketEntries, type BucketableEntry, type ResumoLancamentos } from "./domain"
 
 async function summarize(tx: Tx, type: "RECEIVABLE" | "PAYABLE"): Promise<ResumoLancamentos> {
@@ -13,7 +13,7 @@ async function summarize(tx: Tx, type: "RECEIVABLE" | "PAYABLE"): Promise<Resumo
   const bucketable: BucketableEntry[] = entries.map((entry) => ({
     contactName: entry.contact.name,
     description: entry.description,
-    dueDate: entry.dueDate,
+    dueDate: fromDbDate(entry.dueDate),
     amount: entry.amount,
     settledAmount: entry.settledAmount,
     status: entry.status,

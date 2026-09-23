@@ -62,23 +62,3 @@ export const fluxoCaixa = {
   saidas: 2056290,
   serie: serieDiaria(fluxoCaixaPontosChave),
 }
-
-export const recebimentosPorMes = [
-  { mes: new Date(2025, 8, 1), valor: 4200000 },
-  { mes: new Date(2025, 9, 1), valor: 6700000 },
-  { mes: new Date(2025, 10, 1), valor: 5400000 },
-  { mes: new Date(2025, 11, 1), valor: 2800000 },
-  { mes: new Date(2026, 0, 1), valor: 6100000 },
-  { mes: new Date(2026, 1, 1), valor: 7800000 },
-  { mes: new Date(2026, 2, 1), valor: 5900000 },
-  { mes: new Date(2026, 3, 1), valor: 4500000 },
-  { mes: new Date(2026, 4, 1), valor: 8300000 },
-  { mes: new Date(2026, 5, 1), valor: 7200000 },
-  { mes: new Date(2026, 6, 1), valor: 5000000 },
-  { mes: new Date(2026, 7, 1), valor: 9100000 },
-]
-
-export const totalRecebidoNoPeriodo = recebimentosPorMes.reduce(
-  (acc, item) => acc + item.valor,
-  0
-)

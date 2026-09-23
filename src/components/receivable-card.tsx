@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { formatBRL, formatDate } from "@/lib/format"
@@ -25,14 +24,12 @@ export function ReceivableCard({
   resumo: ResumoLancamentos
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {icon}
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="flex flex-col gap-3 rounded-2xl bg-muted p-4">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        {icon}
+        {title}
+      </div>
+      <div>
         <Tabs defaultValue="vencido">
           <TabsList className="w-full">
             {secoes.map(({ key, label, dotClassName }) => (
@@ -83,7 +80,7 @@ export function ReceivableCard({
             )
           })}
         </Tabs>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

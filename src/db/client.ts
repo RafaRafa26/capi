@@ -73,6 +73,23 @@ const prismaApp: PrismaClient = lazyClient(
   "DATABASE_URL_APP",
 );
 
+/**
+ * Prisma hydrates every `@db.Date` column (dueDate, settledAt, BankTransaction.date,
+ * controlStartDate, ...) as UTC midnight, with no time-of-day of its own. Read back
+ * with local-timezone getters — `toLocaleDateString()` in the browser, or
+ * `getFullYear()/getMonth()/getDate()` in dashboard/service.ts's bucketing — that
+ * lands one calendar day early for any timezone behind UTC (all of Brazil): UTC
+ * midnight Aug 2 is Aug 1, 21h in São Paulo.
+ *
+ * Re-anchors the same calendar date to UTC noon instead, which every real-world
+ * timezone (UTC-12 to UTC+14) still reads as the same day — so it survives one more
+ * local-timezone read, wherever that happens to run. Call this on every `@db.Date`
+ * field a service reads, before it reaches a caller that might format or bucket it.
+ */
+export function fromDbDate(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12));
+}
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Client inside a transaction — the type repositories/services receive. */

@@ -4,12 +4,6 @@ import * as React from "react"
 import type { DateRange } from "react-day-picker"
 import { ptBR } from "date-fns/locale"
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Grid } from "@/components/charts/grid"
 import { Line, LineChart } from "@/components/charts/line-chart"
 import { ChartTooltip } from "@/components/charts/tooltip"
@@ -23,7 +17,7 @@ import {
 } from "@/components/ui/popover"
 import { formatBRL, formatDayMonth } from "@/lib/format"
 import { fluxoCaixa } from "@/lib/mock/dashboard"
-import { CalendarIcon, LineChartIcon } from "lucide-react"
+import { CalendarIcon } from "lucide-react"
 
 const chartConfig = {
   saldo: {
@@ -73,46 +67,45 @@ export function ChartCashFlow() {
   }, [dateRange])
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <LineChartIcon className="size-4" />
-          Fluxo de caixa
-        </CardTitle>
-        <Popover>
-          <PopoverTrigger
-            render={
-              <Button variant="outline" size="sm" className="font-normal" />
-            }
-          >
-            <CalendarIcon />
-            {dateRange?.from ? (
-              dateRange.to ? (
-                <>
-                  {formatDayMonth(dateRange.from)} –{" "}
-                  {formatDayMonth(dateRange.to)}
-                </>
+    <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="text-sm font-medium text-muted-foreground">Fluxo de caixa</div>
+        <div className="ml-auto">
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button variant="outline" size="sm" className="font-normal" />
+              }
+            >
+              <CalendarIcon />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {formatDayMonth(dateRange.from)} –{" "}
+                    {formatDayMonth(dateRange.to)}
+                  </>
+                ) : (
+                  formatDayMonth(dateRange.from)
+                )
               ) : (
-                formatDayMonth(dateRange.from)
-              )
-            ) : (
-              <span>Selecionar período</span>
-            )}
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="end">
-            <Calendar
-              mode="range"
-              defaultMonth={dateRange?.from}
-              selected={dateRange}
-              onSelect={setDateRange}
-              numberOfMonths={2}
-              locale={ptBR}
-              showOutsideDays={false}
-            />
-          </PopoverContent>
-        </Popover>
-      </CardHeader>
-      <CardContent>
+                <span>Selecionar período</span>
+              )}
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+                locale={ptBR}
+                showOutsideDays={false}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
+      <div>
         <div className="mb-4 grid grid-cols-3 gap-3">
           {(Object.keys(chartConfig) as (keyof typeof chartConfig)[]).map(
             (key) => (
@@ -167,7 +160,7 @@ export function ChartCashFlow() {
         >
           Gerenciar fluxo de caixa →
         </a>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

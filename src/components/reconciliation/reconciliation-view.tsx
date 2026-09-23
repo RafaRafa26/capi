@@ -1,288 +1,107 @@
 "use client"
 
 import * as React from "react"
-import { ptBR } from "date-fns/locale"
-import type { DateRange } from "react-day-picker"
 import {
   ArrowDownLeftIcon,
-  ArrowLeftRightIcon,
   ArrowUpRightIcon,
-  CalendarIcon,
   CheckIcon,
-  ChevronDownIcon,
   LandmarkIcon,
   FileTextIcon,
   SearchIcon,
   Trash2Icon,
 } from "lucide-react"
 
-import { deleteBankTransactionAction, listBankTransactionsAction } from "@/app/(app)/reconciliation/actions"
-import { Button } from "@/components/ui/button"
+import {
+  createAndSettlePayableAction,
+  createAndSettleReceivableAction,
+  createSettlementAction,
+  deleteBankTransactionAction,
+  getMatchInfoForTransactionsAction,
+  listBankTransactionsAction,
+  undoSettlementAction,
+} from "@/app/(app)/reconciliation/actions"
 import { ImportOfxButton } from "@/components/reconciliation/import-ofx-button"
-import { Calendar } from "@/components/ui/calendar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { ReconciliationMatchModal } from "@/components/reconciliation/reconciliation-match-modal"
 import { Input } from "@/components/ui/input"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { formatBRL, formatDate } from "@/lib/format"
-import {
-  categoriasDespesa,
-  contasDestinoDisponiveis,
-  contatosDisponiveis,
-  type TipoCategorizacao,
-  type TransacaoBancaria,
-} from "@/lib/mock/reconciliation"
 import { cn } from "@/lib/utils"
 import type { BankAccount } from "@/modules/bank-accounts/types"
+import type { Category } from "@/modules/categories/types"
+import type { Contact } from "@/modules/contacts/types"
+import { directionForTransactionAmount } from "@/modules/settlements/domain"
+import type { EntryType, TransactionMatchInfo } from "@/modules/settlements/types"
 import type { BankTransaction } from "@/modules/statements/types"
 
 type FiltroTipo = "todas" | "entrada" | "saida"
-type Ordenacao = "data" | "valor-desc" | "valor-asc"
+type QuickFormMode = "lancamento" | "transferencia"
 
-// The bank's own sign says entrada/saída — RN-16's transactions have no
-// match/categorization guess yet, that only exists from Fase 6 (settlement).
-function paraTransacaoBancaria(transacao: BankTransaction): TransacaoBancaria {
-  return {
-    id: transacao.id,
-    descricao: transacao.description,
-    data: new Date(transacao.date),
-    tipo: transacao.amount >= 0 ? "entrada" : "saida",
-    valor: Math.abs(transacao.amount),
-  }
+// Rótulos do lançamento já conciliado no Capi (lado direito da tela).
+const entryTypeLabels: Record<EntryType, { titulo: string; subtitulo: string }> = {
+  RECEIVABLE: { titulo: "Recebimento", subtitulo: "Contas a receber" },
+  PAYABLE: { titulo: "Pagamento", subtitulo: "Contas a pagar" },
+  TRANSFER: { titulo: "Transferência", subtitulo: "Transferência" },
 }
 
-function CategorizacaoForm({
-  tipo,
-  onTipoChange,
+interface QuickForm {
+  mode: QuickFormMode
+  contactId: string
+  categoryId: string
+  description: string
+  // "Transferência" ainda não tem back-end (RN a definir) — o select só existe
+  // no visual por enquanto, e o botão de confirmar fica sempre desabilitado
+  // nesse modo (ver render do botão de check mais abaixo).
+  transferAccountId: string
+}
+
+export function ReconciliationView({
+  bankAccounts,
+  contacts,
+  categories,
 }: {
-  tipo: TipoCategorizacao
-  onTipoChange: (tipo: TipoCategorizacao) => void
+  bankAccounts: BankAccount[]
+  contacts: Contact[]
+  categories: Category[]
 }) {
-  return (
-    <div className="w-full space-y-2">
-      <Select
-        value={tipo}
-        onValueChange={(value) => value && onTipoChange(value as TipoCategorizacao)}
-      >
-        <SelectTrigger className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="pagamento">Pagamento</SelectItem>
-          <SelectItem value="transferencia">Transferência</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {tipo === "pagamento" ? (
-        <>
-          <div className="grid grid-cols-2 gap-2">
-            <Select defaultValue={contatosDisponiveis[0]}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Contato" />
-              </SelectTrigger>
-              <SelectContent>
-                {contatosDisponiveis.map((nome) => (
-                  <SelectItem key={nome} value={nome}>
-                    {nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select defaultValue={categoriasDespesa[0]}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                {categoriasDespesa.map((categoria) => (
-                  <SelectItem key={categoria} value={categoria}>
-                    {categoria}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2">
-            <Input placeholder="Descrição" className="flex-1" />
-            <Button variant="outline" size="icon">
-              <SearchIcon />
-            </Button>
-          </div>
-        </>
-      ) : (
-        <>
-          <Select defaultValue={contasDestinoDisponiveis[0]}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Conta de destino" />
-            </SelectTrigger>
-            <SelectContent>
-              {contasDestinoDisponiveis.map((conta) => (
-                <SelectItem key={conta} value={conta}>
-                  {conta}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input placeholder="Descrição" />
-        </>
-      )}
-    </div>
-  )
-}
-
-function ReconciliationRow({
-  transacao,
-  confirmado,
-  onConfirm,
-  onRemove,
-  tipoCategorizacao,
-  onTipoCategorizacaoChange,
-}: {
-  transacao: TransacaoBancaria
-  confirmado: boolean
-  onConfirm: () => void
-  onRemove: () => void
-  tipoCategorizacao: TipoCategorizacao
-  onTipoCategorizacaoChange: (tipo: TipoCategorizacao) => void
-}) {
-  const isEntrada = transacao.tipo === "entrada"
-
-  return (
-    <div
-      className={cn(
-        "flex items-stretch gap-3 transition-opacity",
-        confirmado && "opacity-60"
-      )}
-    >
-      <div className="flex flex-1 flex-col justify-between gap-3 rounded-lg border p-4">
-        <div className="flex items-start gap-3">
-          <span
-            className={cn(
-              "flex size-8 shrink-0 items-center justify-center rounded-full",
-              isEntrada
-                ? "bg-emerald-500/15 text-emerald-500"
-                : "bg-red-500/15 text-red-500"
-            )}
-          >
-            {isEntrada ? (
-              <ArrowDownLeftIcon className="size-4" />
-            ) : (
-              <ArrowUpRightIcon className="size-4" />
-            )}
-          </span>
-          <div className="min-w-0 flex-1 space-y-0.5">
-            <p className="text-sm font-medium">{transacao.descricao}</p>
-            <p className="text-xs text-muted-foreground">
-              {formatDate(transacao.data)} · {isEntrada ? "Entrada" : "Saída"}
-            </p>
-            <p
-              className={cn(
-                "text-sm font-semibold",
-                isEntrada ? "text-emerald-500" : "text-red-500"
-              )}
-            >
-              {isEntrada ? "" : "- "}
-              {formatBRL(transacao.valor)}
-            </p>
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={onRemove}
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2Icon className="size-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-1 flex-col justify-between gap-3 rounded-lg border p-4">
-        <div className="min-w-0">
-          {transacao.match ? (
-            <div className="space-y-0.5">
-              <p className="truncate text-sm font-medium">
-                {transacao.match.descricao}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {transacao.match.origem} · {formatDate(transacao.match.data)} ·{" "}
-                {transacao.match.categoria}
-              </p>
-              <p className="text-sm font-semibold">
-                {formatBRL(transacao.match.valor)}
-              </p>
-            </div>
-          ) : (
-            <CategorizacaoForm
-              tipo={tipoCategorizacao}
-              onTipoChange={onTipoCategorizacaoChange}
-            />
-          )}
-        </div>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            className={cn(
-              "flex size-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70",
-              !transacao.match && "invisible"
-            )}
-          >
-            <ArrowLeftRightIcon className="size-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="flex shrink-0 items-center self-center">
-        <button
-          type="button"
-          onClick={onConfirm}
-          className={cn(
-            "flex size-7 items-center justify-center rounded-full transition-colors",
-            confirmado
-              ? "bg-emerald-500 text-white"
-              : "bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25"
-          )}
-        >
-          <CheckIcon className="size-4" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-export function ReconciliationView({ bankAccounts }: { bankAccounts: BankAccount[] }) {
-  const [bankAccountId, setBankAccountId] = React.useState(bankAccounts[0]?.id ?? "")
-  const [transacoes, setTransacoes] = React.useState<TransacaoBancaria[]>([])
-  const [carregando, setCarregando] = React.useState(true)
+  const [bankAccountId, setBankAccountId] = React.useState("")
+  const [transacoes, setTransacoes] = React.useState<BankTransaction[]>([])
+  const [matchInfo, setMatchInfo] = React.useState<Record<string, TransactionMatchInfo>>({})
+  const [carregando, setCarregando] = React.useState(false)
   const [filtroTipo, setFiltroTipo] = React.useState<FiltroTipo>("todas")
   const [busca, setBusca] = React.useState("")
-  const [ordenacao, setOrdenacao] = React.useState<Ordenacao>("data")
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>()
-  const [confirmados, setConfirmados] = React.useState<Set<string>>(new Set())
-  const [categorizacoes, setCategorizacoes] = React.useState<Record<string, TipoCategorizacao>>({})
-
+  const [quickForms, setQuickForms] = React.useState<Record<string, QuickForm>>({})
+  const [pendingIds, setPendingIds] = React.useState<Set<string>>(new Set())
+  const [modalTransactionId, setModalTransactionId] = React.useState<string | null>(null)
   const [refreshKey, setRefreshKey] = React.useState(0)
 
-  const buscarTransacoes = React.useCallback(async (accountId: string) => {
-    if (!accountId) return []
-    const response = await listBankTransactionsAction(accountId)
-    return response.ok ? response.data.map(paraTransacaoBancaria) : []
+  const expenseCategories = React.useMemo(() => categories.filter((c) => c.type === "EXPENSE"), [categories])
+  const incomeCategories = React.useMemo(() => categories.filter((c) => c.type === "INCOME"), [categories])
+
+  const emptyQuickForm = React.useCallback(
+    (): QuickForm => ({
+      mode: "lancamento",
+      contactId: "",
+      categoryId: "",
+      description: "",
+      transferAccountId: bankAccountId,
+    }),
+    [bankAccountId],
+  )
+
+  function updateQuickForm(transactionId: string, patch: Partial<QuickForm>) {
+    setQuickForms((prev) => ({ ...prev, [transactionId]: { ...(prev[transactionId] ?? emptyQuickForm()), ...patch } }))
+  }
+
+  const refreshMatchInfo = React.useCallback(async (ids: string[]) => {
+    if (ids.length === 0) return
+    const response = await getMatchInfoForTransactionsAction(ids)
+    if (!response.ok) return
+    setMatchInfo((prev) => {
+      const next = { ...prev }
+      for (const info of response.data) next[info.bankTransactionId] = info
+      return next
+    })
   }, [])
 
   function handleBankAccountChange(accountId: string) {
@@ -295,59 +114,87 @@ export function ReconciliationView({ bankAccounts }: { bankAccounts: BankAccount
     setRefreshKey((key) => key + 1)
   }
 
-  // `refreshKey` bumping re-runs this effect after an import, even though
-  // the account itself doesn't change.
   React.useEffect(() => {
+    if (!bankAccountId) return
     let ignorar = false
-    buscarTransacoes(bankAccountId).then((dados) => {
+    listBankTransactionsAction(bankAccountId).then(async (response) => {
       if (ignorar) return
+      const dados = response.ok ? response.data : []
       setTransacoes(dados)
       setCarregando(false)
+      await refreshMatchInfo(dados.map((t) => t.id))
     })
     return () => {
       ignorar = true
     }
-  }, [bankAccountId, refreshKey, buscarTransacoes])
+  }, [bankAccountId, refreshKey, refreshMatchInfo])
 
-  const filtradasPorDataEBusca = React.useMemo(() => {
-    return transacoes.filter((t) => {
-      const noPeriodo =
-        !dateRange?.from ||
-        (t.data >= dateRange.from && t.data <= (dateRange.to ?? dateRange.from))
-      const combinaBusca = t.descricao
-        .toLowerCase()
-        .includes(busca.toLowerCase())
-      return noPeriodo && combinaBusca
-    })
-  }, [transacoes, dateRange, busca])
+  const filtradasPorBusca = React.useMemo(() => {
+    return transacoes.filter((t) => t.description.toLowerCase().includes(busca.toLowerCase()))
+  }, [transacoes, busca])
 
   const contagens = {
-    todas: filtradasPorDataEBusca.length,
-    entrada: filtradasPorDataEBusca.filter((t) => t.tipo === "entrada").length,
-    saida: filtradasPorDataEBusca.filter((t) => t.tipo === "saida").length,
+    todas: filtradasPorBusca.length,
+    entrada: filtradasPorBusca.filter((t) => t.amount >= 0).length,
+    saida: filtradasPorBusca.filter((t) => t.amount < 0).length,
   }
 
   const visiveis = React.useMemo(() => {
-    const porTipo = filtradasPorDataEBusca.filter(
-      (t) => filtroTipo === "todas" || t.tipo === filtroTipo
+    const porTipo = filtradasPorBusca.filter(
+      (t) => filtroTipo === "todas" || (filtroTipo === "entrada" ? t.amount >= 0 : t.amount < 0),
     )
-    return [...porTipo].sort((a, b) => {
-      if (ordenacao === "valor-desc") return b.valor - a.valor
-      if (ordenacao === "valor-asc") return a.valor - b.valor
-      return a.data.getTime() - b.data.getTime()
-    })
-  }, [filtradasPorDataEBusca, filtroTipo, ordenacao])
+    return [...porTipo].sort((a, b) => a.date.getTime() - b.date.getTime())
+  }, [filtradasPorBusca, filtroTipo])
 
-  function toggleConfirmado(id: string) {
-    setConfirmados((prev) => {
+  function markPending(id: string, pending: boolean) {
+    setPendingIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
+      if (pending) next.add(id)
+      else next.delete(id)
       return next
     })
+  }
+
+  async function confirmSuggestion(transaction: BankTransaction, entryId: string) {
+    markPending(transaction.id, true)
+    await createSettlementAction({
+      entryId,
+      bankTransactionId: transaction.id,
+      settledAmount: Math.abs(transaction.amount),
+      settledAt: transaction.date,
+    })
+    await refreshMatchInfo([transaction.id])
+    markPending(transaction.id, false)
+  }
+
+  async function confirmQuickEntry(transaction: BankTransaction) {
+    const form = quickForms[transaction.id] ?? emptyQuickForm()
+    if (form.mode !== "lancamento") return
+    if (!form.contactId || !form.categoryId || !form.description.trim()) return
+
+    markPending(transaction.id, true)
+    const action =
+      directionForTransactionAmount(transaction.amount) === "PAYABLE"
+        ? createAndSettlePayableAction
+        : createAndSettleReceivableAction
+    await action({
+      contactId: form.contactId,
+      categoryId: form.categoryId,
+      bankAccountId,
+      description: form.description.trim(),
+      bankTransactionId: transaction.id,
+      settledAmount: Math.abs(transaction.amount),
+      settledAt: transaction.date,
+    })
+    await refreshMatchInfo([transaction.id])
+    markPending(transaction.id, false)
+  }
+
+  async function handleUndo(settlementId: string, transactionId: string) {
+    markPending(transactionId, true)
+    await undoSettlementAction(settlementId)
+    await refreshMatchInfo([transactionId])
+    markPending(transactionId, false)
   }
 
   async function removerTransacao(id: string) {
@@ -357,9 +204,35 @@ export function ReconciliationView({ bankAccounts }: { bankAccounts: BankAccount
     }
   }
 
+  const modalTransaction = transacoes.find((t) => t.id === modalTransactionId) ?? null
+
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ToggleGroup
+            variant="outline"
+            spacing={0}
+            multiple={false}
+            value={[filtroTipo]}
+            onValueChange={(value) => value[0] && setFiltroTipo(value[0] as FiltroTipo)}
+          >
+            <ToggleGroupItem value="todas">Todas ({contagens.todas})</ToggleGroupItem>
+            <ToggleGroupItem value="entrada">Entradas ({contagens.entrada})</ToggleGroupItem>
+            <ToggleGroupItem value="saida">Saídas ({contagens.saida})</ToggleGroupItem>
+          </ToggleGroup>
+
+          <div className="relative">
+            <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar lançamento..."
+              className="w-56 pl-8"
+              value={busca}
+              onChange={(event) => setBusca(event.target.value)}
+            />
+          </div>
+        </div>
+
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted-foreground">Conta:</span>
@@ -369,8 +242,11 @@ export function ReconciliationView({ bankAccounts }: { bankAccounts: BankAccount
               disabled={bankAccounts.length === 0}
             >
               <SelectTrigger className="w-fit">
-                <SelectValue placeholder="Nenhuma conta cadastrada">
-                  {(value: string) => bankAccounts.find((account) => account.id === value)?.name}
+                <SelectValue placeholder="Selecione uma conta">
+                  {(value: string) =>
+                    bankAccounts.find((account) => account.id === value)?.name ??
+                    (bankAccounts.length === 0 ? "Nenhuma conta cadastrada" : "Selecione uma conta")
+                  }
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -382,127 +258,260 @@ export function ReconciliationView({ bankAccounts }: { bankAccounts: BankAccount
               </SelectContent>
             </Select>
           </div>
-          <ImportOfxButton
-            bankAccountId={bankAccountId}
-            onImported={handleImported}
-          />
+          <ImportOfxButton bankAccountId={bankAccountId} onImported={handleImported} />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <ToggleGroup
-          variant="outline"
-          multiple={false}
-          value={[filtroTipo]}
-          onValueChange={(value) => value[0] && setFiltroTipo(value[0] as FiltroTipo)}
-        >
-          <ToggleGroupItem value="todas">Todas ({contagens.todas})</ToggleGroupItem>
-          <ToggleGroupItem value="entrada">
-            Entradas ({contagens.entrada})
-          </ToggleGroupItem>
-          <ToggleGroupItem value="saida">Saídas ({contagens.saida})</ToggleGroupItem>
-        </ToggleGroup>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Popover>
-            <PopoverTrigger
-              render={
-                <Button variant="outline" size="sm" className="font-normal" />
-              }
-            >
-              <CalendarIcon />
-              {dateRange?.from ? (
-                dateRange.to ? (
-                  <>
-                    {formatDate(dateRange.from)} – {formatDate(dateRange.to)}
-                  </>
-                ) : (
-                  formatDate(dateRange.from)
-                )
-              ) : (
-                <span>Selecionar período</span>
-              )}
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={2}
-                locale={ptBR}
-                showOutsideDays={false}
-              />
-            </PopoverContent>
-          </Popover>
-
-          <div className="relative">
-            <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Buscar..."
-              className="w-56 pl-8"
-              value={busca}
-              onChange={(event) => setBusca(event.target.value)}
-            />
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="outline" size="sm" className="font-normal" />
-              }
-            >
-              Valor
-              <ChevronDownIcon />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuRadioGroup
-                value={ordenacao}
-                onValueChange={(value) => setOrdenacao(value as Ordenacao)}
-              >
-                <DropdownMenuRadioItem value="data">Data</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="valor-desc">
-                  Maior valor
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="valor-asc">
-                  Menor valor
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
+      <div className="flex items-center gap-3 px-1 text-sm font-medium text-muted-foreground">
         <div className="flex flex-1 items-center gap-2">
           <LandmarkIcon className="size-4" />
-          Lançamentos do Banco
+          Lançamentos do banco
         </div>
         <div className="flex flex-1 items-center gap-2">
           <FileTextIcon className="size-4" />
           Lançamentos do Capi
         </div>
-        <div className="w-7 shrink-0" />
+        <div className="w-9 shrink-0" />
       </div>
 
       <div className="space-y-3">
-        {carregando ? (
+        {!bankAccountId ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Selecione uma conta bancária para ver os lançamentos.</p>
+        ) : carregando ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
         ) : (
           <>
-            {visiveis.map((transacao) => (
-              <ReconciliationRow
-                key={transacao.id}
-                transacao={transacao}
-                confirmado={confirmados.has(transacao.id)}
-                onConfirm={() => toggleConfirmado(transacao.id)}
-                onRemove={() => removerTransacao(transacao.id)}
-                tipoCategorizacao={categorizacoes[transacao.id] ?? "pagamento"}
-                onTipoCategorizacaoChange={(tipo) =>
-                  setCategorizacoes((prev) => ({ ...prev, [transacao.id]: tipo }))
-                }
-              />
-            ))}
+            {visiveis.map((transacao) => {
+              const isEntrada = transacao.amount >= 0
+              const info = matchInfo[transacao.id]
+              const isPending = pendingIds.has(transacao.id)
+              const direction = directionForTransactionAmount(transacao.amount)
+              const quickForm = quickForms[transacao.id] ?? emptyQuickForm()
+
+              return (
+                <div key={transacao.id} className="flex items-stretch overflow-hidden rounded-lg border bg-card">
+                  <div className="flex flex-1 flex-col justify-between gap-3 p-4">
+                    <div className="flex items-start gap-3">
+                      <span
+                        className={cn(
+                          "flex size-8 shrink-0 items-center justify-center rounded-full",
+                          isEntrada ? "bg-emerald-500/15 text-emerald-500" : "bg-red-500/15 text-red-500",
+                        )}
+                      >
+                        {isEntrada ? <ArrowDownLeftIcon className="size-4" /> : <ArrowUpRightIcon className="size-4" />}
+                      </span>
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="text-sm font-medium">{transacao.description}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(transacao.date)} · {isEntrada ? "Entrada" : "Saída"}
+                        </p>
+                        <p className={cn("text-sm font-semibold", isEntrada ? "text-emerald-500" : "text-red-500")}>
+                          {isEntrada ? "" : "- "}
+                          {formatBRL(Math.abs(transacao.amount))}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => removerTransacao(transacao.id)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2Icon className="size-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="w-px shrink-0 bg-border" />
+
+                  <div className="flex min-h-38 flex-1 flex-col justify-center gap-2 p-4">
+                    {info && info.matches.length > 0 ? (
+                      <div className="flex flex-col gap-3">
+                        {info.matches.map((match) => {
+                          const labels = entryTypeLabels[match.entryType]
+                          return (
+                            <div key={match.settlementId} className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold">
+                                  {labels.titulo} — {match.contactName}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                  {labels.subtitulo} · {formatDate(match.dueDate)} · {match.categoryName}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUndo(match.settlementId, transacao.id)}
+                                  disabled={isPending}
+                                  className="mt-1 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                                >
+                                  Desvincular
+                                </button>
+                              </div>
+                              <span className="shrink-0 text-sm font-semibold">{formatBRL(match.settledAmount)}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : info && info.suggestions.length > 0 ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground">Sugestão automática</span>
+                          <button
+                            type="button"
+                            onClick={() => setModalTransactionId(transacao.id)}
+                            className="shrink-0 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                          >
+                            Buscar / Criar Vários
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{info.suggestions[0].contactName}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {info.suggestions[0].description} · {formatDate(info.suggestions[0].dueDate)}
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-sm font-semibold">{formatBRL(info.suggestions[0].amount)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <ToggleGroup
+                            variant="outline"
+                            spacing={0}
+                            multiple={false}
+                            value={[quickForm.mode]}
+                            onValueChange={(value) =>
+                              value[0] && updateQuickForm(transacao.id, { mode: value[0] as QuickFormMode })
+                            }
+                          >
+                            <ToggleGroupItem value="lancamento" size="sm" className="text-xs">
+                              {direction === "PAYABLE" ? "Pagamento" : "Recebimento"}
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="transferencia" size="sm" className="text-xs">
+                              Transferência
+                            </ToggleGroupItem>
+                          </ToggleGroup>
+                          <button
+                            type="button"
+                            onClick={() => setModalTransactionId(transacao.id)}
+                            className="shrink-0 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                          >
+                            Buscar / Criar Vários
+                          </button>
+                        </div>
+
+                        {quickForm.mode === "transferencia" ? (
+                          <Select
+                            value={quickForm.transferAccountId}
+                            onValueChange={(value) => {
+                              if (!value) return
+                              const origem = bankAccounts.find((a) => a.id === bankAccountId)
+                              const destino = bankAccounts.find((a) => a.id === value)
+                              updateQuickForm(transacao.id, {
+                                transferAccountId: value,
+                                description:
+                                  origem && destino ? `Transferência de ${origem.name} para ${destino.name}` : quickForm.description,
+                              })
+                            }}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Conta de destino">
+                                {(value: string) => {
+                                  const account = bankAccounts.find((a) => a.id === value)
+                                  return account
+                                    ? `${account.name} — Ag ${account.branchNumber} / CC ${account.accountNumber}`
+                                    : "Conta de destino"
+                                }}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {bankAccounts.map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.name} — Ag {account.branchNumber} / CC {account.accountNumber}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="grid grid-cols-2 gap-2">
+                            <Select
+                              value={quickForm.contactId}
+                              onValueChange={(value) => value && updateQuickForm(transacao.id, { contactId: value })}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Contato">
+                                  {(value: string) => contacts.find((contact) => contact.id === value)?.name ?? "Contato"}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {contacts.map((contact) => (
+                                  <SelectItem key={contact.id} value={contact.id}>
+                                    {contact.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Select
+                              value={quickForm.categoryId}
+                              onValueChange={(value) => value && updateQuickForm(transacao.id, { categoryId: value })}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Categoria">
+                                  {(value: string) => {
+                                    const categoryList = direction === "PAYABLE" ? expenseCategories : incomeCategories
+                                    return categoryList.find((category) => category.id === value)?.name ?? "Categoria"
+                                  }}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {(direction === "PAYABLE" ? expenseCategories : incomeCategories).map((category) => (
+                                  <SelectItem key={category.id} value={category.id}>
+                                    {category.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
+                        <Input
+                          placeholder="Descrição"
+                          value={quickForm.description}
+                          onChange={(event) => updateQuickForm(transacao.id, { description: event.target.value })}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex w-9 shrink-0 items-center justify-center">
+                    {info && info.matches.length > 0 ? (
+                      <span className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
+                        <CheckIcon className="size-4" />
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={
+                          isPending ||
+                          quickForm.mode === "transferencia" ||
+                          ((info?.suggestions.length ?? 0) === 0 &&
+                            !(quickForm.contactId && quickForm.categoryId && quickForm.description.trim()))
+                        }
+                        onClick={() =>
+                          info && info.suggestions.length > 0
+                            ? confirmSuggestion(transacao, info.suggestions[0].id)
+                            : confirmQuickEntry(transacao)
+                        }
+                        className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 transition-colors hover:bg-emerald-500/25 disabled:opacity-40"
+                      >
+                        <CheckIcon className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
             {visiveis.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 Nenhum lançamento encontrado para os filtros selecionados.
@@ -511,6 +520,21 @@ export function ReconciliationView({ bankAccounts }: { bankAccounts: BankAccount
           </>
         )}
       </div>
+
+      {modalTransaction && (
+        <ReconciliationMatchModal
+          key={modalTransaction.id}
+          open
+          onClose={() => setModalTransactionId(null)}
+          onSettled={() => refreshMatchInfo([modalTransaction.id])}
+          bankTransactionId={modalTransaction.id}
+          direction={directionForTransactionAmount(modalTransaction.amount)}
+          transactionAmount={modalTransaction.amount}
+          bankAccountId={bankAccountId}
+          contacts={contacts}
+          categories={categories}
+        />
+      )}
     </div>
   )
 }
