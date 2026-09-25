@@ -88,7 +88,23 @@ export async function sessionByToken(token: string | undefined): Promise<ActiveS
 
   const record = await prismaAdmin.session.findUnique({
     where: { tokenHash: hashToken(token) },
-    include: { user: { include: { organization: true } } },
+    // Runs on every request, ahead of the page's own queries: a single joined
+    // query carrying only the fields ActiveSession needs.
+    select: {
+      id: true,
+      expiresAt: true,
+      user: {
+        select: {
+          id: true,
+          organizationId: true,
+          name: true,
+          email: true,
+          role: true,
+          active: true,
+          organization: { select: { name: true, document: true } },
+        },
+      },
+    },
   });
 
   if (!record) return null;

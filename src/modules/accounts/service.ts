@@ -14,6 +14,8 @@ const paymentMethodLabel: Record<PaymentMethodCode, string> = {
 
 async function listEntries(tx: Tx, type: "RECEIVABLE" | "PAYABLE", kind: LedgerKind): Promise<AccountEntry[]> {
   const entries = await tx.entry.findMany({
+    // One query with JOINs instead of ~10 sequential ones (one per relation).
+    relationLoadStrategy: "join",
     where: { type, status: { not: "CANCELED" } },
     include: {
       contact: true,
