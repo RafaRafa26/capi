@@ -8,6 +8,7 @@ import {
   createSettlement,
   createSettlementBatch,
   getBeneficiaryAvailableBalance,
+  getSettlementReceipt,
   manualSettleEntry,
   suggestMatchesForTransaction,
   undoSettlement,
@@ -241,6 +242,24 @@ describe("manualSettleEntry", () => {
       BusinessError,
     )
   })
+
+  it("accepts a partial settledAmount (RN-06), leaving the entry PARTIAL", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+
+    await manualSettleEntry(org.id, { entryId: entry.id, settledAt: new Date(2026, 7, 12), settledAmount: 4_000 })
+
+    const updatedEntry = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(updatedEntry.status).toBe("PARTIAL")
+    expect(updatedEntry.settledAmount).toBe(4_000)
+  })
+
+  it("rejects a settledAmount greater than what's left", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+
+    await expect(
+      manualSettleEntry(org.id, { entryId: entry.id, settledAt: new Date(2026, 7, 12), settledAmount: 10_001 }),
+    ).rejects.toBeInstanceOf(BusinessError)
+  })
 })
 
 describe("createAndSettlePayable", () => {
@@ -294,5 +313,32 @@ describe("getBeneficiaryAvailableBalance", () => {
 
     const balance = await getBeneficiaryAvailableBalance(org.id, beneficiaryId)
     expect(balance).toBe(1_500)
+  })
+})
+
+describe("getSettlementReceipt", () => {
+  it("describes a manual settlement's entry, installment and note", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+    await manualSettleEntry(org.id, {
+      entryId: entry.id,
+      settledAt: new Date(2026, 7, 12),
+      settledAmount: 4_000,
+      note: "PGTO PARCIAL",
+    })
+    const settlement = await prismaAdmin.settlement.findFirstOrThrow({ where: { entryId: entry.id } })
+
+    const receipt = await getSettlementReceipt(org.id, settlement.id)
+
+    expect(receipt.entryType).toBe("RECEIVABLE")
+    expect(receipt.settledAmount).toBe(4_000)
+    expect(receipt.note).toBe("PGTO PARCIAL")
+    expect(receipt.installment).toBe("1/1")
+    expect(receipt.contactName).toBeTruthy()
+  })
+
+  it("throws NotFound for a nonexistent settlement", async () => {
+    await expect(getSettlementReceipt(org.id, "00000000-0000-0000-0000-000000000000")).rejects.toBeInstanceOf(
+      NotFound,
+    )
   })
 })

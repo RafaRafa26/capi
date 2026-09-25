@@ -8,6 +8,8 @@ const titles: Record<string, string> = {
   "/new-expense": "Nova despesa",
   "/reconciliation": "Conciliação",
   "/payout": "Repasses",
+  "/payables": "Contas a pagar",
+  "/receivables": "Contas a receber",
   "/contacts": "Contatos",
   "/bank-accounts": "Contas bancárias",
   "/categories": "Categorias",

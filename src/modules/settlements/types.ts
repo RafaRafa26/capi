@@ -36,3 +36,20 @@ export interface TransactionMatchInfo {
   matches: MatchedSettlement[]
   suggestions: CandidateEntry[]
 }
+
+// The "Emitir recibo" printable view's data — one Settlement plus just
+// enough of its Entry to describe what was paid/recebido.
+export interface SettlementReceipt {
+  id: string
+  settledAt: Date
+  settledAmount: number
+  interest: number
+  fine: number
+  discount: number
+  note: string | null
+  entryType: EntryType
+  entryDescription: string
+  contactName: string
+  categoryName: string
+  installment: string | null
+}
