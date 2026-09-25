@@ -7,8 +7,12 @@
 // - snake_case column/table names in the database, camelCase in the client.
 
 generator client {
-  provider = "prisma-client"
-  output   = "./generated"
+  provider        = "prisma-client"
+  output          = "./generated"
+  // Makes `relationLoadStrategy: "join"` the default: a nested `include` loads
+  // in a single SQL query (LATERAL JOIN + JSON) instead of one round trip per
+  // relation — which is what dominates page latency against a remote database.
+  previewFeatures = ["relationJoins"]
 }
 
 datasource db {
@@ -322,7 +326,9 @@ model Entry {
   bankAccount  BankAccount   @relation(fields: [bankAccountId], references: [id])
   settlements  Settlement[]
 
-  @@index([organizationId])
+  // Contas a receber/pagar and the dashboard: WHERE type (+ status) ORDER BY
+  // due_date. Also covers plain organization_id lookups (leading column).
+  @@index([organizationId, type, dueDate])
   @@index([saleId])
   @@map("entries")
 }

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import {
   ArrowDownIcon,
   ArrowUpDownIcon,
@@ -100,7 +100,6 @@ export function AccountsView({
   categories: Category[]
   bankAccounts: BankAccount[]
 }) {
-  const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const today = React.useMemo(() => new Date(), [])
@@ -139,7 +138,10 @@ export function AccountsView({
     if (options.resetPage !== false && !("page" in patch)) {
       params.delete("page")
     }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    // Filtering, sorting and paging all run client-side over `entries`, so the
+    // server has nothing new to render — the native History API updates the
+    // URL (and useSearchParams) without a server round-trip.
+    window.history.replaceState(null, "", `${pathname}?${params.toString()}`)
   }
 
   function handlePeriodChange(range: PeriodRange) {
@@ -317,7 +319,9 @@ export function AccountsView({
           variant="outline"
           className="ml-auto h-8.5"
           nativeButton={false}
-          render={<Link href={`/reports/accounts?kind=${kind}&${searchParams.toString()}`} target="_blank" />}
+          // No prefetch: the href changes with every filter, and each prefetch
+          // would server-render the whole report just in case it gets opened.
+          render={<Link href={`/reports/accounts?kind=${kind}&${searchParams.toString()}`} target="_blank" prefetch={false} />}
         >
           <DownloadIcon />
           Exportar

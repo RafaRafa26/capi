@@ -90,6 +90,9 @@ export function fromDbDate(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12));
 }
 
+/** `DB_TIMING=1` logs how long each withOrganization() call took, for diagnosing slow pages. */
+const logTimings = process.env.DB_TIMING === "1";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Client inside a transaction — the type repositories/services receive. */
@@ -113,8 +116,18 @@ export async function withOrganization<T>(
     throw new Error("Invalid organization identifier.");
   }
 
-  return prismaApp.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(`SET LOCAL app.organization_id = '${organizationId}'`);
-    return fn(tx);
-  });
+  const started = logTimings ? performance.now() : 0;
+  // Captured before the first await, while the caller's frame (which service
+  // ran) is still on the stack — enough to spot the slow one.
+  const caller = logTimings ? (new Error().stack?.split("\n")[2]?.trim() ?? "?") : "";
+  try {
+    return await prismaApp.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL app.organization_id = '${organizationId}'`);
+      return fn(tx);
+    });
+  } finally {
+    if (logTimings) {
+      console.log(`[db] ${(performance.now() - started).toFixed(1)}ms ${caller}`);
+    }
+  }
 }
