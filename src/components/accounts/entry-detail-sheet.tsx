@@ -58,7 +58,7 @@ function CategoryValue({ categoryId, categoryName }: { categoryId: string; categ
 }
 
 export function EntryDetailSheet({
-  entry,
+  entry: entryProp,
   kind,
   open,
   onOpenChange,
@@ -74,6 +74,14 @@ export function EntryDetailSheet({
   const [pending, setPending] = React.useState(false)
   const today = React.useMemo(() => new Date(), [])
   const config = kindConfig[kind]
+
+  // Keep showing the last entry while the Sheet animates closed — the parent
+  // clears `entry` at the same time it flips `open` to false.
+  const [lastEntry, setLastEntry] = React.useState<AccountEntry | null>(entryProp)
+  if (entryProp && entryProp !== lastEntry) {
+    setLastEntry(entryProp)
+  }
+  const entry = entryProp ?? lastEntry
 
   const [settleDate, setSettleDate] = React.useState(today)
   const [settleAmount, setSettleAmount] = React.useState(0)
@@ -95,7 +103,9 @@ export function EntryDetailSheet({
     setSettleError(null)
   }
 
-  if (!entry) return null
+  // The Sheet root stays mounted even with no entry so opening it is a
+  // closed → open transition, which is what plays the slide/fade animation.
+  if (!entry) return <Sheet open={open} onOpenChange={onOpenChange} />
 
   const accountStatus: AccountStatus = deriveStatus(entry, today)
   const isSettled = accountStatus === "PAID"
