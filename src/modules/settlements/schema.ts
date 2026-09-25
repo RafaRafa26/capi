@@ -42,6 +42,12 @@ export type CreateSettlementBatchInput = z.infer<typeof createSettlementBatchInp
 export const manualSettleInputSchema = z.object({
   entryId: z.string().min(1),
   settledAt: z.coerce.date(),
+  // Omitted quits whatever remains in one go (the original behavior); given,
+  // it's a recebimento/pagamento parcial (RN-06) — service.ts validates it
+  // against what's actually left.
+  settledAmount: z.number().int().positive("Informe o valor.").optional(),
+  // RN-20's "conta de terceiro" — free text, never a registered BankAccount
+  // (RN-21: manual baixa never points at the organization's own account).
   note: z.string().trim().max(500).optional(),
 })
 export type ManualSettleInput = z.infer<typeof manualSettleInputSchema>

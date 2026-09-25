@@ -20,9 +20,13 @@ import {
   UsersIcon,
   LandmarkIcon,
   TagIcon,
+  ArrowDownRightIcon,
+  ArrowUpRightIcon,
 } from "lucide-react"
 
 const navFinanceiro = [
+  { title: "Contas a pagar", url: "/payables", icon: <ArrowDownRightIcon /> },
+  { title: "Contas a receber", url: "/receivables", icon: <ArrowUpRightIcon /> },
   { title: "Conciliação bancária", url: "/reconciliation", icon: <RefreshCwIcon /> },
   { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
 ]

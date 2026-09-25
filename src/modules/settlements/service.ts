@@ -10,7 +10,7 @@ import type {
   ManualSettleInput,
   SearchCandidateEntriesInput,
 } from "./schema"
-import type { CandidateEntry, MatchedSettlement, TransactionMatchInfo } from "./types"
+import type { CandidateEntry, MatchedSettlement, SettlementReceipt, TransactionMatchInfo } from "./types"
 
 async function loadEntry(tx: Tx, entryId: string) {
   const entry = await tx.entry.findUnique({ where: { id: entryId } })
@@ -276,10 +276,11 @@ export async function undoSettlement(organizationId: string, settlementId: strin
 }
 
 /**
- * Baixa manual — date + free-text note only, quits whatever remains of the
- * entry in one go (no partial baixa manual, to keep this simple), never
- * touches a bank transaction and never credits a favorecido (RN-01a: only a
- * STATEMENT-origin settlement generates balance).
+ * Baixa manual (RN-20) — date + value + free-text "conta de terceiro" note.
+ * Never touches a bank transaction and never credits a favorecido (RN-01a:
+ * only a STATEMENT-origin settlement generates balance). `settledAmount`
+ * omitted quits whatever remains in one go; given, it's a recebimento/
+ * pagamento parcial (RN-06) and must not exceed what's left.
  */
 export async function manualSettleEntry(organizationId: string, input: ManualSettleInput): Promise<void> {
   await withOrganization(organizationId, async (tx) => {
@@ -288,11 +289,14 @@ export async function manualSettleEntry(organizationId: string, input: ManualSet
     if (remaining <= 0) {
       throw new BusinessError("Este lançamento já está totalmente liquidado.")
     }
+    if (input.settledAmount !== undefined && input.settledAmount > remaining) {
+      throw new BusinessError("O valor não pode ser maior do que o saldo em aberto.", "settledAmount")
+    }
 
     await insertSettlement(tx, organizationId, {
       entryId: input.entryId,
       origin: "MANUAL",
-      settledAmount: remaining,
+      settledAmount: input.settledAmount ?? remaining,
       settledAt: input.settledAt,
       note: input.note,
     })
@@ -404,5 +408,42 @@ export async function getBeneficiaryAvailableBalance(organizationId: string, ben
       }
     }
     return total
+  })
+}
+
+/** The "Emitir recibo" printable view's data, for one Settlement row of the accounts detail Sheet's history tab. */
+export async function getSettlementReceipt(organizationId: string, settlementId: string): Promise<SettlementReceipt> {
+  return withOrganization(organizationId, async (tx) => {
+    const settlement = await tx.settlement.findUnique({
+      where: { id: settlementId },
+      include: {
+        entry: {
+          include: {
+            contact: true,
+            category: true,
+            sale: { select: { installmentsCount: true, billingType: true } },
+          },
+        },
+      },
+    })
+    if (!settlement) throw new NotFound("Liquidação")
+
+    return {
+      id: settlement.id,
+      settledAt: fromDbDate(settlement.settledAt),
+      settledAmount: settlement.settledAmount,
+      interest: settlement.interest,
+      fine: settlement.fine,
+      discount: settlement.discount,
+      note: settlement.note,
+      entryType: settlement.entry.type,
+      entryDescription: settlement.entry.description,
+      contactName: settlement.entry.contact.name,
+      categoryName: settlement.entry.category.name,
+      installment:
+        settlement.entry.sale && settlement.entry.sale.billingType === "INSTALLMENTS" && settlement.entry.installmentNumber
+          ? `${settlement.entry.installmentNumber}/${settlement.entry.sale.installmentsCount}`
+          : null,
+    }
   })
 }
