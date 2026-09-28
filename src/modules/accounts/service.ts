@@ -12,37 +12,43 @@ const paymentMethodLabel: Record<PaymentMethodCode, string> = {
   BANK_TRANSFER: "Transferência",
 }
 
-async function listEntries(tx: Tx, type: "RECEIVABLE" | "PAYABLE", kind: LedgerKind): Promise<AccountEntry[]> {
-  const entries = await tx.entry.findMany({
+/** Everything the accounts screens and the detail Sheet render for one lançamento. */
+const ENTRY_INCLUDE = {
+  contact: true,
+  category: true,
+  bankAccount: true,
+  sale: {
+    select: {
+      id: true,
+      totalAmount: true,
+      installmentsCount: true,
+      billingType: true,
+      billingFrequency: true,
+      firstDueDate: true,
+      allocations: { include: { beneficiary: true }, orderBy: { order: "asc" } },
+    },
+  },
+  settlements: {
+    orderBy: { settledAt: "desc" },
+    include: { bankTransaction: { include: { bankAccount: true } } },
+  },
+} as const
+
+type EntryWithRelations = Awaited<ReturnType<typeof loadEntries>>[number]
+
+function loadEntries(tx: Tx, where: { type?: "RECEIVABLE" | "PAYABLE"; id?: string }) {
+  return tx.entry.findMany({
     // One query with JOINs instead of ~10 sequential ones (one per relation).
     relationLoadStrategy: "join",
-    where: { type, status: { not: "CANCELED" } },
-    include: {
-      contact: true,
-      category: true,
-      bankAccount: true,
-      sale: {
-        select: {
-          id: true,
-          totalAmount: true,
-          installmentsCount: true,
-          billingType: true,
-          billingFrequency: true,
-          firstDueDate: true,
-          allocations: { include: { beneficiary: true }, orderBy: { order: "asc" } },
-        },
-      },
-      settlements: {
-        orderBy: { settledAt: "desc" },
-        include: { bankTransaction: { include: { bankAccount: true } } },
-      },
-    },
+    where: { ...where, status: { not: "CANCELED" } },
+    include: ENTRY_INCLUDE,
     orderBy: { dueDate: "asc" },
   })
+}
 
-  return entries.map((entry) => {
-    const allocations = entry.sale?.allocations ?? []
-    return {
+function toAccountEntry(entry: EntryWithRelations, kind: LedgerKind): AccountEntry {
+  const allocations = entry.sale?.allocations ?? []
+  return {
       id: entry.id,
       kind,
       contactId: entry.contactId,
@@ -53,7 +59,7 @@ async function listEntries(tx: Tx, type: "RECEIVABLE" | "PAYABLE", kind: LedgerK
       paymentMethod: paymentMethodLabel[entry.paymentMethod as PaymentMethodCode] ?? entry.paymentMethod,
       paymentMethodCode: entry.paymentMethod as PaymentMethodCode,
       bankAccountId: entry.bankAccountId,
-      bankAccountName: entry.bankAccount.name,
+      bankAccountName: entry.bankAccount?.name ?? null,
       dueDate: fromDbDate(entry.dueDate),
       paidAt: entry.status === "SETTLED" && entry.settlements[0] ? fromDbDate(entry.settlements[0].settledAt) : null,
       amount: entry.amount,
@@ -98,20 +104,38 @@ async function listEntries(tx: Tx, type: "RECEIVABLE" | "PAYABLE", kind: LedgerK
       // itself. Avulsa entries (no sale) or a sale with no Allocation rows
       // have none, per ARQUITETURA.md §5.1.
       beneficiaryIds: allocations.map((allocation) => allocation.beneficiaryId),
-      beneficiaryNames: allocations.map((allocation) => allocation.beneficiary.name),
-      entryStatus: entry.status as AccountEntry["entryStatus"],
-    }
-  })
+    beneficiaryNames: allocations.map((allocation) => allocation.beneficiary.name),
+    entryStatus: entry.status as AccountEntry["entryStatus"],
+  }
 }
 
 /** Every PAYABLE entry (despesas avulsas/parceladas + Sale-generated), for the Contas a pagar screen. */
 export async function listPayables(organizationId: string): Promise<AccountEntry[]> {
-  return withOrganization(organizationId, (tx) => listEntries(tx, "PAYABLE", "pay"))
+  return withOrganization(organizationId, async (tx) => {
+    const entries = await loadEntries(tx, { type: "PAYABLE" })
+    return entries.map((entry) => toAccountEntry(entry, "pay"))
+  })
 }
 
 /** Every RECEIVABLE entry (Sale installments + avulsas), for the Contas a receber screen. */
 export async function listReceivables(organizationId: string): Promise<AccountEntry[]> {
-  return withOrganization(organizationId, (tx) => listEntries(tx, "RECEIVABLE", "rec"))
+  return withOrganization(organizationId, async (tx) => {
+    const entries = await loadEntries(tx, { type: "RECEIVABLE" })
+    return entries.map((entry) => toAccountEntry(entry, "rec"))
+  })
+}
+
+/**
+ * One lançamento with the same shape the lists use — so the detail Sheet can
+ * be opened from somewhere that didn't load the whole ledger, like the
+ * favorecido's extrato drilling into the conta a receber that credited him.
+ */
+export async function getAccountEntryById(organizationId: string, entryId: string): Promise<AccountEntry> {
+  return withOrganization(organizationId, async (tx) => {
+    const [entry] = await loadEntries(tx, { id: entryId })
+    if (!entry) throw new NotFound("Lançamento")
+    return toAccountEntry(entry, entry.type === "PAYABLE" ? "pay" : "rec")
+  })
 }
 
 /** All Favorecido contacts registered in the org — the full universe for the Favorecido filter, not just the ones already used in an entry. */
@@ -154,8 +178,10 @@ export async function updateAccountEntry(
     const contact = await tx.contact.findUnique({ where: { id: input.contactId } })
     if (!contact) throw new NotFound("Contato")
 
-    const bankAccount = await tx.bankAccount.findUnique({ where: { id: input.bankAccountId } })
-    if (!bankAccount) throw new NotFound("Conta bancária")
+    if (input.bankAccountId) {
+      const bankAccount = await tx.bankAccount.findUnique({ where: { id: input.bankAccountId } })
+      if (!bankAccount) throw new NotFound("Conta bancária")
+    }
 
     await tx.entry.update({
       where: { id: entryId },

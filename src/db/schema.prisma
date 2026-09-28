@@ -141,6 +141,7 @@ model Organization {
   imports          Import[]
   bankTransactions BankTransaction[]
   settlements      Settlement[]
+  payouts          Payout[]
 
   @@map("organizations")
 }
@@ -203,6 +204,7 @@ model Contact {
   sales                  Sale[]       @relation("SaleContact")
   entries                Entry[]      @relation("EntryContact")
   beneficiaryAllocations Allocation[] @relation("AllocationBeneficiary")
+  payouts                Payout[]     @relation("PayoutBeneficiary")
 
   @@unique([organizationId, document])
   @@index([organizationId])
@@ -306,7 +308,10 @@ model Entry {
   installmentNumber Int?          @map("installment_number")
   contactId         String        @map("contact_id") @db.Uuid
   categoryId        String        @map("category_id") @db.Uuid
-  bankAccountId     String        @map("bank_account_id") @db.Uuid
+  // Nula no repasse (Payout): a conta de onde ele sai só é decidida na
+  // conciliação, que não filtra lançamento por conta. Nos demais lançamentos
+  // é a conta prevista de recebimento/pagamento.
+  bankAccountId     String?       @map("bank_account_id") @db.Uuid
   type              EntryType
   status            EntryStatus   @default(FORECAST)
   description       String
@@ -323,8 +328,9 @@ model Entry {
   sale         Sale?         @relation(fields: [saleId], references: [id])
   contact      Contact       @relation("EntryContact", fields: [contactId], references: [id])
   category     Category      @relation(fields: [categoryId], references: [id])
-  bankAccount  BankAccount   @relation(fields: [bankAccountId], references: [id])
+  bankAccount  BankAccount?  @relation(fields: [bankAccountId], references: [id])
   settlements  Settlement[]
+  payout       Payout?
 
   // Contas a receber/pagar and the dashboard: WHERE type (+ status) ORDER BY
   // due_date. Also covers plain organization_id lookups (leading column).
@@ -353,6 +359,27 @@ model Allocation {
   @@index([organizationId])
   @@index([saleId])
   @@map("allocations")
+}
+
+// Marca uma Entry PAYABLE como repasse de custódia — sem esta linha, o saldo
+// disponível do favorecido não sabe que aquele valor já foi reservado/pago
+// (RN-09/RN-10). `amount` é o valor gerado no repasse; pendente/realizado são
+// derivados do status/settledAmount da Entry ligada, não guardados aqui.
+model Payout {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  beneficiaryId  String   @map("beneficiary_id") @db.Uuid
+  entryId        String   @unique @map("entry_id") @db.Uuid
+  amount         Int
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  beneficiary  Contact      @relation("PayoutBeneficiary", fields: [beneficiaryId], references: [id])
+  entry        Entry        @relation(fields: [entryId], references: [id])
+
+  @@index([organizationId])
+  @@index([beneficiaryId])
+  @@map("payouts")
 }
 
 // One uploaded OFX file. Its transactions land in BankTransaction, deduped

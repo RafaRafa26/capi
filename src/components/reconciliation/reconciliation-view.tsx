@@ -1,9 +1,11 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
   ArrowDownLeftIcon,
   ArrowUpRightIcon,
+  ArrowLeftIcon,
   CheckIcon,
   LandmarkIcon,
   FileTextIcon,
@@ -56,18 +58,20 @@ interface QuickForm {
 }
 
 export function ReconciliationView({
+  bankAccount,
   bankAccounts,
   contacts,
   categories,
 }: {
+  bankAccount: BankAccount
   bankAccounts: BankAccount[]
   contacts: Contact[]
   categories: Category[]
 }) {
-  const [bankAccountId, setBankAccountId] = React.useState("")
+  const bankAccountId = bankAccount.id
   const [transacoes, setTransacoes] = React.useState<BankTransaction[]>([])
   const [matchInfo, setMatchInfo] = React.useState<Record<string, TransactionMatchInfo>>({})
-  const [carregando, setCarregando] = React.useState(false)
+  const [carregando, setCarregando] = React.useState(true)
   const [filtroTipo, setFiltroTipo] = React.useState<FiltroTipo>("todas")
   const [busca, setBusca] = React.useState("")
   const [quickForms, setQuickForms] = React.useState<Record<string, QuickForm>>({})
@@ -104,18 +108,12 @@ export function ReconciliationView({
     })
   }, [])
 
-  function handleBankAccountChange(accountId: string) {
-    setBankAccountId(accountId)
-    setCarregando(true)
-  }
-
   function handleImported() {
     setCarregando(true)
     setRefreshKey((key) => key + 1)
   }
 
   React.useEffect(() => {
-    if (!bankAccountId) return
     let ignorar = false
     listBankTransactionsAction(bankAccountId).then(async (response) => {
       if (ignorar) return
@@ -209,6 +207,24 @@ export function ReconciliationView({
   return (
     <div className="flex flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/reconciliation"
+            className="flex size-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-4" />
+          </Link>
+          <div>
+            <p className="text-sm font-semibold">{bankAccount.name}</p>
+            <p className="text-xs text-muted-foreground">
+              Ag {bankAccount.branchNumber} / CC {bankAccount.accountNumber}
+            </p>
+          </div>
+        </div>
+        <ImportOfxButton bankAccountId={bankAccountId} onImported={handleImported} />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <ToggleGroup
             variant="outline"
@@ -232,34 +248,6 @@ export function ReconciliationView({
             />
           </div>
         </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Conta:</span>
-            <Select
-              value={bankAccountId}
-              onValueChange={(value) => value && handleBankAccountChange(value)}
-              disabled={bankAccounts.length === 0}
-            >
-              <SelectTrigger className="w-fit">
-                <SelectValue placeholder="Selecione uma conta">
-                  {(value: string) =>
-                    bankAccounts.find((account) => account.id === value)?.name ??
-                    (bankAccounts.length === 0 ? "Nenhuma conta cadastrada" : "Selecione uma conta")
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {bankAccounts.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <ImportOfxButton bankAccountId={bankAccountId} onImported={handleImported} />
-        </div>
       </div>
 
       <div className="flex items-center gap-3 px-1 text-sm font-medium text-muted-foreground">
@@ -275,9 +263,7 @@ export function ReconciliationView({
       </div>
 
       <div className="space-y-3">
-        {!bankAccountId ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Selecione uma conta bancária para ver os lançamentos.</p>
-        ) : carregando ? (
+        {carregando ? (
           <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
         ) : (
           <>

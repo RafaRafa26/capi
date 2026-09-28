@@ -68,7 +68,8 @@ export function EntryDetailSheet({
   kind: LedgerKind
   open: boolean
   onOpenChange: (open: boolean) => void
-  onEdit: (entry: AccountEntry) => void
+  /** Sem callback, a Sheet é só leitura — é assim que o extrato do favorecido a abre. */
+  onEdit?: (entry: AccountEntry) => void
 }) {
   const router = useRouter()
   const [pending, setPending] = React.useState(false)
@@ -284,7 +285,7 @@ export function EntryDetailSheet({
                 <Field label="Valor" value={formatBRL(entry.amount)} />
                 <Field label="Data de vencimento" value={formatDate(entry.dueDate)} />
                 <Field label="Forma de pagamento" value={entry.paymentMethod} />
-                <Field label={config.settlementAccountLabel} value={entry.bankAccountName} full />
+                <Field label={config.settlementAccountLabel} value={entry.bankAccountName ?? "—"} full />
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -300,7 +301,7 @@ export function EntryDetailSheet({
                     <Field label="Valor" value={formatBRL(entry.amount)} />
                     <Field label="Vencimento" value={formatDate(entry.dueDate)} />
                     <Field label="Forma de pagamento" value={entry.paymentMethod} />
-                    <Field label={config.settlementAccountLabel} value={entry.bankAccountName} full />
+                    <Field label={config.settlementAccountLabel} value={entry.bankAccountName ?? "—"} full />
                   </div>
                 </div>
 
@@ -420,21 +421,25 @@ export function EntryDetailSheet({
           </TabsContent>
         </Tabs>
 
-        <SheetFooter className={cn("gap-2 border-t p-4", isSettled ? "grid grid-cols-1" : "grid grid-cols-2")}>
-          <Button onClick={() => onEdit(entry)} disabled={pending}>
-            Editar
-          </Button>
-          {!isSettled && (
-            <Button
-              variant="outline"
-              className="text-destructive hover:text-destructive"
-              onClick={handleDelete}
-              disabled={pending}
-            >
-              Excluir
-            </Button>
-          )}
-        </SheetFooter>
+        {(onEdit || !isSettled) && (
+          <SheetFooter className={cn("gap-2 border-t p-4", onEdit && !isSettled ? "grid grid-cols-2" : "grid grid-cols-1")}>
+            {onEdit && (
+              <Button onClick={() => onEdit(entry)} disabled={pending}>
+                Editar
+              </Button>
+            )}
+            {!isSettled && (
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={handleDelete}
+                disabled={pending}
+              >
+                Excluir
+              </Button>
+            )}
+          </SheetFooter>
+        )}
       </SheetContent>
     </Sheet>
   )

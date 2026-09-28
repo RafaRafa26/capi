@@ -189,7 +189,7 @@ interface ChippableEntry {
   beneficiaryNames: string[]
   categoryName: string
   paymentMethod: string
-  bankAccountName: string
+  bankAccountName: string | null
 }
 
 function chipValues(entry: ChippableEntry, key: FilterChipKey): string[] {
@@ -201,7 +201,8 @@ function chipValues(entry: ChippableEntry, key: FilterChipKey): string[] {
     case "paymentMethod":
       return [entry.paymentMethod]
     case "bankAccount":
-      return [entry.bankAccountName]
+      // Sem conta (repasse ainda não conciliado) não casa com nenhum chip.
+      return entry.bankAccountName ? [entry.bankAccountName] : []
   }
 }
 

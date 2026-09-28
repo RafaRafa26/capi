@@ -3,7 +3,9 @@ import { z } from "zod"
 export const updateAccountEntrySchema = z.object({
   contactId: z.string().min(1, "Selecione o contato."),
   categoryId: z.string().min(1, "Selecione a categoria."),
-  bankAccountId: z.string().min(1, "Selecione a conta."),
+  // Opcional porque o repasse nasce sem conta (schema.prisma#Entry) e precisa
+  // poder ser salvo do mesmo jeito pelo Sheet de detalhe.
+  bankAccountId: z.string().nullable(),
   description: z.string().trim().min(1, "Informe a descrição."),
   paymentMethod: z.enum(["BOLETO", "PIX", "CREDIT_CARD", "BANK_TRANSFER"], "Selecione a forma de pagamento."),
   // Only applied while the entry is still FORECAST (RN-17) — service.ts

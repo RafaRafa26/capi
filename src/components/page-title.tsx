@@ -15,9 +15,15 @@ const titles: Record<string, string> = {
   "/categories": "Categorias",
 }
 
+function resolveTitle(pathname: string): string | null {
+  if (titles[pathname]) return titles[pathname]
+  if (pathname.startsWith("/reconciliation/")) return "Conciliação"
+  return null
+}
+
 export function PageTitle() {
   const pathname = usePathname()
-  const title = titles[pathname]
+  const title = resolveTitle(pathname)
 
   if (!title) return null
 

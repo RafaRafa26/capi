@@ -13,3 +13,24 @@ export interface BankAccount {
   initialBalance: number
   active: boolean
 }
+
+export interface BankAccountOverview extends BankAccount {
+  // initialBalance + soma das BankTransaction RECONCILED da conta.
+  currentBalance: number
+  pendingCount: number
+}
+
+export interface BankAccountStatementLine {
+  bankTransactionId: string
+  date: Date
+  description: string
+  amount: number
+  runningBalance: number
+  settledEntries: { entryId: string; contactName: string; description: string }[]
+}
+
+export interface BankAccountStatement {
+  bankAccount: BankAccount
+  currentBalance: number
+  lines: BankAccountStatementLine[]
+}

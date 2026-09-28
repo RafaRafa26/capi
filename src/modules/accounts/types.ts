@@ -54,8 +54,9 @@ export interface AccountEntry {
   // PT label for display/filtering — see paymentMethodCode for the raw enum.
   paymentMethod: string
   paymentMethodCode: PaymentMethodCode
-  bankAccountId: string
-  bankAccountName: string
+  // Nula no repasse, que só ganha conta na conciliação — ver schema.prisma#Entry.
+  bankAccountId: string | null
+  bankAccountName: string | null
   dueDate: Date
   // Set only once the entry is fully SETTLED — a PARTIAL entry still shows
   // "—" here, since it isn't paid/recebido yet (see filter.ts#deriveStatus).
