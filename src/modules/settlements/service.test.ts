@@ -2,12 +2,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { prismaAdmin } from "@/db/client"
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment"
+import { getBeneficiaryStatement } from "@/modules/payouts/service"
 import { BusinessError, NotFound } from "@/shared/errors"
 import {
   createAndSettlePayable,
   createSettlement,
   createSettlementBatch,
-  getBeneficiaryAvailableBalance,
   getSettlementReceipt,
   manualSettleEntry,
   suggestMatchesForTransaction,
@@ -230,8 +230,8 @@ describe("manualSettleEntry", () => {
     const updatedEntry = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
     expect(updatedEntry.status).toBe("SETTLED")
 
-    const balance = await getBeneficiaryAvailableBalance(org.id, beneficiaryId)
-    expect(balance).toBe(0)
+    const statement = await getBeneficiaryStatement(org.id, beneficiaryId)
+    expect(statement.available).toBe(0)
   })
 
   it("rejects an entry that's already fully settled", async () => {
@@ -295,24 +295,6 @@ describe("suggestMatchesForTransaction", () => {
 
     const suggestions = await suggestMatchesForTransaction(org.id, transaction.id)
     expect(suggestions.map((s) => s.id)).toContain(entry.id)
-  })
-})
-
-describe("getBeneficiaryAvailableBalance", () => {
-  it("credits the favorecido proportionally to what was actually settled", async () => {
-    const { entry } = await createReceivableEntry(10_000, { allocationAmount: 3_000 })
-    const transaction = await createBankTransaction(5_000)
-
-    // Partial settlement: 50% of the sale settled → 50% of the allocation credited.
-    await createSettlement(org.id, {
-      entryId: entry.id,
-      bankTransactionId: transaction.id,
-      settledAmount: 5_000,
-      settledAt: new Date(2026, 7, 10),
-    })
-
-    const balance = await getBeneficiaryAvailableBalance(org.id, beneficiaryId)
-    expect(balance).toBe(1_500)
   })
 })
 

@@ -1,6 +1,8 @@
 "use server";
 
 import { requireSession } from "@/modules/auth/session";
+import { getBankAccountStatement } from "@/modules/bank-accounts/service";
+import type { BankAccountStatement } from "@/modules/bank-accounts/types";
 import {
   createAndSettlePayableInputSchema,
   createSettlementBatchInputSchema,
@@ -23,6 +25,16 @@ import { importStatementInputSchema } from "@/modules/statements/schema";
 import { deleteBankTransaction, importStatement, listBankTransactions } from "@/modules/statements/service";
 import type { BankTransaction, ImportStatementResult } from "@/modules/statements/types";
 import { failure, type Result } from "@/shared/errors";
+
+export async function getBankAccountStatementAction(bankAccountId: string): Promise<Result<BankAccountStatement>> {
+  try {
+    const session = await requireSession();
+    const statement = await getBankAccountStatement(session.organizationId, bankAccountId);
+    return { ok: true, data: statement };
+  } catch (error) {
+    return failure(error);
+  }
+}
 
 export async function importStatementAction(form: FormData): Promise<Result<ImportStatementResult>> {
   try {

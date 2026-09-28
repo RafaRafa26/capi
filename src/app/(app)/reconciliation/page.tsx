@@ -1,20 +1,20 @@
-import { ReconciliationView } from "@/components/reconciliation/reconciliation-view"
-import { requireSessionOrRedirect } from "@/modules/auth/session"
-import { listBankAccounts } from "@/modules/bank-accounts/service"
-import { listCategories } from "@/modules/categories/service"
-import { listContacts } from "@/modules/contacts/service"
+import { BankAccountsWorkspace } from "@/components/reconciliation/bank-accounts-workspace";
+import { requireSessionOrRedirect } from "@/modules/auth/session";
+import { getBankAccountStatement, getBankAccountsOverview } from "@/modules/bank-accounts/service";
+import type { BankAccountStatement } from "@/modules/bank-accounts/types";
 
-export default async function ReconciliationPage() {
-  const session = await requireSessionOrRedirect()
-  const [bankAccounts, contacts, categories] = await Promise.all([
-    listBankAccounts(session.organizationId),
-    listContacts(session.organizationId),
-    listCategories(session.organizationId),
-  ])
+export default async function ReconciliationOverviewPage() {
+  const session = await requireSessionOrRedirect();
+  const accounts = await getBankAccountsOverview(session.organizationId);
+
+  let initialStatement: BankAccountStatement | null = null;
+  if (accounts[0]) {
+    initialStatement = await getBankAccountStatement(session.organizationId, accounts[0].id);
+  }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 p-6">
-      <ReconciliationView bankAccounts={bankAccounts} contacts={contacts} categories={categories} />
+    <div className="flex w-full flex-1">
+      <BankAccountsWorkspace accounts={accounts} initialStatement={initialStatement} />
     </div>
-  )
+  );
 }

@@ -98,7 +98,7 @@ export function AccountEntryDialog({
     setCategoryId(entry.categoryId)
     setDescription(entry.description)
     setPaymentMethod(entry.paymentMethodCode)
-    setBankAccountId(entry.bankAccountId)
+    setBankAccountId(entry.bankAccountId ?? "")
     setDueDate(entry.dueDate)
     setAmount(entry.amount)
     setError(null)
@@ -128,7 +128,8 @@ export function AccountEntryDialog({
     const payload = {
       contactId,
       categoryId,
-      bankAccountId,
+      // "" é o estado "nenhuma conta" do select — o repasse fica assim até ser conciliado.
+      bankAccountId: bankAccountId || null,
       description,
       paymentMethod,
       dueDate,

@@ -2,7 +2,7 @@ import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { BusinessError, NotFound } from "@/shared/errors"
-import { computeBeneficiaryShare, directionForTransactionAmount, recomputeEntryAggregate, suggestMatches } from "./domain"
+import { directionForTransactionAmount, recomputeEntryAggregate, suggestMatches } from "./domain"
 import type {
   CreateAndSettlePayableInput,
   CreateSettlementBatchInput,
@@ -374,40 +374,6 @@ export async function createAndSettleReceivable(organizationId: string, input: C
       settledAmount: input.settledAmount,
       settledAt: input.settledAt,
     })
-  })
-}
-
-/**
- * A favorecido's available balance — the amount credited to them via
- * reconciled (STATEMENT-origin only, RN-01a) receivable settlements of sales
- * that named them as a repasse beneficiary, proportional to what was
- * actually settled. Computed on demand from Settlement + Allocation history
- * rather than a persisted ledger. There's no repasse tracking yet (`/payout`
- * is still mock, Fase 7), so nothing is subtracted — this becomes the
- * "already paid" side of the equation once that's built.
- */
-export async function getBeneficiaryAvailableBalance(organizationId: string, beneficiaryId: string): Promise<number> {
-  return withOrganization(organizationId, async (tx) => {
-    const allocations = await tx.allocation.findMany({
-      where: { beneficiaryId },
-      include: {
-        sale: {
-          include: {
-            entries: { include: { settlements: { where: { origin: "STATEMENT" } } } },
-          },
-        },
-      },
-    })
-
-    let total = 0
-    for (const allocation of allocations) {
-      for (const entry of allocation.sale.entries) {
-        for (const settlement of entry.settlements) {
-          total += computeBeneficiaryShare(settlement.settledAmount, allocation.sale.totalAmount, allocation.amount)
-        }
-      }
-    }
-    return total
   })
 }
 

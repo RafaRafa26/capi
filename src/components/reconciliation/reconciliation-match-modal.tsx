@@ -153,7 +153,7 @@ export function ReconciliationMatchModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Vincular transação — {formatBRL(absTransactionAmount)}</DialogTitle>
         </DialogHeader>
@@ -182,7 +182,7 @@ export function ReconciliationMatchModal({
         </div>
 
         {tab === "buscar" ? (
-          <div className="flex flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3">
             <div className="relative">
               <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -193,14 +193,14 @@ export function ReconciliationMatchModal({
               />
             </div>
 
-            <div className="flex max-h-72 flex-col gap-2 overflow-y-auto">
+            <div className="flex max-h-72 min-w-0 flex-col gap-2 overflow-y-auto">
               {results.map((entry) => {
                 const isSelected = Boolean(selected[entry.id])
                 return (
                   <div
                     key={entry.id}
                     className={cn(
-                      "flex items-center justify-between gap-3 rounded-lg border p-3",
+                      "flex min-w-0 items-center justify-between gap-3 rounded-lg border p-3",
                       isSelected && "border-primary bg-primary/5",
                     )}
                   >
@@ -213,14 +213,14 @@ export function ReconciliationMatchModal({
                     {isSelected ? (
                       <Input
                         type="number"
-                        className="w-28 text-right"
+                        className="w-28 shrink-0 text-right"
                         value={selected[entry.id].amount / 100}
                         onChange={(event) =>
                           setCandidateAmount(entry.id, Math.round(Number(event.target.value) * 100))
                         }
                       />
                     ) : (
-                      <span className="text-sm font-semibold">
+                      <span className="shrink-0 text-sm font-semibold">
                         {formatBRL(entry.amount - (entry.settledAmount ?? 0))}
                       </span>
                     )}
@@ -249,12 +249,12 @@ export function ReconciliationMatchModal({
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3">
             {items.map((item, index) => (
-              <div key={index} className="flex flex-col gap-2 rounded-lg border bg-muted p-3">
-                <div className="flex items-center gap-2">
+              <div key={index} className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted p-3">
+                <div className="flex min-w-0 items-center gap-2">
                   <Select value={item.contactId} onValueChange={(value) => value && updateItem(index, { contactId: value })}>
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className="min-w-0 flex-1">
                       <SelectValue placeholder="Contato">
                         {(value: string) => contacts.find((contact) => contact.id === value)?.name ?? "Contato"}
                       </SelectValue>
@@ -271,7 +271,7 @@ export function ReconciliationMatchModal({
                     value={item.categoryId}
                     onValueChange={(value) => value && updateItem(index, { categoryId: value })}
                   >
-                    <SelectTrigger className="flex-1">
+                    <SelectTrigger className="min-w-0 flex-1">
                       <SelectValue placeholder="Categoria">
                         {(value: string) => categoryOptions.find((category) => category.id === value)?.name ?? "Categoria"}
                       </SelectValue>
@@ -294,7 +294,7 @@ export function ReconciliationMatchModal({
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-2">
                   <Input
                     placeholder="Descrição"
                     value={item.description}
@@ -303,7 +303,7 @@ export function ReconciliationMatchModal({
                   />
                   <Input
                     type="number"
-                    className="w-28 text-right"
+                    className="w-28 shrink-0 text-right"
                     value={item.amount / 100}
                     onChange={(event) => updateItem(index, { amount: Math.round(Number(event.target.value) * 100) })}
                   />
