@@ -67,7 +67,7 @@ function attentionItems(data: OverviewData): AttentionItem[] {
         "transação aguardando conciliação",
         "transações aguardando conciliação",
       ),
-      href: "/reconciliation",
+      href: "/accounts",
     },
     {
       count: data.beneficiariesWithBalanceCount,

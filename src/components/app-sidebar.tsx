@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sidebar"
 import {
   LayoutGridIcon,
-  RefreshCwIcon,
+  WalletIcon,
   BanknoteIcon,
   UsersIcon,
   LandmarkIcon,
@@ -27,7 +27,7 @@ import {
 const navFinanceiro = [
   { title: "Contas a pagar", url: "/payables", icon: <ArrowDownRightIcon /> },
   { title: "Contas a receber", url: "/receivables", icon: <ArrowUpRightIcon /> },
-  { title: "Conciliação bancária", url: "/reconciliation", icon: <RefreshCwIcon /> },
+  { title: "Contas", url: "/accounts", icon: <WalletIcon /> },
   { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
 ]
 
@@ -81,7 +81,9 @@ export function AppSidebar({
           label="Financeiro"
           items={navFinanceiro.map((item) => ({
             ...item,
-            isActive: pathname === item.url,
+            // A conciliação de cada conta (/reconciliation/[id]) nasce da tela de Contas.
+            isActive:
+              pathname === item.url || (item.url === "/accounts" && pathname.startsWith("/reconciliation/")),
           }))}
         />
         <NavMain

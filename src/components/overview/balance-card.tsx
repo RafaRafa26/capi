@@ -32,7 +32,7 @@ export function BalanceCard({ accounts }: { accounts: { id: string; name: string
             <div className="flex items-center justify-between gap-3 border-b px-3.5 pt-3 pb-2.5">
               <span className="text-[13px] font-semibold">Contas bancárias</span>
               <Link
-                href="/reconciliation"
+                href="/accounts"
                 onClick={() => setOpen(false)}
                 className="text-[13px] font-medium text-primary hover:underline"
               >
