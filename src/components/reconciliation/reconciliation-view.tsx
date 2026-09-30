@@ -209,7 +209,7 @@ export function ReconciliationView({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Link
-            href="/reconciliation"
+            href="/accounts"
             className="flex size-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <ArrowLeftIcon className="size-4" />

@@ -6,7 +6,7 @@ const titles: Record<string, string> = {
   "/dashboard": "Visão geral",
   "/new-sale": "Nova venda",
   "/new-expense": "Nova despesa",
-  "/reconciliation": "Conciliação",
+  "/accounts": "Contas",
   "/payout": "Repasses",
   "/payables": "Contas a pagar",
   "/receivables": "Contas a receber",

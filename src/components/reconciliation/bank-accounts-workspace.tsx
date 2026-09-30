@@ -6,7 +6,6 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
 import { getBankAccountStatementAction } from "@/app/(app)/reconciliation/actions"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
@@ -22,8 +21,6 @@ const chartConfig = {
 } satisfies ChartConfig
 
 type ChartSeries = keyof typeof chartConfig
-
-const kindLabel = { CHECKING: "Corrente", SAVINGS_POCKET: "Caixinha" } as const
 
 function startOfMonth(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), 1)
@@ -158,16 +155,11 @@ export function BankAccountsWorkspace({
                 selectedId === account.id && "bg-muted",
               )}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="truncate text-sm font-medium">{account.name}</span>
-                <Badge variant="secondary" className="shrink-0">
-                  {kindLabel[account.kind]}
-                </Badge>
-              </div>
+              <span className="truncate text-sm font-medium">{account.name}</span>
               <span className="text-sm font-semibold">{formatBRL(account.currentBalance)}</span>
               {account.pendingCount > 0 && (
                 <span className="text-xs text-amber-600">
-                  {account.pendingCount} pendente{account.pendingCount > 1 ? "s" : ""} de conciliar
+                  {account.pendingCount} {account.pendingCount === 1 ? "conciliação pendente" : "conciliações pendentes"}
                 </span>
               )}
             </button>
