@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils"
 import type { AccountEntry } from "@/modules/accounts/types"
 import type { BeneficiaryCredit, BeneficiaryPosition, BeneficiaryStatement, PayoutSummary } from "@/modules/payouts/types"
 
-type FiltroSaldo = "todos" | "com-saldo" | "sem-saldo"
+export type FiltroSaldo = "todos" | "com-saldo" | "sem-saldo"
 
 const colunas = "grid-cols-[1fr_160px_160px_160px_200px]"
 
@@ -335,9 +335,16 @@ function ExtratoSheet({
   )
 }
 
-export function PayoutView({ summary }: { summary: PayoutSummary }) {
+export function PayoutView({
+  summary,
+  initialFilter = "todos",
+}: {
+  summary: PayoutSummary
+  /** Vem de `?saldo=` — o ponto de atenção da Visão geral abre direto em "Com saldo". */
+  initialFilter?: FiltroSaldo
+}) {
   const router = useRouter()
-  const [filtroSaldo, setFiltroSaldo] = React.useState<FiltroSaldo>("todos")
+  const [filtroSaldo, setFiltroSaldo] = React.useState<FiltroSaldo>(initialFilter)
   const [busca, setBusca] = React.useState("")
   const [extratoAberto, setExtratoAberto] = React.useState(false)
   const [statement, setStatement] = React.useState<BeneficiaryStatement | null>(null)

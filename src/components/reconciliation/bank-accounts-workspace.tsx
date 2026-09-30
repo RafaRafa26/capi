@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { balanceAxisScale } from "@/lib/chart-scale"
 import { cn } from "@/lib/utils"
-import { formatBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
+import { formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
 import type { BankAccountOverview, BankAccountStatement } from "@/modules/bank-accounts/types"
 
 const chartConfig = {
@@ -37,14 +38,6 @@ function isSameMonth(date: Date, month: Date): boolean {
 }
 
 /** Referência compacta pro eixo Y do gráfico (10k, 1,2M) — o valor exato já aparece no tooltip. */
-function formatCompactBRL(cents: number): string {
-  const reais = cents / 100
-  const abs = Math.abs(reais)
-  if (abs >= 1_000_000) return `${(reais / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}M`
-  if (abs >= 1_000) return `${(reais / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`
-  return reais.toLocaleString("pt-BR", { maximumFractionDigits: 0 })
-}
-
 export function BankAccountsWorkspace({
   accounts,
   initialStatement,
@@ -139,17 +132,12 @@ export function BankAccountsWorkspace({
     saidas: periodTotals.saidas,
   }
 
-  // Domínio manual: quando a série está parada (min === max, incluindo tudo
-  // zero), o eixo Y colapsaria em cima de um único valor — força uma folga
-  // pra linha aparecer no meio, com referências de verdade no eixo.
-  const yDomain = React.useMemo((): [number, number] => {
-    const values = chartData.map((point) => point[activeSeries] as number)
-    const min = Math.min(...values)
-    const max = Math.max(...values)
-    const range = max - min
-    const padding = range === 0 ? Math.max(Math.abs(max) * 0.2, 1000) : range * 0.15
-    return [min - padding, max + padding]
-  }, [chartData, activeSeries])
+  // Ticks redondos (5k, 10k, 20k...) e a linha perto do meio do gráfico,
+  // com referências acima e abaixo — mesma escala da Visão geral.
+  const yScale = React.useMemo(
+    () => balanceAxisScale(chartData.map((point) => point[activeSeries] as number)),
+    [chartData, activeSeries],
+  )
 
   return (
     <div className="flex w-full flex-1">
@@ -251,7 +239,8 @@ export function BankAccountsWorkspace({
                           tickFormatter={(value) => formatDayMonth(new Date(value))}
                         />
                         <YAxis
-                          domain={yDomain}
+                          domain={yScale.domain}
+                          ticks={yScale.ticks}
                           tickLine={false}
                           axisLine={false}
                           tickMargin={8}
