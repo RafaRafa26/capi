@@ -5,6 +5,15 @@ export function formatBRL(cents: number) {
   })
 }
 
+/** Short axis label for chart Y ticks: "1,2M", "35k", "800". */
+export function formatCompactBRL(cents: number): string {
+  const reais = cents / 100
+  const abs = Math.abs(reais)
+  if (abs >= 1_000_000) return `${(reais / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}M`
+  if (abs >= 1_000) return `${(reais / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`
+  return reais.toLocaleString("pt-BR", { maximumFractionDigits: 0 })
+}
+
 /** Parses a "1.234,56"-style BRL input into integer cents. */
 export function parseBRLInput(value: string): number {
   const cleaned = value.replace(/[^\d,]/g, "").replace(",", ".")

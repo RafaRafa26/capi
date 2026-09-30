@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { bucketEntries, type BucketableEntry } from "./domain"
+import { bucketEntries, buildBalanceSeries, getFlowPeriod, type BucketableEntry } from "./domain"
 
 function entry(overrides: Partial<BucketableEntry> = {}): BucketableEntry {
   return {
@@ -80,5 +80,49 @@ describe("bucketEntries", () => {
     const result = bucketEntries([], today)
     expect(result.total).toBe(0)
     expect(result.buckets.vencido.itens).toEqual([])
+  })
+})
+
+describe("getFlowPeriod", () => {
+  const ref = new Date(2026, 8, 29, 15, 30)
+
+  it("ends the 'últimos N dias' presets today", () => {
+    expect(getFlowPeriod("last7", ref)).toEqual({ from: new Date(2026, 8, 23), to: new Date(2026, 8, 29) })
+    expect(getFlowPeriod("last30", ref).from).toEqual(new Date(2026, 7, 31))
+  })
+
+  it("covers the whole current month, quarter and year", () => {
+    expect(getFlowPeriod("month", ref)).toEqual({ from: new Date(2026, 8, 1), to: new Date(2026, 8, 30) })
+    expect(getFlowPeriod("quarter", ref)).toEqual({ from: new Date(2026, 6, 1), to: new Date(2026, 8, 30) })
+    expect(getFlowPeriod("year", ref)).toEqual({ from: new Date(2026, 0, 1), to: new Date(2026, 11, 31) })
+  })
+})
+
+describe("buildBalanceSeries", () => {
+  const base = {
+    from: new Date(2026, 8, 27),
+    to: new Date(2026, 8, 30),
+    today: new Date(2026, 8, 29, 10),
+    currentBalance: 10000,
+  }
+
+  it("rewinds each day by what moved after it", () => {
+    const series = buildBalanceSeries({
+      ...base,
+      realized: [
+        { day: "2026-09-28", amount: 3000 },
+        { day: "2026-09-29", amount: -1000 },
+      ],
+    })
+    expect(series.map((p) => [p.day, p.balance])).toEqual([
+      ["2026-09-27", 8000],
+      ["2026-09-28", 11000],
+      ["2026-09-29", 10000],
+    ])
+  })
+
+  it("stops at today even when the period runs further", () => {
+    const series = buildBalanceSeries({ ...base, realized: [] })
+    expect(series.at(-1)?.day).toBe("2026-09-29")
   })
 })

@@ -81,3 +81,86 @@ export function bucketEntries(entries: BucketableEntry[], today: Date): ResumoLa
     buckets,
   }
 }
+
+// ---------------------------------------------------------------------------
+// "Fluxo de caixa" — pure balance series for the overview chart. Days travel as
+// "yyyy-MM-dd" keys (calendar days, no timezone), so the server can hand them
+// to the client and the client can pick any period without another request.
+
+export type FlowPeriodPreset = "last7" | "last30" | "last90" | "month" | "quarter" | "year"
+
+export const flowPeriodLabel: Record<FlowPeriodPreset, string> = {
+  last7: "Últimos 7 dias",
+  last30: "Últimos 30 dias",
+  last90: "Últimos 90 dias",
+  month: "Mês atual",
+  quarter: "Trimestre atual",
+  year: "Ano atual",
+}
+
+export const flowPeriodOrder: FlowPeriodPreset[] = ["last7", "last30", "last90", "month", "quarter", "year"]
+
+/** First and last calendar day of the period (both inclusive, time at 00:00). */
+export function getFlowPeriod(preset: FlowPeriodPreset, today: Date): { from: Date; to: Date } {
+  const t = startOfDay(today)
+  const y = t.getFullYear()
+  const m = t.getMonth()
+  switch (preset) {
+    case "last7":
+      return { from: new Date(y, m, t.getDate() - 6), to: t }
+    case "last30":
+      return { from: new Date(y, m, t.getDate() - 29), to: t }
+    case "last90":
+      return { from: new Date(y, m, t.getDate() - 89), to: t }
+    case "month":
+      return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) }
+    case "quarter": {
+      const first = m - (m % 3)
+      return { from: new Date(y, first, 1), to: new Date(y, first + 3, 0) }
+    }
+    case "year":
+      return { from: new Date(y, 0, 1), to: new Date(y, 11, 31) }
+  }
+}
+
+export function toDayKey(date: Date): string {
+  const mm = String(date.getMonth() + 1).padStart(2, "0")
+  const dd = String(date.getDate()).padStart(2, "0")
+  return `${date.getFullYear()}-${mm}-${dd}`
+}
+
+/** Net amount (signed cents) that landed on — or is due on — one calendar day. */
+export interface DailyAmount {
+  day: string
+  amount: number
+}
+
+export interface BalancePoint {
+  day: string
+  date: Date
+  balance: number
+}
+
+/**
+ * One end-of-day balance per day of [from, to], stopping at today — only
+ * what already happened: currentBalance − what was actually received/paid
+ * after that day.
+ */
+export function buildBalanceSeries(input: {
+  from: Date
+  to: Date
+  today: Date
+  currentBalance: number
+  realized: DailyAmount[]
+}): BalancePoint[] {
+  const todayStart = startOfDay(input.today)
+  const points: BalancePoint[] = []
+  const start = startOfDay(input.from)
+  const end = new Date(Math.min(startOfDay(input.to).getTime(), todayStart.getTime()))
+  for (let d = start; d.getTime() <= end.getTime(); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    const day = toDayKey(d)
+    const after = input.realized.reduce((sum, item) => (item.day > day ? sum + item.amount : sum), 0)
+    points.push({ day, date: d, balance: input.currentBalance - after })
+  }
+  return points
+}

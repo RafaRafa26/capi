@@ -19,15 +19,22 @@ function PopoverContent({
   alignOffset = 0,
   side = "bottom",
   sideOffset = 4,
+  anchor,
+  backdrop = false,
   ...props
 }: PopoverPrimitive.Popup.Props &
   Pick<
     PopoverPrimitive.Positioner.Props,
-    "align" | "alignOffset" | "side" | "sideOffset"
-  >) {
+    "align" | "alignOffset" | "side" | "sideOffset" | "anchor"
+  > & {
+    /** Transparent layer under the popup that catches the outside click. */
+    backdrop?: boolean
+  }) {
   return (
     <PopoverPrimitive.Portal>
+      {backdrop && <PopoverPrimitive.Backdrop className="fixed inset-0 z-50" />}
       <PopoverPrimitive.Positioner
+        anchor={anchor}
         align={align}
         alignOffset={alignOffset}
         side={side}

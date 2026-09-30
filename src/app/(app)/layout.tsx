@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { HideValuesButton, HideValuesProvider } from "@/components/overview/hide-values";
 import { PageTitle } from "@/components/page-title";
 import { RegisterMenu } from "@/components/register-menu";
 import { Separator } from "@/components/ui/separator";
@@ -27,20 +28,23 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           userEmail={session.email}
         />
         <SidebarInset className="overflow-y-auto">
-          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 rounded-t-xl border-b bg-background transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator
-                orientation="vertical"
-                className="mr-2 data-vertical:h-4 data-vertical:self-auto"
-              />
-              <PageTitle />
-            </div>
-            <div className="px-4">
-              <RegisterMenu />
-            </div>
-          </header>
-          {children}
+          <HideValuesProvider>
+            <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between gap-2 rounded-t-xl border-b bg-background transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+              <div className="flex items-center gap-2 px-4">
+                <SidebarTrigger className="-ml-1" />
+                <Separator
+                  orientation="vertical"
+                  className="mr-2 data-vertical:h-4 data-vertical:self-auto"
+                />
+                <PageTitle />
+              </div>
+              <div className="flex items-center gap-2 px-4">
+                <HideValuesButton />
+                <RegisterMenu />
+              </div>
+            </header>
+            {children}
+          </HideValuesProvider>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
