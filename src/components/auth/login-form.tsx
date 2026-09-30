@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export function LoginForm() {
+export function LoginForm({ next }: { next: string | null }) {
   const router = useRouter()
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
@@ -26,7 +26,8 @@ export function LoginForm() {
       return
     }
 
-    router.push("/dashboard")
+    // "/" picks the company (last one opened, or the picker).
+    router.push(next ?? "/")
     router.refresh()
   }
 

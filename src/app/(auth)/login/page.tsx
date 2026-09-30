@@ -1,22 +1,28 @@
+import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { AuthShell } from "@/components/auth/auth-shell"
 import { LoginForm } from "@/components/auth/login-form"
-import { currentSession } from "@/modules/auth/session"
+import { safeNextPath } from "@/lib/org-path"
+import { currentUser } from "@/modules/auth/session"
 
-export default async function LoginPage() {
-  if (await currentSession()) redirect("/dashboard")
+export default async function LoginPage({ searchParams }: PageProps<"/login">) {
+  const params = await searchParams
+  const next = safeNextPath(typeof params.next === "string" ? params.next : null)
+
+  if (await currentUser()) redirect(next ?? "/")
+
+  const signUpHref = next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"
 
   return (
-    <div className="flex min-h-svh items-center justify-center p-8">
-      <div className="flex w-full max-w-[350px] flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold">Entrar na sua conta</h1>
-          <p className="text-sm text-muted-foreground">
-            Insira seu e-mail e senha para continuar.
-          </p>
-        </div>
-        <LoginForm />
-      </div>
-    </div>
+    <AuthShell title="Entrar na sua conta" description="Insira seu e-mail e senha para continuar.">
+      <LoginForm next={next} />
+      <p className="text-center text-sm text-muted-foreground">
+        Ainda não tem conta?{" "}
+        <Link href={signUpHref} className="font-medium text-foreground underline-offset-4 hover:underline">
+          Criar conta
+        </Link>
+      </p>
+    </AuthShell>
   )
 }

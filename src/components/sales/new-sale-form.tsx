@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { CalendarIcon, HelpCircleIcon } from "lucide-react"
 import { ptBR } from "date-fns/locale"
 
-import { createSaleAction } from "@/app/(app)/new-sale/actions"
+import { createSaleAction } from "@/app/o/[orgId]/(app)/new-sale/actions"
 import { CurrencyInput } from "@/components/sales/currency-input"
 import { InstallmentsDialog } from "@/components/sales/installments-dialog"
 import { QuickAddContactDialog } from "@/components/contacts/quick-add-contact-dialog"
@@ -53,6 +53,7 @@ import type {
   Installment,
   PaymentMethod,
 } from "@/modules/sales/types"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 type Aba = "avulsa" | "contrato"
 
@@ -168,6 +169,7 @@ export function NewSaleForm({
   bankAccounts: initialBankAccounts,
 }: NewSaleFormProps) {
   const router = useRouter()
+  const toOrg = useOrgPath()
 
   const [aba, setAba] = React.useState<Aba>("contrato")
 
@@ -339,7 +341,7 @@ export function NewSaleForm({
       return
     }
 
-    router.push("/dashboard")
+    router.push(toOrg("/dashboard"))
   }
 
   return (
@@ -773,7 +775,7 @@ export function NewSaleForm({
       )}
 
       <div className="sticky bottom-0 z-10 -mx-4 flex justify-end gap-2 border-t bg-background px-4 py-4">
-        <Button variant="outline" onClick={() => router.push("/dashboard")} disabled={pending}>
+        <Button variant="outline" onClick={() => router.push(toOrg("/dashboard"))} disabled={pending}>
           Cancelar
         </Button>
         <Button onClick={handleSubmit} disabled={pending}>

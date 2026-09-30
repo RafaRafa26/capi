@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
+import { useOrgPath, useOrgPathname } from "@/hooks/use-org-path"
+import type { UserOrganization } from "@/modules/organizations/types"
 import {
   Sidebar,
   SidebarContent,
@@ -22,6 +23,7 @@ import {
   TagIcon,
   ArrowDownRightIcon,
   ArrowUpRightIcon,
+  UserCogIcon,
 } from "lucide-react"
 
 const navFinanceiro = [
@@ -37,41 +39,36 @@ const navCadastros = [
   { title: "Categorias", url: "/categories", icon: <TagIcon /> },
 ]
 
+const navConfiguracoes = [{ title: "Membros", url: "/members", icon: <UserCogIcon /> }]
+
 export interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  organizationName: string
-  organizationDocument: string
+  organizationId: string
+  organizations: UserOrganization[]
   userName: string
   userEmail: string
 }
 
 export function AppSidebar({
-  organizationName,
-  organizationDocument,
+  organizationId,
+  organizations,
   userName,
   userEmail,
   ...props
 }: AppSidebarProps) {
-  const pathname = usePathname()
+  const pathname = useOrgPathname()
+  const toOrg = useOrgPath()
 
   return (
     <Sidebar variant="inset" collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher
-          teams={[
-            {
-              name: organizationName,
-              logo: <span className="text-sm font-semibold">C</span>,
-              plan: organizationDocument,
-            },
-          ]}
-        />
+        <TeamSwitcher organizations={organizations} activeId={organizationId} />
       </SidebarHeader>
       <SidebarContent>
         <NavMain
           items={[
             {
               title: "Visão geral",
-              url: "/dashboard",
+              url: toOrg("/dashboard"),
               icon: <LayoutGridIcon />,
               isActive: pathname === "/dashboard",
             },
@@ -81,6 +78,7 @@ export function AppSidebar({
           label="Financeiro"
           items={navFinanceiro.map((item) => ({
             ...item,
+            url: toOrg(item.url),
             // A conciliação de cada conta (/reconciliation/[id]) nasce da tela de Contas.
             isActive:
               pathname === item.url || (item.url === "/accounts" && pathname.startsWith("/reconciliation/")),
@@ -90,6 +88,15 @@ export function AppSidebar({
           label="Cadastros"
           items={navCadastros.map((item) => ({
             ...item,
+            url: toOrg(item.url),
+            isActive: pathname === item.url,
+          }))}
+        />
+        <NavMain
+          label="Configurações"
+          items={navConfiguracoes.map((item) => ({
+            ...item,
+            url: toOrg(item.url),
             isActive: pathname === item.url,
           }))}
         />

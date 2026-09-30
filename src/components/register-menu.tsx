@@ -10,9 +10,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 export function RegisterMenu() {
   const router = useRouter()
+  const toOrg = useOrgPath()
 
   return (
     <DropdownMenu>
@@ -22,10 +24,10 @@ export function RegisterMenu() {
         <ChevronDownIcon />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={() => router.push("/new-sale")}>
+        <DropdownMenuItem onClick={() => router.push(toOrg("/new-sale"))}>
           Venda
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/new-expense")}>
+        <DropdownMenuItem onClick={() => router.push(toOrg("/new-expense"))}>
           Despesa
         </DropdownMenuItem>
       </DropdownMenuContent>

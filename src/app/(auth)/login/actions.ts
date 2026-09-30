@@ -1,20 +1,15 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
 
-import { authenticate, endSession, pruneExpiredSessions } from "@/modules/auth/service";
+import { signInSchema, signUpSchema } from "@/modules/auth/schema";
+import { authenticate, endSession, pruneExpiredSessions, signUp } from "@/modules/auth/service";
 import { clearSessionCookie, requestToken, setSessionCookie } from "@/modules/auth/session";
 import { failure, type Result } from "@/shared/errors";
 
-const loginSchema = z.object({
-  email: z.email("Enter a valid e-mail."),
-  password: z.string().min(1, "Enter your password."),
-});
-
 export async function signInAction(form: FormData): Promise<Result> {
   try {
-    const parsed = loginSchema.safeParse({
+    const parsed = signInSchema.safeParse({
       email: String(form.get("email") ?? ""),
       password: String(form.get("password") ?? ""),
     });
@@ -26,6 +21,28 @@ export async function signInAction(form: FormData): Promise<Result> {
     const { token, expiresAt } = await authenticate(parsed.data.email, parsed.data.password);
     await setSessionCookie(token, expiresAt);
     void pruneExpiredSessions();
+
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function signUpAction(form: FormData): Promise<Result> {
+  try {
+    const parsed = signUpSchema.safeParse({
+      name: String(form.get("name") ?? ""),
+      email: String(form.get("email") ?? ""),
+      password: String(form.get("password") ?? ""),
+    });
+
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return { ok: false, error: issue.message, field: String(issue.path[0]) };
+    }
+
+    const { token, expiresAt } = await signUp(parsed.data);
+    await setSessionCookie(token, expiresAt);
 
     return { ok: true, data: undefined };
   } catch (error) {

@@ -1,26 +1,16 @@
 import "server-only";
 
-import { createHash, randomBytes } from "node:crypto";
 import { hash as argonHash, verify as argonVerify } from "@node-rs/argon2";
 
 import { prismaAdmin } from "@/db/client";
+import { Prisma } from "@/db/generated/client";
 import { BusinessError } from "@/shared/errors";
+import { generateToken, hashToken } from "./tokens";
+import type { SignUpInput } from "./schema";
 
 // Opaque session in the database, not a JWT: revoking is a `DELETE`, and the
 // cookie alone doesn't carry any claim about who the bearer is.
 export const SESSION_DAYS = 30;
-
-/**
- * The token travels in the clear in the cookie and only its hash lives in
- * the database — reading a database dump doesn't let you assemble a valid
- * cookie from it.
- *
- * Unsalted SHA-256 is fine here (unlike a password): the token has 256 bits
- * of random entropy, so there's no search space to attack.
- */
-function hashToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 export async function hashPassword(password: string) {
   return argonHash(password);
@@ -34,23 +24,59 @@ async function passwordMatches(hash: string, password: string) {
   }
 }
 
-export type ActiveSession = {
+/**
+ * Who is signed in. Deliberately carries no organization: a person can
+ * belong to several, and which one a request is about comes from the URL
+ * (see src/modules/auth/session.ts).
+ */
+export type UserSession = {
   userId: string;
-  organizationId: string;
   name: string;
   email: string;
-  role: "ADMIN" | "OPERATOR";
-  organizationName: string;
-  organizationDocument: string;
 };
+
+async function openSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
+  const token = generateToken();
+  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+
+  await prismaAdmin.session.create({
+    data: { userId, tokenHash: hashToken(token), expiresAt },
+  });
+
+  return { token, expiresAt };
+}
+
+/**
+ * Open sign-up: anyone reaching the login screen can create an account. The
+ * account starts with no organization — the next step is creating one or
+ * accepting an invitation.
+ *
+ * Owner role for the same reason as the login lookup: e-mail uniqueness is
+ * global, and a brand-new user isn't a member of any organization yet, so
+ * RLS on `users` would hide the row it just inserted.
+ */
+export async function signUp(input: SignUpInput): Promise<{ token: string; expiresAt: Date }> {
+  const email = input.email.trim().toLowerCase();
+
+  try {
+    const user = await prismaAdmin.user.create({
+      data: { name: input.name.trim(), email, passwordHash: await hashPassword(input.password) },
+    });
+    return await openSession(user.id);
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      throw new BusinessError("Já existe uma conta com este e-mail.", "email");
+    }
+    throw error;
+  }
+}
 
 /**
  * Checks e-mail and password and opens a session. Returns the token that
  * must go into the cookie.
  *
  * Runs under the database owner role because looking up a user by e-mail
- * inherently has to cross organizations — the only point in the system with
- * that trait.
+ * inherently has to cross organizations.
  */
 export async function authenticate(
   email: string,
@@ -69,41 +95,24 @@ export async function authenticate(
   const matches = await passwordMatches(hashToCheck, password);
 
   if (!user || !user.active || !matches) {
-    throw new BusinessError("Invalid e-mail or password.");
+    throw new BusinessError("E-mail ou senha inválidos.");
   }
 
-  const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-
-  await prismaAdmin.session.create({
-    data: { userId: user.id, tokenHash: hashToken(token), expiresAt },
-  });
-
-  return { token, expiresAt };
+  return openSession(user.id);
 }
 
 /** Resolves the cookie token into an active session, or null. */
-export async function sessionByToken(token: string | undefined): Promise<ActiveSession | null> {
+export async function sessionByToken(token: string | undefined): Promise<UserSession | null> {
   if (!token) return null;
 
   const record = await prismaAdmin.session.findUnique({
     where: { tokenHash: hashToken(token) },
     // Runs on every request, ahead of the page's own queries: a single joined
-    // query carrying only the fields ActiveSession needs.
+    // query carrying only the fields UserSession needs.
     select: {
       id: true,
       expiresAt: true,
-      user: {
-        select: {
-          id: true,
-          organizationId: true,
-          name: true,
-          email: true,
-          role: true,
-          active: true,
-          organization: { select: { name: true, document: true } },
-        },
-      },
+      user: { select: { id: true, name: true, email: true, active: true } },
     },
   });
 
@@ -117,15 +126,7 @@ export async function sessionByToken(token: string | undefined): Promise<ActiveS
   const { user } = record;
   if (!user.active) return null;
 
-  return {
-    userId: user.id,
-    organizationId: user.organizationId,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    organizationName: user.organization.name,
-    organizationDocument: user.organization.document,
-  };
+  return { userId: user.id, name: user.name, email: user.email };
 }
 
 export async function endSession(token: string | undefined) {

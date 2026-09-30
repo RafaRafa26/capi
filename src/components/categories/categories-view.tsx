@@ -3,7 +3,7 @@
 import * as React from "react"
 import { GripVerticalIcon } from "lucide-react"
 
-import { moveSubcategoryAction } from "@/app/(app)/categories/actions"
+import { moveSubcategoryAction } from "@/app/o/[orgId]/(app)/categories/actions"
 import { EditCategoryDialog } from "@/components/categories/edit-category-dialog"
 import { NewCategoryDialog } from "@/components/categories/new-category-dialog"
 import { NewSubcategoryDialog } from "@/components/categories/new-subcategory-dialog"

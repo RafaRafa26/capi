@@ -21,7 +21,7 @@ import {
   getMatchInfoForTransactionsAction,
   listBankTransactionsAction,
   undoSettlementAction,
-} from "@/app/(app)/reconciliation/actions"
+} from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { ImportOfxButton } from "@/components/reconciliation/import-ofx-button"
 import { ReconciliationMatchModal } from "@/components/reconciliation/reconciliation-match-modal"
 import { Input } from "@/components/ui/input"
@@ -35,6 +35,7 @@ import type { Contact } from "@/modules/contacts/types"
 import { directionForTransactionAmount } from "@/modules/settlements/domain"
 import type { EntryType, TransactionMatchInfo } from "@/modules/settlements/types"
 import type { BankTransaction } from "@/modules/statements/types"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 type FiltroTipo = "todas" | "entrada" | "saida"
 type QuickFormMode = "lancamento" | "transferencia"
@@ -68,6 +69,7 @@ export function ReconciliationView({
   contacts: Contact[]
   categories: Category[]
 }) {
+  const toOrg = useOrgPath()
   const bankAccountId = bankAccount.id
   const [transacoes, setTransacoes] = React.useState<BankTransaction[]>([])
   const [matchInfo, setMatchInfo] = React.useState<Record<string, TransactionMatchInfo>>({})
@@ -209,7 +211,7 @@ export function ReconciliationView({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Link
-            href="/accounts"
+            href={toOrg("/accounts")}
             className="flex size-8 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <ArrowLeftIcon className="size-4" />

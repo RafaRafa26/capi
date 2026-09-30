@@ -3,7 +3,7 @@
 import * as React from "react"
 import { PencilIcon } from "lucide-react"
 
-import { renameCategoryAction } from "@/app/(app)/categories/actions"
+import { renameCategoryAction } from "@/app/o/[orgId]/(app)/categories/actions"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,

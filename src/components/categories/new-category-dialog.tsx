@@ -3,7 +3,7 @@
 import * as React from "react"
 import { PlusIcon } from "lucide-react"
 
-import { createCategoryAction } from "@/app/(app)/categories/actions"
+import { createCategoryAction } from "@/app/o/[orgId]/(app)/categories/actions"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,

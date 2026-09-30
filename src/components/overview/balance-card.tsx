@@ -7,10 +7,12 @@ import { ChevronDownIcon } from "lucide-react"
 import { Money } from "@/components/overview/hide-values"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 export function BalanceCard({ accounts }: { accounts: { id: string; name: string; balance: number }[] }) {
   const cardRef = React.useRef<HTMLDivElement>(null)
   const [open, setOpen] = React.useState(false)
+  const toOrg = useOrgPath()
   const total = accounts.reduce((sum, account) => sum + account.balance, 0)
 
   return (
@@ -32,7 +34,7 @@ export function BalanceCard({ accounts }: { accounts: { id: string; name: string
             <div className="flex items-center justify-between gap-3 border-b px-3.5 pt-3 pb-2.5">
               <span className="text-[13px] font-semibold">Contas bancárias</span>
               <Link
-                href="/accounts"
+                href={toOrg("/accounts")}
                 onClick={() => setOpen(false)}
                 className="text-[13px] font-medium text-primary hover:underline"
               >

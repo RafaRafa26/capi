@@ -5,7 +5,7 @@ import Link from "next/link"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
-import { getBankAccountStatementAction } from "@/app/(app)/reconciliation/actions"
+import { getBankAccountStatementAction } from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
@@ -13,6 +13,7 @@ import { balanceAxisScale } from "@/lib/chart-scale"
 import { cn } from "@/lib/utils"
 import { formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
 import type { BankAccountOverview, BankAccountStatement } from "@/modules/bank-accounts/types"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 const chartConfig = {
   saldo: { label: "Saldo", color: "var(--chart-1)" },
@@ -42,6 +43,7 @@ export function BankAccountsWorkspace({
   accounts: BankAccountOverview[]
   initialStatement: BankAccountStatement | null
 }) {
+  const toOrg = useOrgPath()
   const [selectedId, setSelectedId] = React.useState(accounts[0]?.id ?? "")
   const [statement, setStatement] = React.useState<BankAccountStatement | null>(initialStatement)
   const [loading, setLoading] = React.useState(false)
@@ -262,7 +264,7 @@ export function BankAccountsWorkspace({
                 </Card>
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <Button nativeButton={false} render={<Link href={`/reconciliation/${selectedAccount.id}`} />}>
+                  <Button nativeButton={false} render={<Link href={toOrg(`/reconciliation/${selectedAccount.id}`)} />}>
                     Conciliar
                   </Button>
                   <Button variant="outline">Novo registro</Button>

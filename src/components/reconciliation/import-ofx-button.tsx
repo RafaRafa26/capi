@@ -3,7 +3,7 @@
 import * as React from "react"
 import { UploadIcon } from "lucide-react"
 
-import { importStatementAction } from "@/app/(app)/reconciliation/actions"
+import { importStatementAction } from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { Button } from "@/components/ui/button"
 
 /**
