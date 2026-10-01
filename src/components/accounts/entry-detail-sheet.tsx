@@ -30,6 +30,7 @@ import { formatBRL, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { AccountEntry, LedgerKind } from "@/modules/accounts/types"
 import { computeBeneficiaryShare } from "@/modules/settlements/domain"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -72,6 +73,7 @@ export function EntryDetailSheet({
   onEdit?: (entry: AccountEntry) => void
 }) {
   const router = useRouter()
+  const toOrg = useOrgPath()
   const [pending, setPending] = React.useState(false)
   const today = React.useMemo(() => new Date(), [])
   const config = kindConfig[kind]
@@ -392,7 +394,7 @@ export function EntryDetailSheet({
                               variant="ghost"
                               size="icon-sm"
                               nativeButton={false}
-                              render={<Link href={`/receipts/${settlement.id}`} target="_blank" />}
+                              render={<Link href={toOrg(`/receipts/${settlement.id}`)} target="_blank" />}
                               aria-label="Emitir recibo"
                             >
                               <FileTextIcon className="size-4" />

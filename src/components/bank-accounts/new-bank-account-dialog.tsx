@@ -3,7 +3,7 @@
 import * as React from "react"
 import { CalendarIcon, PlusIcon } from "lucide-react"
 
-import { createBankAccountAction } from "@/app/(app)/bank-accounts/actions"
+import { createBankAccountAction } from "@/app/o/[orgId]/(app)/bank-accounts/actions"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {

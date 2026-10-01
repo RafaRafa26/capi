@@ -7,9 +7,11 @@ import { PrismaClient } from "./generated/client";
 
 // Two database roles, deliberately (see src/db/migrations/*_rls):
 //
-//   prismaAdmin      → owner role. Bypasses RLS. Used ONLY by authentication
-//                       (looking up a user by e-mail before knowing their
-//                       organization) and by the seed.
+//   prismaAdmin      → owner role. Bypasses RLS. Used ONLY where the query
+//                       inherently has no organization yet: authentication and
+//                       sign-up (users and sessions are global), listing the
+//                       organizations a user belongs to, and resolving an
+//                       invitation link — plus the seed.
 //   withOrganization() → application role, subject to RLS. Everything else
 //                       goes through here, explicitly declaring which
 //                       organization the transaction is operating in.

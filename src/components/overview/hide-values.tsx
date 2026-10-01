@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { usePathname } from "next/navigation"
 import { EyeIcon, EyeOffIcon } from "lucide-react"
 
 import { formatBRL } from "@/lib/format"
+import { useOrgPathname } from "@/hooks/use-org-path"
 
 // "Ocultar valores" on the Visão geral: the toggle lives in the top bar
 // (app layout) and the values in the page, so the state sits in a provider
@@ -32,7 +32,7 @@ export function Money({ cents }: { cents: number }) {
 }
 
 export function HideValuesButton() {
-  const pathname = usePathname()
+  const pathname = useOrgPathname()
   const { hidden, toggle } = useHideValues()
 
   if (pathname !== "/dashboard") return null

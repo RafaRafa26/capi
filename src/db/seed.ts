@@ -16,7 +16,7 @@ const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 
 async function main() {
   const existing = await prisma.organization.findFirst({
-    where: { document: "12.345.678/0001-90" },
+    where: { document: "12345678000190" },
   });
   if (existing) {
     console.log("Seed already applied — demo organization exists.");
@@ -24,16 +24,15 @@ async function main() {
   }
 
   const organization = await prisma.organization.create({
-    data: { name: "Capi Demo", document: "12.345.678/0001-90" },
+    data: { name: "Capi Demo", document: "12345678000190" },
   });
 
   await prisma.user.create({
     data: {
-      organizationId: organization.id,
       name: "Admin Demo",
       email: "admin@capi.test",
       passwordHash: await argonHash("capi1234"),
-      role: "ADMIN",
+      memberships: { create: { organizationId: organization.id, role: "ADMIN" } },
     },
   });
 

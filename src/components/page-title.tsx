@@ -1,6 +1,6 @@
 "use client"
 
-import { usePathname } from "next/navigation"
+import { useOrgPathname } from "@/hooks/use-org-path"
 
 const titles: Record<string, string> = {
   "/dashboard": "Visão geral",
@@ -13,6 +13,7 @@ const titles: Record<string, string> = {
   "/contacts": "Contatos",
   "/bank-accounts": "Contas bancárias",
   "/categories": "Categorias",
+  "/members": "Membros",
 }
 
 function resolveTitle(pathname: string): string | null {
@@ -22,7 +23,7 @@ function resolveTitle(pathname: string): string | null {
 }
 
 export function PageTitle() {
-  const pathname = usePathname()
+  const pathname = useOrgPathname()
   const title = resolveTitle(pathname)
 
   if (!title) return null

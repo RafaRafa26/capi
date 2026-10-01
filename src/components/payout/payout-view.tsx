@@ -11,7 +11,7 @@ import {
   getAccountEntryAction,
   getBeneficiaryStatementAction,
   listAvailableCreditsAction,
-} from "@/app/(app)/payout/actions"
+} from "@/app/o/[orgId]/(app)/payout/actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"

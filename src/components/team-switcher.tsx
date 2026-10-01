@@ -1,15 +1,15 @@
 "use client"
 
-import * as React from "react"
+import Link from "next/link"
+import { CheckIcon, ChevronsUpDownIcon, PlusIcon } from "lucide-react"
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
-  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuLinkItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -18,20 +18,27 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { ChevronsUpDownIcon, PlusIcon } from "lucide-react"
+import { formatDocument } from "@/lib/document"
+import { orgPath } from "@/lib/org-path"
+import type { UserOrganization } from "@/modules/organizations/types"
 
+function initial(name: string) {
+  return name.trim().charAt(0).toUpperCase() || "?"
+}
+
+// Each company is a plain link to its own /o/<id>/ URL: switching is just
+// navigating, and Ctrl/Cmd+click opens another company in a new tab while
+// this one stays as it is.
 export function TeamSwitcher({
-  teams,
+  organizations,
+  activeId,
 }: {
-  teams: {
-    name: string
-    logo: React.ReactNode
-    plan: string
-  }[]
+  organizations: UserOrganization[]
+  activeId: string
 }) {
   const { isMobile } = useSidebar()
-  const [activeTeam, setActiveTeam] = React.useState(teams[0])
-  if (!activeTeam) {
+  const active = organizations.find((organization) => organization.id === activeId)
+  if (!active) {
     return null
   }
   return (
@@ -46,49 +53,49 @@ export function TeamSwitcher({
               />
             }
           >
-            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-              {activeTeam.logo}
+            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-semibold text-sidebar-primary-foreground">
+              {initial(active.name)}
             </div>
             <div className="grid flex-1 text-left text-sm leading-tight">
-              <span className="truncate font-medium">{activeTeam.name}</span>
-              <span className="truncate text-xs">{activeTeam.plan}</span>
+              <span className="truncate font-medium">{active.name}</span>
+              <span className="truncate text-xs">{formatDocument(active.document)}</span>
             </div>
             <ChevronsUpDownIcon className="ml-auto" />
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-fit"
+            className="w-fit min-w-56"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Teams
+                Empresas
               </DropdownMenuLabel>
-              {teams.map((team, index) => (
-                <DropdownMenuItem
-                  key={team.name}
-                  onClick={() => setActiveTeam(team)}
+              {organizations.map((organization) => (
+                <DropdownMenuLinkItem
+                  key={organization.id}
+                  render={<Link href={orgPath(organization.id, "/dashboard")} />}
                   className="gap-2 p-2"
                 >
-                  <div className="flex size-6 items-center justify-center rounded-md border">
-                    {team.logo}
+                  <div className="flex size-6 items-center justify-center rounded-md border text-xs font-semibold">
+                    {initial(organization.name)}
                   </div>
-                  {team.name}
-                  <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
-                </DropdownMenuItem>
+                  <span className="flex-1 truncate">{organization.name}</span>
+                  {organization.id === activeId && <CheckIcon className="ml-2 size-4" />}
+                </DropdownMenuLinkItem>
               ))}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem className="gap-2 p-2">
+              <DropdownMenuLinkItem render={<Link href="/orgs/new" />} className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                   <PlusIcon className="size-4" />
                 </div>
                 <div className="font-medium text-muted-foreground">
-                  Add team
+                  Nova empresa
                 </div>
-              </DropdownMenuItem>
+              </DropdownMenuLinkItem>
             </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>

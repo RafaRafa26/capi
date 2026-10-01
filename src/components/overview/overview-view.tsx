@@ -10,6 +10,7 @@ import { Money } from "@/components/overview/hide-values"
 import { overviewChartClassName, overviewGridClassName } from "@/components/overview/layout"
 import type { LancamentoBucketKey, ResumoLancamentos } from "@/modules/dashboard/domain"
 import type { OverviewData } from "@/modules/dashboard/service"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 const RED = "oklch(0.63 0.24 25)"
 const AMBER = "oklch(0.77 0.16 70)"
@@ -91,6 +92,7 @@ function Dot({ color }: { color: string }) {
 }
 
 function AttentionCard({ data }: { data: OverviewData }) {
+  const toOrg = useOrgPath()
   const items = attentionItems(data)
 
   return (
@@ -103,7 +105,7 @@ function AttentionCard({ data }: { data: OverviewData }) {
         </p>
       ) : (
         items.map((item) => (
-          <Link key={item.href} href={item.href} className={`${rowClassName} grid-cols-[8px_1fr_16px]`}>
+          <Link key={item.href} href={toOrg(item.href)} className={`${rowClassName} grid-cols-[8px_1fr_16px]`}>
             <Dot color={item.color} />
             <span className="truncate">{item.text}</span>
             <ChevronRightIcon className="size-3.5 text-muted-foreground" />
@@ -133,6 +135,7 @@ function AccountsBucketCard({
   basePath: string
   className?: string
 }) {
+  const toOrg = useOrgPath()
   return (
     <div className={`rounded-xl border bg-card px-4 pt-3.5 pb-2 ${className ?? ""}`}>
       <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
@@ -144,7 +147,7 @@ function AccountsBucketCard({
         return (
           <Link
             key={band.key}
-            href={`${basePath}?${band.query}`}
+            href={toOrg(`${basePath}?${band.query}`)}
             className={`${rowClassName} grid-cols-[8px_1fr_auto_auto_16px]`}
           >
             <Dot color={band.dot} />

@@ -24,7 +24,7 @@ Se esse número for negativo ou não bater com a expectativa, há erro de lança
 ---
 3. Requisitos
 3.1 Funcionais — MVP
-Cadastro de organizações e usuários, com isolamento total de dados entre organizações.
+Cadastro aberto de usuários e de organizações, com isolamento total de dados entre organizações. Um mesmo usuário pode pertencer a várias organizações — criando-as ou sendo convidado — com um papel em cada uma.
 Cadastro de contatos com múltiplos papéis (pagador, favorecido, fornecedor).
 Cadastro de contas bancárias da organização e categorias de receita/despesa.
 Cadastro de contratos com itens, partes, valor total e geração automática das parcelas.
@@ -91,7 +91,9 @@ Convidar, remover e alterar papel de usuários	✓	—	—
 Editar dados da organização e excluir a organização	✓	—	—
 Consultar a trilha de auditoria	✓	—	—
 Inativar é reversível; excluir não. Por isso o operador inativa mas não exclui. O operador desfaz as próprias operações (conciliação, repasse) porque corrigir erros de operação faz parte da função.
-RN-33 — Sempre um administrador. A organização tem pelo menos um administrador. O último administrador não pode ser removido nem ter o papel alterado.
+RN-33 — Sempre um administrador. A organização tem pelo menos um administrador. O último administrador não pode ser removido nem ter o papel alterado. Quem cria a organização é o primeiro administrador.
+RN-34 — Convite. O administrador convida por e-mail e papel; o sistema gera um link (ainda sem envio de e-mail — o administrador copia e envia). O link vale 7 dias, é de uso único e só pode ser aceito pela conta com o e-mail convidado; quem ainda não tem conta cria uma pelo próprio link. Só o hash do token fica no banco, então o link não pode ser exibido de novo: "novo link" gera outro e invalida o anterior, e convidar o mesmo e-mail de novo cancela o convite pendente.
+RN-35 — Documento da organização. CNPJ ou CPF, obrigatório, validado pelos dígitos verificadores e único no sistema. Armazenado só com dígitos.
 RN-30 — Exclusão de transação bancária. Transação não conciliada pode ser excluída — caso típico de extrato importado por engano. A exclusão é lógica: a linha sai das telas mas o registro permanece com marca de exclusão, usuário e data, preservando a chave do banco para a deduplicação (RN-16). Transação conciliada não pode ser excluída; é preciso desfazer a liquidação antes.
 RN-23 — Modalidade de cobrança. Todo contrato declara sua modalidade: parcela única, parcelado ou recorrente. Parcelado divide um valor total entre N parcelas; recorrente repete um valor a cada período, com término por data, por número de ocorrências ou indefinido. O mesmo campo de valor tem significados distintos em cada modalidade e a interface deve deixá-lo explícito.
 RN-24 — Conta de recebimento. A conta indicada no lançamento ou contrato é onde se espera que o dinheiro entre, e orienta a busca na conciliação. Se o pagamento não passar pela organização, a parcela é liquidada por baixa manual (RN-20), sem conta.
@@ -122,7 +124,9 @@ Não há gráfico de resultado por categoria na tela inicial.
 5. Modelo de domínio
 ```mermaid
 erDiagram
-    ORGANIZACAO ||--o{ USUARIO : tem
+    ORGANIZACAO ||--o{ VINCULO : tem
+    USUARIO ||--o{ VINCULO : tem
+    ORGANIZACAO ||--o{ CONVITE : tem
     ORGANIZACAO ||--o{ CONTATO : tem
     ORGANIZACAO ||--o{ CONTA_BANCARIA : tem
     ORGANIZACAO ||--o{ CATEGORIA : tem
@@ -148,8 +152,11 @@ erDiagram
     CONTATO ||--o{ MOVIMENTO_CUSTODIA : "razao do favorecido"
 ```
 5.1 Entidades
-Organizacao — o tenant. `id`, `nome`, `documento`.
-Usuario — pertence a uma organização. `id`, `organizacao_id`, `nome`, `email`, `papel` (ADMINISTRADOR | OPERADOR | VISUALIZADOR).
+Organizacao — o tenant. `id`, `nome`, `documento` (único, RN-35).
+Usuario — a pessoa, global ao sistema. `id`, `nome`, `email` (único), `senha_hash`, `ativo`. Não pertence a uma organização: o acesso vem dos vínculos.
+Vinculo (`memberships`) — `id`, `organizacao_id`, `usuario_id`, `papel` (ADMINISTRADOR | OPERADOR | VISUALIZADOR). Único por (usuario, organizacao).
+Convite (`invitations`) — `id`, `organizacao_id`, `email`, `papel`, `token_hash`, `convidado_por_id`, `expira_em`, `aceito_em?`, `cancelado_em?` (RN-34).
+> **Organização na URL, não na sessão.** A sessão identifica só a pessoa. Toda tela de organização vive em `/o/<organizacao_id>/...`, então abas diferentes podem ter empresas diferentes abertas ao mesmo tempo. O `proxy.ts` repassa o id da URL num header para a página ou server action (uma server action é um POST para a página que a chamou, então herda a empresa da aba), e cada requisição confere o vínculo do usuário com essa organização antes de qualquer consulta. Sem vínculo, a resposta é 404 — igual a uma organização inexistente.
 > Permissões detalhadas na RN-32. Sempre existe ao menos um administrador (RN-33).
 Contato — pessoa ou empresa. `id`, `organizacao_id`, `nome`, `documento`, `tipo_pessoa`, `telefone`, `email`, `cidade`, `estado`, `dados_bancarios`, `chave_pix?`, `tipo_chave_pix?` (CPF | CNPJ | EMAIL | TELEFONE | ALEATORIA), `papeis[]` (PAGADOR, FAVORECIDO, FORNECEDOR — um contato pode acumular).
 ContaBancaria — `id`, `organizacao_id`, `nome`, `banco`, `agencia`, `conta`, `saldo_inicial`, `ativa`.
@@ -223,6 +230,7 @@ AD-05 — Autenticação por biblioteca consolidada
 Escolhido: biblioteca madura de sessão/autenticação, e-mail e senha na v1, com papéis por organização.
 Descartado: implementação própria.
 Porquê: criptografia e gestão de sessão caseiras são risco desnecessário. Sobe-se a escada (social, papéis finos, convite de usuário) só quando houver demanda real.
+> Na prática a v1 ficou com sessão opaca própria no banco (token aleatório, só o hash armazenado, senha com argon2) — pequena o bastante para revisar inteira. Cadastro aberto, convite por link e papéis por organização (VISUALIZADOR só lê, OPERADOR opera, ADMINISTRADOR também gerencia membros) já estão implementados; a checagem de papel acontece na borda (server actions) e os serviços continuam sem saber de papéis. Pendentes: verificação de e-mail, "esqueci a senha" e envio de convite por e-mail — todos dependem de um provedor de e-mail.
 AD-06 — Hospedagem gerenciada
 Escolhido: plataforma gerenciada com Postgres gerenciado ao lado.
 Porquê: ponto ótimo de custo/benefício para desenvolvedor solo. A escolha exata da plataforma é decisão da Fase 8, sem impacto no código.
@@ -282,7 +290,7 @@ Resíduo de centavos em rateio	Aritmética inteira + regra do resíduo na últim
 Reimportação duplicando extrato	Restrição única (conta, FITID) no banco, não só no código
 Anexo acessível por outra organização	Link temporário gerado pelo servidor após checagem explícita; teste automatizado de acesso cruzado
 Escopo crescendo até nunca publicar	Sequência de fases com "pronto" objetivo; nada fora do MVP entra antes da Fase 9
-Em aberto: variações de formato OFX entre bancos (validar com arquivo real do Asaas na Fase 5) · política de retenção e backup (definir na Fase 9) · fluxo de convite de usuário para segunda organização (adiado).
+Em aberto: variações de formato OFX entre bancos (validar com arquivo real do Asaas na Fase 5) · política de retenção e backup (definir na Fase 9) · provedor de e-mail (verificação de conta, recuperação de senha, envio automático de convite).
 ---
 10. Sequência de build
 Cada fase entrega uma fatia vertical funcionando e verificável. Não abrir fase nova com a anterior pela metade.

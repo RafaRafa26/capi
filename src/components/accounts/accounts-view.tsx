@@ -50,6 +50,7 @@ import type { BankAccount } from "@/modules/bank-accounts/types"
 import type { AccountEntry, LedgerKind } from "@/modules/accounts/types"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
+import { useOrgPath } from "@/hooks/use-org-path"
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 
@@ -100,6 +101,7 @@ export function AccountsView({
   categories: Category[]
   bankAccounts: BankAccount[]
 }) {
+  const toOrg = useOrgPath()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const today = React.useMemo(() => new Date(), [])
@@ -321,7 +323,7 @@ export function AccountsView({
           nativeButton={false}
           // No prefetch: the href changes with every filter, and each prefetch
           // would server-render the whole report just in case it gets opened.
-          render={<Link href={`/reports/accounts?kind=${kind}&${searchParams.toString()}`} target="_blank" prefetch={false} />}
+          render={<Link href={toOrg(`/reports/accounts?kind=${kind}&${searchParams.toString()}`)} target="_blank" prefetch={false} />}
         >
           <DownloadIcon />
           Exportar

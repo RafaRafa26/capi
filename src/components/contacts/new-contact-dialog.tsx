@@ -3,7 +3,7 @@
 import * as React from "react"
 import { PlusIcon } from "lucide-react"
 
-import { createContactAction } from "@/app/(app)/contacts/actions"
+import { createContactAction } from "@/app/o/[orgId]/(app)/contacts/actions"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,

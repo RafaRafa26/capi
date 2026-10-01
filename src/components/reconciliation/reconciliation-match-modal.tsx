@@ -8,7 +8,7 @@ import {
   createAndSettleReceivableAction,
   createSettlementBatchAction,
   searchCandidateEntriesAction,
-} from "@/app/(app)/reconciliation/actions"
+} from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"

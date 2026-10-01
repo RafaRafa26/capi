@@ -31,10 +31,10 @@ export async function createTestOrganization(label: string): Promise<TestOrg> {
 
   const user = await prismaAdmin.user.create({
     data: {
-      organizationId: organization.id,
       name: "Test User",
       email: `test-${suffix}@example.test`,
       passwordHash: "unused",
+      memberships: { create: { organizationId: organization.id, role: "ADMIN" } },
     },
   });
 
@@ -79,4 +79,12 @@ export async function removeTestOrganizations(ids: string[]) {
     // organizations pile up in the dev database unnoticed.
     await removeOrganization(prismaAdmin, id);
   }
+  await removeTestUsers();
+}
+
+/** Test users are global now, so they're cleaned up by their e-mail domain. */
+export async function removeTestUsers() {
+  await prismaAdmin.user.deleteMany({
+    where: { email: { endsWith: "@example.test" }, memberships: { none: {} }, invitationsCreated: { none: {} } },
+  });
 }

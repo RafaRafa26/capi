@@ -150,3 +150,69 @@ describe("row level security — imports and bank transactions (AD-02)", () => {
     expect(stillThere).not.toBeNull();
   });
 });
+
+describe("row level security — users, memberships, invitations and sessions (AD-02)", () => {
+  let invitationB: { id: string };
+
+  beforeAll(async () => {
+    invitationB = await prismaAdmin.invitation.create({
+      data: {
+        organizationId: orgB.id,
+        email: `rls-invite-${Date.now()}@example.test`,
+        role: "OPERATOR",
+        tokenHash: `rls-${Date.now()}`,
+        invitedById: orgB.userId,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+  });
+
+  it("one organization only sees its own memberships", async () => {
+    const fromA = await withOrganization(orgA.id, (tx) => tx.membership.findMany({}));
+    expect(fromA.map((m) => m.userId)).toEqual([orgA.userId]);
+  });
+
+  it("users are visible only while they're members of the declared organization", async () => {
+    const fromA = await withOrganization(orgA.id, (tx) =>
+      tx.user.findMany({ where: { id: { in: [orgA.userId, orgB.userId] } } }),
+    );
+    expect(fromA.map((u) => u.id)).toEqual([orgA.userId]);
+  });
+
+  it("a user in two organizations is visible from both", async () => {
+    const membership = await prismaAdmin.membership.create({
+      data: { organizationId: orgA.id, userId: orgB.userId, role: "VIEWER" },
+    });
+    try {
+      const fromA = await withOrganization(orgA.id, (tx) => tx.user.findUnique({ where: { id: orgB.userId } }));
+      expect(fromA?.id).toBe(orgB.userId);
+    } finally {
+      await prismaAdmin.membership.delete({ where: { id: membership.id } });
+    }
+  });
+
+  it("granting oneself access to another organization is rejected by WITH CHECK", async () => {
+    await expect(
+      withOrganization(orgA.id, (tx) =>
+        tx.membership.create({ data: { organizationId: orgB.id, userId: orgA.userId, role: "ADMIN" } }),
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("one organization does not see the other's invitations", async () => {
+    const fromA = await withOrganization(orgA.id, (tx) => tx.invitation.findMany({}));
+    expect(fromA.map((i) => i.id)).not.toContain(invitationB.id);
+  });
+
+  it("the application role can't read sessions at all", async () => {
+    const session = await prismaAdmin.session.create({
+      data: { userId: orgA.userId, tokenHash: `rls-session-${Date.now()}`, expiresAt: new Date(Date.now() + 60_000) },
+    });
+    try {
+      const fromA = await withOrganization(orgA.id, (tx) => tx.session.findMany({}));
+      expect(fromA).toHaveLength(0);
+    } finally {
+      await prismaAdmin.session.delete({ where: { id: session.id } });
+    }
+  });
+});
