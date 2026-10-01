@@ -78,8 +78,9 @@ export default async function InvitationPage({ params }: PageProps<"/invite/[tok
           com a conta certa para aceitá-lo.
         </p>
         <form action={signOutAction}>
+          <input type="hidden" name="next" value={here} />
           <Button type="submit" variant="outline" className="w-full">
-            Sair
+            Sair e entrar com outra conta
           </Button>
         </form>
       </AuthShell>

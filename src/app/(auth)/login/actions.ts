@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@/modules/auth/schema";
 import { authenticate, endSession, pruneExpiredSessions, signUp } from "@/modules/auth/service";
 import { clearSessionCookie, requestToken, setSessionCookie } from "@/modules/auth/session";
+import { safeNextPath } from "@/lib/org-path";
 import { failure, type Result } from "@/shared/errors";
 
 export async function signInAction(form: FormData): Promise<Result> {
@@ -50,8 +51,11 @@ export async function signUpAction(form: FormData): Promise<Result> {
   }
 }
 
-export async function signOutAction() {
+/** A form may send `next` so that signing back in returns there (e.g. an invitation link). */
+export async function signOutAction(form?: FormData) {
   await endSession(await requestToken());
   await clearSessionCookie();
-  redirect("/login");
+
+  const next = safeNextPath(form instanceof FormData ? String(form.get("next") ?? "") : null);
+  redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
 }
