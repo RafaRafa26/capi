@@ -165,7 +165,7 @@ export function filterByPeriod<T extends { dueDate: Date }>(entries: T[], range:
   })
 }
 
-export function filterBySearch<T extends { contactName: string; description: string }>(
+export function filterBySearch<T extends { contactName: string; description: string; notes?: string | null }>(
   entries: T[],
   query: string,
 ): T[] {
@@ -174,11 +174,16 @@ export function filterBySearch<T extends { contactName: string; description: str
   return entries.filter(
     (entry) =>
       entry.contactName.toLowerCase().includes(normalized) ||
-      entry.description.toLowerCase().includes(normalized),
+      entry.description.toLowerCase().includes(normalized) ||
+      // A observação de acompanhamento (RN-36) — achar "combinou pagamento".
+      (entry.notes?.toLowerCase().includes(normalized) ?? false),
   )
 }
 
-export type FilterChipKey = "contact" | "category" | "paymentMethod" | "bankAccount"
+export type FilterChipKey = "contact" | "category" | "paymentMethod" | "bankAccount" | "marker"
+
+// Valor do chip Marcador para quem não tem nenhum — "quem ainda não cobrei".
+export const NO_MARKER_LABEL = "Sem marcador"
 
 export type FilterChips = Partial<Record<FilterChipKey, string[]>>
 
@@ -190,6 +195,8 @@ interface ChippableEntry {
   categoryName: string
   paymentMethod: string
   bankAccountName: string | null
+  // Marcador de acompanhamento (RN-36); ausente conta como "Sem marcador".
+  marker?: { name: string } | null
 }
 
 function chipValues(entry: ChippableEntry, key: FilterChipKey): string[] {
@@ -203,6 +210,8 @@ function chipValues(entry: ChippableEntry, key: FilterChipKey): string[] {
     case "bankAccount":
       // Sem conta (repasse ainda não conciliado) não casa com nenhum chip.
       return entry.bankAccountName ? [entry.bankAccountName] : []
+    case "marker":
+      return [entry.marker?.name ?? NO_MARKER_LABEL]
   }
 }
 

@@ -6,15 +6,17 @@ import { listBankAccounts } from "@/modules/bank-accounts/service"
 import { listBeneficiaries, listPayables } from "@/modules/accounts/service"
 import { listCategories } from "@/modules/categories/service"
 import { listContacts } from "@/modules/contacts/service"
+import { listMarkers } from "@/modules/markers/service"
 
 export default async function PayablesPage() {
   const session = await requireSessionOrRedirect()
-  const [entries, beneficiaries, contacts, categories, bankAccounts] = await Promise.all([
+  const [entries, beneficiaries, contacts, categories, bankAccounts, markers] = await Promise.all([
     listPayables(session.organizationId),
     listBeneficiaries(session.organizationId),
     listContacts(session.organizationId),
     listCategories(session.organizationId),
     listBankAccounts(session.organizationId),
+    listMarkers(session.organizationId),
   ])
 
   return (
@@ -26,6 +28,7 @@ export default async function PayablesPage() {
         contacts={contacts}
         categories={categories}
         bankAccounts={bankAccounts}
+        markers={markers.filter((marker) => marker.type === "PAYABLE")}
       />
     </Suspense>
   )

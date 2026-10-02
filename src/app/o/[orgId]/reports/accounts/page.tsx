@@ -1,3 +1,5 @@
+import { Fragment } from "react"
+
 import { PrintButton } from "@/components/print-button"
 import {
   applyAccountsFilters,
@@ -9,6 +11,7 @@ import {
 import { kindConfig, statusLabel } from "@/lib/accounts/labels"
 import { parseChipsFromParams, parsePeriodFromParams } from "@/lib/accounts/params"
 import { formatBRL, formatDate } from "@/lib/format"
+import { markerBadgeStyle } from "@/lib/marker-colors"
 import { requireSessionOrRedirect } from "@/modules/auth/session"
 import { listPayables, listReceivables } from "@/modules/accounts/service"
 import type { LedgerKind } from "@/modules/accounts/types"
@@ -94,21 +97,48 @@ export default async function AccountsReportPage(props: PageProps<"/o/[orgId]/re
               filtered.map((entry) => {
                 const entryStatus = deriveStatus(entry, today)
                 const rowTitle = entry.installment ? `${entry.installment} - ${entry.description}` : entry.description
+                // A observação (RN-36) ganha uma linha própria logo abaixo, na
+                // largura toda — texto livre não cabe numa coluna estreita.
+                const rowBorder = entry.notes ? "" : "border-b"
                 return (
-                  <tr key={entry.id} className="border-b text-[13px] last:border-b-0">
-                    <td className="px-3 py-2.5 tabular-nums">{formatDate(entry.dueDate)}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-muted-foreground">
-                      {entry.paidAt ? formatDate(entry.paidAt) : config.emptyPaymentDate}
-                    </td>
-                    <td className="px-3 py-2.5">{rowTitle}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{entry.categoryName}</td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{entry.contactName}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{formatBRL(entry.amount)}</td>
-                    <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
-                      {formatBRL(Math.max(0, entry.amount - entry.settledAmount))}
-                    </td>
-                    <td className="px-3 py-2.5 text-muted-foreground">{statusLabel(entryStatus, kind)}</td>
-                  </tr>
+                  <Fragment key={entry.id}>
+                    <tr className={`${rowBorder} break-inside-avoid text-[13px] last:border-b-0`}>
+                      <td className="px-3 py-2.5 tabular-nums">{formatDate(entry.dueDate)}</td>
+                      <td className="px-3 py-2.5 tabular-nums text-muted-foreground">
+                        {entry.paidAt ? formatDate(entry.paidAt) : config.emptyPaymentDate}
+                      </td>
+                      <td className="px-3 py-2.5">{rowTitle}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{entry.categoryName}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground">{entry.contactName}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{formatBRL(entry.amount)}</td>
+                      <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
+                        {formatBRL(Math.max(0, entry.amount - entry.settledAmount))}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground">
+                        {statusLabel(entryStatus, kind)}
+                        {entry.marker && (
+                          <span
+                            className="mt-1 block w-fit rounded-md px-2 py-0.5 text-[11px] font-medium print:[-webkit-print-color-adjust:exact] print:[print-color-adjust:exact]"
+                            style={markerBadgeStyle(entry.marker.color)}
+                          >
+                            {entry.marker.name}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                    {entry.notes && (
+                      <tr className="break-inside-avoid border-b text-xs last:border-b-0">
+                        <td colSpan={8} className="px-3 pb-2.5">
+                          <p className="rounded-md bg-muted px-2.5 py-1.5 whitespace-pre-wrap print:[-webkit-print-color-adjust:exact] print:[print-color-adjust:exact]">
+                            <span className="font-medium">
+                              Observação{entry.notesUpdatedAt ? ` (${formatDate(entry.notesUpdatedAt)})` : ""}:
+                            </span>{" "}
+                            {entry.notes}
+                          </p>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 )
               })
             )}

@@ -9,6 +9,8 @@ import {
   ArrowUpIcon,
   DownloadIcon,
   FilterIcon,
+  MessageSquarePlusIcon,
+  MessageSquareTextIcon,
   RepeatIcon,
   SearchIcon,
   Trash2Icon,
@@ -16,6 +18,7 @@ import {
 
 import { AccountEntryDialog } from "@/components/accounts/account-entry-dialog"
 import { EntryDetailSheet } from "@/components/accounts/entry-detail-sheet"
+import { EntryNotesDialog } from "@/components/accounts/entry-notes-dialog"
 import { FilterChip } from "@/components/accounts/filter-chip"
 import { PeriodFilter } from "@/components/accounts/period-filter"
 import { Button } from "@/components/ui/button"
@@ -33,6 +36,7 @@ import {
   buildPageItems,
   deriveStatus,
   distinctChipValues,
+  NO_MARKER_LABEL,
   totalPages,
   type AccountStatus,
   type FilterChipKey,
@@ -45,11 +49,13 @@ import { kindConfig, statusBadgeStyle, statusLabel } from "@/lib/accounts/labels
 import { chipOrder, encodeChipValues, parseChipsFromParams, parsePeriodFromParams } from "@/lib/accounts/params"
 import { categoryColor } from "@/lib/category-color"
 import { formatBRL, formatDate } from "@/lib/format"
+import { markerBadgeStyle } from "@/lib/marker-colors"
 import { cn } from "@/lib/utils"
 import type { BankAccount } from "@/modules/bank-accounts/types"
 import type { AccountEntry, LedgerKind } from "@/modules/accounts/types"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
+import type { Marker } from "@/modules/markers/types"
 import { useOrgPath } from "@/hooks/use-org-path"
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
@@ -59,6 +65,7 @@ const chipMeta: Record<FilterChipKey, { label: string }> = {
   category: { label: "Categoria" },
   paymentMethod: { label: "Forma de pagamento" },
   bankAccount: { label: "Conta" },
+  marker: { label: "Marcador" },
 }
 
 const summaryDotColor: Record<"overdue" | "dueToday" | "upcoming" | "paid" | "total", string> = {
@@ -93,6 +100,7 @@ export function AccountsView({
   contacts,
   categories,
   bankAccounts,
+  markers,
 }: {
   kind: LedgerKind
   entries: AccountEntry[]
@@ -100,6 +108,8 @@ export function AccountsView({
   contacts: Contact[]
   categories: Category[]
   bankAccounts: BankAccount[]
+  // Marcadores (RN-36) do lado desta tela — a receber ou a pagar.
+  markers: Marker[]
 }) {
   const toOrg = useOrgPath()
   const pathname = usePathname()
@@ -108,6 +118,7 @@ export function AccountsView({
   const config = kindConfig[kind]
   const [detailEntryId, setDetailEntryId] = React.useState<string | null>(null)
   const [editingEntry, setEditingEntry] = React.useState<AccountEntry | null>(null)
+  const [notesEntryId, setNotesEntryId] = React.useState<string | null>(null)
 
   const kindEntries = React.useMemo(() => entries.filter((entry) => entry.kind === kind), [entries, kind])
 
@@ -117,6 +128,11 @@ export function AccountsView({
   const detailEntry = React.useMemo(
     () => (detailEntryId ? (entries.find((entry) => entry.id === detailEntryId) ?? null) : null),
     [entries, detailEntryId],
+  )
+
+  const notesEntry = React.useMemo(
+    () => (notesEntryId ? (entries.find((entry) => entry.id === notesEntryId) ?? null) : null),
+    [entries, notesEntryId],
   )
 
   const period = React.useMemo(() => parsePeriodFromParams(searchParams, today), [searchParams, today])
@@ -249,9 +265,11 @@ export function AccountsView({
       category: distinctChipValues(kindEntries, "category"),
       paymentMethod: distinctChipValues(kindEntries, "paymentMethod"),
       bankAccount: distinctChipValues(kindEntries, "bankAccount"),
+      // Todos os marcadores cadastrados, como no Favorecido acima.
+      marker: [NO_MARKER_LABEL, ...markers.map((marker) => marker.name)],
     }
     return options
-  }, [kindEntries, beneficiaries])
+  }, [kindEntries, beneficiaries, markers])
 
   const activeChipKeys = chipOrder.filter((key) => key in chips)
 
@@ -443,12 +461,15 @@ export function AccountsView({
                 </th>
                 <th className="w-29 px-3 text-right font-medium">{config.amountColumnLabel}</th>
                 <th className="w-30 px-3 text-left font-medium">Situação</th>
+                <th className="w-12 px-1">
+                  <span className="sr-only">Acompanhamento</span>
+                </th>
               </tr>
             </thead>
             <tbody>
               {pageEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-16 text-center text-sm text-muted-foreground">
+                  <td colSpan={7} className="py-16 text-center text-sm text-muted-foreground">
                     Nenhum lançamento neste filtro.
                   </td>
                 </tr>
@@ -456,6 +477,7 @@ export function AccountsView({
                 pageEntries.map((entry) => {
                   const entryStatus = deriveStatus(entry, today)
                   const title = entry.installment ? `${entry.installment} - ${entry.description}` : entry.description
+                  const hasFollowUp = entry.marker !== null || entry.notes !== null
                   return (
                     <tr
                       key={entry.id}
@@ -494,7 +516,20 @@ export function AccountsView({
                             {entry.categoryName}
                           </span>
                           <span className="truncate">{entry.contactName}</span>
+                          {entry.marker && (
+                            <span
+                              className="inline-flex h-5 shrink-0 items-center rounded-full px-2 text-[11px] font-medium"
+                              style={markerBadgeStyle(entry.marker.color)}
+                            >
+                              {entry.marker.name}
+                            </span>
+                          )}
                         </div>
+                        {entry.notes && (
+                          <p className="mt-1 truncate text-xs text-muted-foreground italic" title={entry.notes}>
+                            {entry.notes}
+                          </p>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-right tabular-nums">{formatBRL(entry.amount)}</td>
                       <td className="px-3 py-3 text-right font-semibold tabular-nums">
@@ -507,6 +542,30 @@ export function AccountsView({
                         >
                           {statusLabel(entryStatus, kind)}
                         </span>
+                      </td>
+                      <td
+                        className="px-1 py-3 text-center"
+                        // The row itself opens the detail Sheet — keep clicks
+                        // (and Enter/Space) on this button to the dialog.
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        <Tooltip>
+                          <TooltipTrigger
+                            render={
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={hasFollowUp ? "Editar acompanhamento" : "Adicionar acompanhamento"}
+                                className={cn(!hasFollowUp && "text-muted-foreground")}
+                                onClick={() => setNotesEntryId(entry.id)}
+                              />
+                            }
+                          >
+                            {hasFollowUp ? <MessageSquareTextIcon /> : <MessageSquarePlusIcon />}
+                          </TooltipTrigger>
+                          <TooltipContent>{hasFollowUp ? "Editar acompanhamento" : "Adicionar acompanhamento"}</TooltipContent>
+                        </Tooltip>
                       </td>
                     </tr>
                   )
@@ -621,6 +680,14 @@ export function AccountsView({
           setDetailEntryId(null)
           setEditingEntry(entry)
         }}
+      />
+
+      <EntryNotesDialog
+        entry={notesEntry}
+        kind={kind}
+        markers={markers}
+        open={notesEntry !== null}
+        onOpenChange={(nextOpen) => !nextOpen && setNotesEntryId(null)}
       />
 
       <AccountEntryDialog

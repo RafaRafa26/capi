@@ -13,6 +13,7 @@ const titles: Record<string, string> = {
   "/contacts": "Contatos",
   "/bank-accounts": "Contas bancárias",
   "/categories": "Categorias",
+  "/markers": "Marcadores",
   "/members": "Membros",
 }
 
