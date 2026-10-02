@@ -16,3 +16,16 @@ export const updateAccountEntrySchema = z.object({
 })
 
 export type UpdateAccountEntryInput = z.infer<typeof updateAccountEntrySchema>
+
+export const updateEntryNotesSchema = z.object({
+  markerId: z.string().min(1).nullable(),
+  // Vazia vira null — "sem observação" tem um jeito só de ser guardado.
+  notes: z
+    .string()
+    .trim()
+    .max(2000, "Use no máximo 2000 caracteres.")
+    .nullable()
+    .transform((value) => value || null),
+})
+
+export type UpdateEntryNotesInput = z.infer<typeof updateEntryNotesSchema>

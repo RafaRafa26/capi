@@ -4,12 +4,14 @@ import { randomUUID } from "node:crypto";
 
 import { prismaAdmin, withOrganization } from "@/db/client";
 import { Prisma } from "@/db/generated/client";
+import { createDefaultMarkers } from "@/modules/markers/service";
 import { BusinessError } from "@/shared/errors";
 import type { OrganizationInput } from "./schema";
 import type { UserOrganization } from "./types";
 
 /**
- * Creates an organization with `userId` as its first administrator (RN-33).
+ * Creates an organization with `userId` as its first administrator (RN-33)
+ * and the default marcadores (RN-36).
  *
  * The id is generated here, before the transaction, so the whole thing can
  * run under RLS like any other write: the transaction declares the new
@@ -24,6 +26,7 @@ export async function createOrganization(userId: string, input: OrganizationInpu
         data: { id, name: input.name, document: input.document },
       });
       await tx.membership.create({ data: { organizationId: id, userId, role: "ADMIN" } });
+      await createDefaultMarkers(tx, id);
       return { id, name: organization.name, document: organization.document, role: "ADMIN" as const };
     });
   } catch (error) {

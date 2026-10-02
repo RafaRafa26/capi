@@ -148,6 +148,7 @@ model Organization {
   bankTransactions BankTransaction[]
   settlements      Settlement[]
   payouts          Payout[]
+  markers          Marker[]
 
   @@map("organizations")
 }
@@ -368,10 +369,17 @@ model Entry {
   discount          Int           @default(0)
   settledAmount     Int?          @map("settled_amount")
   paymentMethod     PaymentMethod @map("payment_method")
+  // Acompanhamento (RN-36): o marcador atual e uma observação livre — o
+  // retorno de cobrança, num a receber. Saem nos relatórios exportados.
+  markerId          String?       @map("marker_id") @db.Uuid
+  notes             String?
+  // Quando o marcador ou a observação mudaram pela última vez.
+  notesUpdatedAt    DateTime?     @map("notes_updated_at")
   createdAt         DateTime      @default(now()) @map("created_at")
 
   organization Organization  @relation(fields: [organizationId], references: [id])
   sale         Sale?         @relation(fields: [saleId], references: [id])
+  marker       Marker?       @relation(fields: [markerId], references: [id], onDelete: SetNull)
   contact      Contact       @relation("EntryContact", fields: [contactId], references: [id])
   category     Category      @relation(fields: [categoryId], references: [id])
   bankAccount  BankAccount?  @relation(fields: [bankAccountId], references: [id])
@@ -382,11 +390,32 @@ model Entry {
   // due_date. Also covers plain organization_id lookups (leading column).
   @@index([organizationId, type, dueDate])
   @@index([saleId])
+  @@index([markerId])
   @@map("entries")
 }
 
 // A repasse line. `percentage` is only set when `mode` is PERCENTAGE;
 // `amount` is always the computed cents value, in both modes.
+// Marcador de acompanhamento de um lançamento (RN-36) — "Cobrado, sem
+// retorno", "Aguardando nota fiscal"... Cada lista é de um lado: a receber
+// (RECEIVABLE) ou a pagar (PAYABLE). Toda organização nasce com os padrões
+// de src/modules/markers/defaults.ts e pode editá-los à vontade.
+model Marker {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  type           EntryType
+  name           String
+  // Chave da paleta em src/lib/marker-colors.ts, não um código de cor.
+  color          String
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  entries      Entry[]
+
+  @@unique([organizationId, type, name])
+  @@map("markers")
+}
+
 model Allocation {
   id             String         @id @default(uuid()) @db.Uuid
   organizationId String         @map("organization_id") @db.Uuid

@@ -4,7 +4,13 @@ import { prismaAdmin } from "@/db/client"
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment"
 import { manualSettleEntry } from "@/modules/settlements/service"
 import { BusinessError, NotFound } from "@/shared/errors"
-import { deleteAccountEntry, listBeneficiaries, listPayables, updateAccountEntry } from "./service"
+import {
+  deleteAccountEntry,
+  listBeneficiaries,
+  listPayables,
+  updateAccountEntry,
+  updateEntryNotes,
+} from "./service"
 
 let org: TestOrg
 let expenseCategoryId: string
@@ -183,5 +189,71 @@ describe("deleteAccountEntry", () => {
 
   it("throws NotFound for a nonexistent entry", async () => {
     await expect(deleteAccountEntry(org.id, "00000000-0000-0000-0000-000000000000")).rejects.toBeInstanceOf(NotFound)
+  })
+})
+
+describe("updateEntryNotes (RN-36)", () => {
+  function createMarker(type: "PAYABLE" | "RECEIVABLE", name: string) {
+    return prismaAdmin.marker.create({ data: { organizationId: org.id, type, name, color: "red" } })
+  }
+
+  it("saves the marcador and the observação, and lists them", async () => {
+    const entry = await createPayableEntry()
+    const marker = await createMarker("PAYABLE", `Aguardando NF ${Date.now()}`)
+
+    await updateEntryNotes(org.id, entry.id, { markerId: marker.id, notes: "Fornecedor vai reemitir" })
+
+    const listed = (await listPayables(org.id)).find((e) => e.id === entry.id)!
+    expect(listed.marker).toEqual({ id: marker.id, name: marker.name, color: "red" })
+    expect(listed.notes).toBe("Fornecedor vai reemitir")
+    expect(listed.notesUpdatedAt).toBeInstanceOf(Date)
+  })
+
+  it("works on an already SETTLED entry", async () => {
+    const entry = await createPayableEntry()
+    await manualSettleEntry(org.id, { entryId: entry.id, settledAt: new Date(2026, 8, 11) })
+
+    await updateEntryNotes(org.id, entry.id, { markerId: null, notes: "Pago com atraso" })
+
+    const saved = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(saved.notes).toBe("Pago com atraso")
+  })
+
+  it("clears both fields", async () => {
+    const entry = await createPayableEntry()
+    const marker = await createMarker("PAYABLE", `Agendado ${Date.now()}`)
+    await updateEntryNotes(org.id, entry.id, { markerId: marker.id, notes: "x" })
+
+    await updateEntryNotes(org.id, entry.id, { markerId: null, notes: null })
+
+    const saved = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(saved.markerId).toBeNull()
+    expect(saved.notes).toBeNull()
+  })
+
+  it("doesn't touch notesUpdatedAt when nothing changed", async () => {
+    const entry = await createPayableEntry()
+    await updateEntryNotes(org.id, entry.id, { markerId: null, notes: "mesma coisa" })
+    const first = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+
+    await updateEntryNotes(org.id, entry.id, { markerId: null, notes: "mesma coisa" })
+
+    const second = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(second.notesUpdatedAt).toEqual(first.notesUpdatedAt)
+  })
+
+  it("rejects a marcador from the other side (a receber on a conta a pagar)", async () => {
+    const entry = await createPayableEntry()
+    const marker = await createMarker("RECEIVABLE", `Cobrado ${Date.now()}`)
+
+    await expect(updateEntryNotes(org.id, entry.id, { markerId: marker.id, notes: null })).rejects.toBeInstanceOf(
+      BusinessError,
+    )
+  })
+
+  it("throws NotFound for a nonexistent entry", async () => {
+    await expect(
+      updateEntryNotes(org.id, "00000000-0000-0000-0000-000000000000", { markerId: null, notes: "x" }),
+    ).rejects.toBeInstanceOf(NotFound)
   })
 })

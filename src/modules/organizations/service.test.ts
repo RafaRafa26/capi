@@ -4,6 +4,8 @@ import { prismaAdmin } from "@/db/client";
 import { removeTestOrganizations, removeTestUsers } from "@/db/__tests__/environment";
 import { BusinessError } from "@/shared/errors";
 import { organizationInputSchema } from "./schema";
+import { DEFAULT_MARKERS } from "@/modules/markers/defaults";
+import { listMarkers } from "@/modules/markers/service";
 import { createOrganization, findMembership, listUserOrganizations } from "./service";
 
 // A valid CNPJ that differs per call and per run, so reruns never collide on
@@ -56,6 +58,15 @@ describe("organizations", () => {
     expect(organization.role).toBe("ADMIN");
     expect(await findMembership(userId, organization.id)).toMatchObject({ id: organization.id, role: "ADMIN" });
     expect(await findMembership(otherUserId, organization.id)).toBeNull();
+  });
+
+  it("gives a new organization the default marcadores (RN-36)", async () => {
+    const organization = await createOrganization(userId, { name: "Fazenda M", document: freshCnpj() });
+    created.push(organization.id);
+
+    const markers = await listMarkers(organization.id);
+    expect(markers).toHaveLength(DEFAULT_MARKERS.length);
+    expect(markers.map((m) => m.name)).toContain("Cobrado, sem retorno");
   });
 
   it("refuses a second organization with the same document", async () => {
