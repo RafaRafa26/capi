@@ -1,7 +1,7 @@
 import { EditBankAccountDialog, NewBankAccountDialog } from "@/components/bank-accounts/new-bank-account-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { formatBRL, formatDate } from "@/lib/format"
+import { formatBankAccountNumbers, formatBRL, formatDate } from "@/lib/format"
 import { requireSessionOrRedirect } from "@/modules/auth/session"
 import { listBankAccounts } from "@/modules/bank-accounts/service"
 
@@ -37,7 +37,7 @@ export default async function BankAccountsPage() {
                     <EditBankAccountDialog bankAccount={account} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {account.bank} · Ag {account.branchNumber} · Cc {account.accountNumber}
+                    {[account.bank, formatBankAccountNumbers(account)].filter(Boolean).join(" · ")}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Controle desde {formatDate(account.controlStartDate)}

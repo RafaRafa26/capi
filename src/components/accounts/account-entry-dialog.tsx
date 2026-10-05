@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { formatBRL, formatDate } from "@/lib/format"
+import { formatBankAccountLabel, formatBRL, formatDate } from "@/lib/format"
 import type { BankAccount } from "@/modules/bank-accounts/types"
 import type { AccountEntry, LedgerKind, PaymentMethodCode } from "@/modules/accounts/types"
 import type { Category } from "@/modules/categories/types"
@@ -116,7 +116,7 @@ export function AccountEntryDialog({
   }))
   const bankAccountOptions: SearchableSelectOption[] = bankAccounts.map((account) => ({
     value: account.id,
-    label: `${account.name} — Ag ${account.branchNumber} / CC ${account.accountNumber}`,
+    label: formatBankAccountLabel(account),
   }))
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {

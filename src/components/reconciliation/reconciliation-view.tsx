@@ -27,7 +27,7 @@ import { ReconciliationMatchModal } from "@/components/reconciliation/reconcilia
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { formatBRL, formatDate } from "@/lib/format"
+import { formatBankAccountLabel, formatBankAccountNumbers, formatBRL, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { BankAccount } from "@/modules/bank-accounts/types"
 import type { Category } from "@/modules/categories/types"
@@ -219,7 +219,7 @@ export function ReconciliationView({
           <div>
             <p className="text-sm font-semibold">{bankAccount.name}</p>
             <p className="text-xs text-muted-foreground">
-              Ag {bankAccount.branchNumber} / CC {bankAccount.accountNumber}
+              {formatBankAccountNumbers(bankAccount)}
             </p>
           </div>
         </div>
@@ -409,7 +409,7 @@ export function ReconciliationView({
                                 {(value: string) => {
                                   const account = bankAccounts.find((a) => a.id === value)
                                   return account
-                                    ? `${account.name} — Ag ${account.branchNumber} / CC ${account.accountNumber}`
+                                    ? formatBankAccountLabel(account)
                                     : "Conta de destino"
                                 }}
                               </SelectValue>
@@ -417,7 +417,7 @@ export function ReconciliationView({
                             <SelectContent>
                               {bankAccounts.map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
-                                  {account.name} — Ag {account.branchNumber} / CC {account.accountNumber}
+                                  {formatBankAccountLabel(account)}
                                 </SelectItem>
                               ))}
                             </SelectContent>

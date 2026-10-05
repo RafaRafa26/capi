@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { balanceAxisScale } from "@/lib/chart-scale"
 import { cn } from "@/lib/utils"
-import { formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
+import { formatBankAccountNumbers, formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
 import type { BankAccountOverview, BankAccountStatement } from "@/modules/bank-accounts/types"
 import { useOrgPath } from "@/hooks/use-org-path"
 
@@ -181,7 +181,7 @@ export function BankAccountsWorkspace({
               <div>
                 <p className="text-sm font-semibold">{selectedAccount.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {selectedAccount.bank} · Ag {selectedAccount.branchNumber} / CC {selectedAccount.accountNumber}
+                  {[selectedAccount.bank, formatBankAccountNumbers(selectedAccount)].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <div className="flex items-center gap-1">

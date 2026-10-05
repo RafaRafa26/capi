@@ -3,7 +3,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { prismaAdmin } from "@/db/client"
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment"
 import { createSettlement } from "@/modules/settlements/service"
-import { getBankAccount, getBankAccountStatement, getBankAccountsOverview, updateBankAccount } from "./service"
+import { bankAccountInputSchema } from "./schema"
+import { createBankAccount, getBankAccount, getBankAccountStatement, getBankAccountsOverview, updateBankAccount } from "./service"
 
 const INITIAL_BALANCE = 100_000
 
@@ -159,5 +160,23 @@ describe("updateBankAccount", () => {
 
   it("can't touch another organization's account", async () => {
     await expect(updateBankAccount(otherOrg.id, org.bankAccountId, input)).rejects.toThrow("not found")
+  })
+})
+
+describe("createBankAccount", () => {
+  it("doesn't require agência nor número da conta", async () => {
+    const input = bankAccountInputSchema.parse({
+      name: "Caixa físico",
+      bank: "Nenhum",
+      branchNumber: "  ",
+      accountNumber: "",
+      kind: "CHECKING",
+      holderType: "COMPANY",
+      controlStartDate: "2026-10-01",
+      initialBalance: 0,
+    })
+
+    const account = await createBankAccount(org.id, input)
+    expect(account).toMatchObject({ branchNumber: "", accountNumber: "" })
   })
 })

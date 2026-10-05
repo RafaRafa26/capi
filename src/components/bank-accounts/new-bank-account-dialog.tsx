@@ -135,11 +135,11 @@ function BankAccountForm({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="branchNumber">Agência</Label>
-            <Input id="branchNumber" name="branchNumber" defaultValue={bankAccount?.branchNumber} required />
+            <Input id="branchNumber" name="branchNumber" defaultValue={bankAccount?.branchNumber} />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="accountNumber">Número da conta</Label>
-            <Input id="accountNumber" name="accountNumber" defaultValue={bankAccount?.accountNumber} required />
+            <Input id="accountNumber" name="accountNumber" defaultValue={bankAccount?.accountNumber} />
           </div>
         </div>
 

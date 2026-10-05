@@ -62,3 +62,15 @@ export function formatMonthYearShort(date: Date | string | number) {
     year: "numeric",
   })
 }
+
+type BankAccountNumbers = { branchNumber: string; accountNumber: string }
+
+/** "Ag 0001 / CC 12345-6" — agência e conta são opcionais, e o que estiver vazio sai do texto. */
+export function formatBankAccountNumbers({ branchNumber, accountNumber }: BankAccountNumbers): string {
+  return [branchNumber && `Ag ${branchNumber}`, accountNumber && `CC ${accountNumber}`].filter(Boolean).join(" / ")
+}
+
+/** "Conta PJ — Ag 0001 / CC 12345-6", ou só o nome quando a conta não tem agência nem número. */
+export function formatBankAccountLabel(account: BankAccountNumbers & { name: string }): string {
+  return [account.name, formatBankAccountNumbers(account)].filter(Boolean).join(" — ")
+}
