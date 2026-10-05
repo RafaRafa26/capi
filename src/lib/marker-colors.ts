@@ -38,3 +38,20 @@ export function markerBadgeStyle(color: string): { backgroundColor: string; colo
   const { background, text } = hue[resolve(color)]
   return { backgroundColor: background, color: text }
 }
+
+// Hex para o PDF do relatório — o react-pdf não entende oklch. Texto escuro
+// sobre fundo bem claro, legível também impresso em preto e branco.
+const print: Record<MarkerColor, { text: string; background: string }> = {
+  gray: { text: "#374151", background: "#f3f4f6" },
+  red: { text: "#b91c1c", background: "#fee2e2" },
+  orange: { text: "#c2410c", background: "#ffedd5" },
+  amber: { text: "#a16207", background: "#fef3c7" },
+  green: { text: "#15803d", background: "#dcfce7" },
+  blue: { text: "#1d4ed8", background: "#dbeafe" },
+  violet: { text: "#6d28d9", background: "#ede9fe" },
+  pink: { text: "#be185d", background: "#fce7f3" },
+}
+
+export function markerPrintColor(color: string): { text: string; background: string } {
+  return print[resolve(color)]
+}

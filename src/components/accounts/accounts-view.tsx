@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import {
   ArrowDownIcon,
   ArrowUpDownIcon,
   ArrowUpIcon,
   DownloadIcon,
+  FileSpreadsheetIcon,
+  FileTextIcon,
   FilterIcon,
   MessageSquarePlusIcon,
   MessageSquareTextIcon,
@@ -45,7 +46,7 @@ import {
   type SortDirection,
   type SortField,
 } from "@/lib/accounts/filter"
-import { kindConfig, statusBadgeStyle, statusLabel } from "@/lib/accounts/labels"
+import { chipLabel, kindConfig, statusBadgeStyle, statusLabel } from "@/lib/accounts/labels"
 import { chipOrder, encodeChipValues, parseChipsFromParams, parsePeriodFromParams } from "@/lib/accounts/params"
 import { categoryColor } from "@/lib/category-color"
 import { formatBRL, formatDate } from "@/lib/format"
@@ -59,14 +60,6 @@ import type { Marker } from "@/modules/markers/types"
 import { useOrgPath } from "@/hooks/use-org-path"
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
-
-const chipMeta: Record<FilterChipKey, { label: string }> = {
-  contact: { label: "Favorecido" },
-  category: { label: "Categoria" },
-  paymentMethod: { label: "Forma de pagamento" },
-  bankAccount: { label: "Conta" },
-  marker: { label: "Marcador" },
-}
 
 const summaryDotColor: Record<"overdue" | "dueToday" | "upcoming" | "paid" | "total", string> = {
   overdue: "oklch(0.55 0.22 25)",
@@ -114,6 +107,9 @@ export function AccountsView({
   const toOrg = useOrgPath()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  // The screen's own query params, so the file matches the filters on screen.
+  const exportHref = (format: "pdf" | "xlsx") =>
+    toOrg(`/reports/accounts/${format}?kind=${kind}&${searchParams.toString()}`)
   const today = React.useMemo(() => new Date(), [])
   const config = kindConfig[kind]
   const [detailEntryId, setDetailEntryId] = React.useState<string | null>(null)
@@ -328,24 +324,30 @@ export function AccountsView({
           <DropdownMenuContent>
             {chipOrder.map((key) => (
               <DropdownMenuItem key={key} onClick={() => addChip(key)}>
-                {chipMeta[key].label}
+                {chipLabel[key]}
                 {(chips[key]?.length ?? 0) > 0 && <span className="ml-auto text-xs">✓</span>}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          variant="outline"
-          className="ml-auto h-8.5"
-          nativeButton={false}
-          // No prefetch: the href changes with every filter, and each prefetch
-          // would server-render the whole report just in case it gets opened.
-          render={<Link href={toOrg(`/reports/accounts?kind=${kind}&${searchParams.toString()}`)} target="_blank" prefetch={false} />}
-        >
-          <DownloadIcon />
-          Exportar
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<Button variant="outline" className="ml-auto h-8.5" />}>
+            <DownloadIcon />
+            Exportar
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {/* Plain <a>, not <Link>: these are files from a route handler, not pages. */}
+            <DropdownMenuItem render={<a href={exportHref("pdf")} target="_blank" rel="noopener" />}>
+              <FileTextIcon />
+              PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem render={<a href={exportHref("xlsx")} download />}>
+              <FileSpreadsheetIcon />
+              Excel (.xlsx)
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {activeChipKeys.length > 0 && (
@@ -355,7 +357,7 @@ export function AccountsView({
             {activeChipKeys.map((key) => (
               <FilterChip
                 key={key}
-                label={chipMeta[key].label}
+                label={chipLabel[key]}
                 options={chipOptions[key]}
                 selected={chips[key] ?? []}
                 open={openChipKey === key}
