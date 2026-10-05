@@ -34,6 +34,8 @@ const colunas = "grid-cols-[1fr_160px_160px_160px_200px]"
 
 function CampoCopiavel({ label, value, className }: { label: string; value: string; className?: string }) {
   const [copiado, setCopiado] = React.useState(false)
+  // O cadastro do favorecido aceita dados bancários incompletos.
+  if (!value) return null
 
   return (
     <div className={cn("space-y-1", className)}>

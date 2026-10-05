@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { orgPath } from "@/lib/org-path";
 import { requireSession } from "@/modules/auth/session";
-import { createContact, createQuickContact } from "@/modules/contacts/service";
+import { createContact, createQuickContact, updateContact } from "@/modules/contacts/service";
 import { contactInputSchema, quickContactSchema } from "@/modules/contacts/schema";
 import { failure, type Result } from "@/shared/errors";
 import type { Contact } from "@/modules/contacts/types";
@@ -22,6 +22,27 @@ export async function createContactAction(form: FormData): Promise<Result> {
     }
 
     await createContact(session.organizationId, parsed.data);
+    revalidatePath(orgPath(session.organizationId, "/contacts"));
+
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateContactAction(id: string, form: FormData): Promise<Result> {
+  try {
+    const session = await requireSession("write");
+
+    const payload = JSON.parse(String(form.get("payload") ?? "{}"));
+    const parsed = contactInputSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return { ok: false, error: issue.message, field: String(issue.path[0]) };
+    }
+
+    await updateContact(session.organizationId, id, parsed.data);
     revalidatePath(orgPath(session.organizationId, "/contacts"));
 
     return { ok: true, data: undefined };

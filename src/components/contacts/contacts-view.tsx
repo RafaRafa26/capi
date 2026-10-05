@@ -3,7 +3,7 @@
 import * as React from "react"
 import { SearchIcon } from "lucide-react"
 
-import { NewContactDialog } from "@/components/contacts/new-contact-dialog"
+import { EditContactDialog, NewContactDialog } from "@/components/contacts/new-contact-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -98,6 +98,7 @@ export function ContactsView({ contacts }: { contacts: Contact[] }) {
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium">{contact.name}</p>
                     <Badge variant="secondary">{contactTypeLabel[contact.contactType]}</Badge>
+                    <EditContactDialog contact={contact} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {contact.document ? `${contact.document} · ` : "Documento pendente · "}
