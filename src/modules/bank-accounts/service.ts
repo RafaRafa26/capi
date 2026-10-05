@@ -18,16 +18,22 @@ const FIELDS = {
   active: true,
 } as const;
 
+// controlStartDate é @db.Date: sem isso, chega um dia antes na tela (ver fromDbDate).
+function fromDatabase<T extends BankAccount>(row: T): T {
+  return { ...row, controlStartDate: fromDbDate(row.controlStartDate) };
+}
+
 export async function listBankAccounts(organizationId: string): Promise<BankAccount[]> {
-  return withOrganization(organizationId, (tx) =>
+  const rows = await withOrganization(organizationId, (tx) =>
     tx.bankAccount.findMany({ select: FIELDS, orderBy: { name: "asc" } }),
   );
+  return rows.map(fromDatabase);
 }
 
 async function loadBankAccount(tx: Tx, bankAccountId: string): Promise<BankAccount> {
   const bankAccount = await tx.bankAccount.findUnique({ where: { id: bankAccountId }, select: FIELDS });
   if (!bankAccount) throw new NotFound("Conta bancária");
-  return bankAccount;
+  return fromDatabase(bankAccount);
 }
 
 export async function getBankAccount(organizationId: string, bankAccountId: string): Promise<BankAccount> {
@@ -62,7 +68,7 @@ export async function getBankAccountsOverview(organizationId: string): Promise<B
     const pendingByAccount = new Map(pendingCounts.map((row) => [row.bankAccountId, row._count._all]));
 
     return accounts.map((account) => ({
-      ...account,
+      ...fromDatabase(account),
       currentBalance: account.initialBalance + (sumByAccount.get(account.id) ?? 0),
       pendingCount: pendingByAccount.get(account.id) ?? 0,
     }));
@@ -114,10 +120,23 @@ export async function createBankAccount(
   organizationId: string,
   input: BankAccountInput,
 ): Promise<BankAccount> {
-  return withOrganization(organizationId, (tx) =>
+  const row = await withOrganization(organizationId, (tx) =>
     tx.bankAccount.create({
       data: { organizationId, ...input },
       select: FIELDS,
     }),
   );
+  return fromDatabase(row);
+}
+
+export async function updateBankAccount(
+  organizationId: string,
+  bankAccountId: string,
+  input: BankAccountInput,
+): Promise<BankAccount> {
+  const row = await withOrganization(organizationId, async (tx) => {
+    await loadBankAccount(tx, bankAccountId);
+    return tx.bankAccount.update({ where: { id: bankAccountId }, data: input, select: FIELDS });
+  });
+  return fromDatabase(row);
 }

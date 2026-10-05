@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { CalendarIcon, PlusIcon } from "lucide-react"
+import { format } from "date-fns"
+import { CalendarIcon, PencilIcon, PlusIcon } from "lucide-react"
 
-import { createBankAccountAction } from "@/app/o/[orgId]/(app)/bank-accounts/actions"
+import { createBankAccountAction, updateBankAccountAction } from "@/app/o/[orgId]/(app)/bank-accounts/actions"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -40,10 +41,55 @@ export function NewBankAccountDialog({
   onCreated?: (account: BankAccount) => void
 } = {}) {
   const [open, setOpen] = React.useState(false)
-  const [kind, setKind] = React.useState<Kind>("CHECKING")
-  const [holderType, setHolderType] = React.useState<HolderType>("COMPANY")
-  const [controlStartDate, setControlStartDate] = React.useState<Date>(new Date())
-  const [initialBalance, setInitialBalance] = React.useState("0,00")
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button size="sm" />}>
+        <PlusIcon />
+        Nova conta
+      </DialogTrigger>
+      <DialogContent>
+        <BankAccountForm
+          onSaved={(account) => {
+            setOpen(false)
+            onCreated?.(account)
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function EditBankAccountDialog({ bankAccount }: { bankAccount: BankAccount }) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={<Button variant="ghost" size="icon-xs" aria-label={`Editar ${bankAccount.name}`} />}>
+        <PencilIcon />
+      </DialogTrigger>
+      <DialogContent>
+        <BankAccountForm bankAccount={bankAccount} onSaved={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// Mounted only while the dialog is open, so each opening starts from the
+// account's current values (or blank, for a new one).
+function BankAccountForm({
+  bankAccount: initialBankAccount,
+  onSaved,
+}: {
+  bankAccount?: BankAccount
+  onSaved: (account: BankAccount) => void
+}) {
+  // Frozen at mount: saving revalidates the list, and the fresh account
+  // arrives while the dialog is still animating closed — Base UI warns when
+  // an uncontrolled input's defaultValue changes after it was initialized.
+  const [bankAccount] = React.useState(initialBankAccount)
+  const [kind, setKind] = React.useState<Kind>(bankAccount?.kind ?? "CHECKING")
+  const [holderType, setHolderType] = React.useState<HolderType>(bankAccount?.holderType ?? "COMPANY")
+  const [controlStartDate, setControlStartDate] = React.useState<Date>(bankAccount?.controlStartDate ?? new Date())
+  const [initialBalance, setInitialBalance] = React.useState(formatBRLInput(bankAccount?.initialBalance ?? 0))
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
 
@@ -52,130 +98,119 @@ export function NewBankAccountDialog({
     setError(null)
     setPending(true)
 
-    const formElement = event.currentTarget
-    const form = new FormData(formElement)
+    const form = new FormData(event.currentTarget)
     form.set("kind", kind)
     form.set("holderType", holderType)
-    form.set("controlStartDate", controlStartDate.toISOString())
+    // Só a data, no dia local — toISOString() viraria o dia seguinte depois das 21h.
+    form.set("controlStartDate", format(controlStartDate, "yyyy-MM-dd"))
     form.set("initialBalance", String(parseBRLInput(initialBalance)))
 
-    const result = await createBankAccountAction(form)
+    const result = bankAccount
+      ? await updateBankAccountAction(bankAccount.id, form)
+      : await createBankAccountAction(form)
 
     setPending(false)
     if (!result.ok) {
       setError(result.error)
       return
     }
-
-    setOpen(false)
-    setInitialBalance("0,00")
-    setControlStartDate(new Date())
-    formElement.reset()
-    onCreated?.(result.data)
+    onSaved(result.data)
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button size="sm" />}>
-        <PlusIcon />
-        Nova conta
-      </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Nova conta bancária</DialogTitle>
-          </DialogHeader>
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>{bankAccount ? "Editar conta bancária" : "Nova conta bancária"}</DialogTitle>
+      </DialogHeader>
 
-          <div className="flex max-h-[65vh] flex-col gap-3 overflow-y-auto py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Nome da conta</Label>
-              <Input id="name" name="name" required />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="bank">Banco</Label>
-              <Input id="bank" name="bank" required />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="branchNumber">Agência</Label>
-                <Input id="branchNumber" name="branchNumber" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="accountNumber">Número da conta</Label>
-                <Input id="accountNumber" name="accountNumber" required />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Tipo de conta</Label>
-                <Select value={kind} onValueChange={(value) => value && setKind(value as Kind)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue>{(value: Kind) => kindLabel[value]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CHECKING">Corrente</SelectItem>
-                    <SelectItem value="SAVINGS_POCKET">Caixinha</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Conta PJ ou PF</Label>
-                <Select
-                  value={holderType}
-                  onValueChange={(value) => value && setHolderType(value as HolderType)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue>{(value: HolderType) => holderTypeLabel[value]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="INDIVIDUAL">Pessoa física</SelectItem>
-                    <SelectItem value="COMPANY">Pessoa jurídica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label>Data de início do controle</Label>
-              <Popover>
-                <PopoverTrigger
-                  render={
-                    <Button variant="outline" className="w-full justify-start font-normal" />
-                  }
-                >
-                  <CalendarIcon />
-                  {formatDate(controlStartDate)}
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={controlStartDate}
-                    onSelect={(date) => date && setControlStartDate(date)}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="initialBalance">Saldo inicial</Label>
-              <Input
-                id="initialBalance"
-                value={initialBalance}
-                onChange={(event) => setInitialBalance(event.target.value)}
-                onBlur={() => setInitialBalance(formatBRLInput(parseBRLInput(initialBalance)))}
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="flex max-h-[65vh] flex-col gap-3 overflow-y-auto py-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="name">Nome da conta</Label>
+          <Input id="name" name="name" defaultValue={bankAccount?.name} required />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="bank">Banco</Label>
+          <Input id="bank" name="bank" defaultValue={bankAccount?.bank} required />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="branchNumber">Agência</Label>
+            <Input id="branchNumber" name="branchNumber" defaultValue={bankAccount?.branchNumber} required />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="accountNumber">Número da conta</Label>
+            <Input id="accountNumber" name="accountNumber" defaultValue={bankAccount?.accountNumber} required />
+          </div>
+        </div>
 
-          <DialogFooter>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Salvando..." : "Salvar"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Tipo de conta</Label>
+            <Select value={kind} onValueChange={(value) => value && setKind(value as Kind)}>
+              <SelectTrigger className="w-full">
+                <SelectValue>{(value: Kind) => kindLabel[value]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="CHECKING">Corrente</SelectItem>
+                <SelectItem value="SAVINGS_POCKET">Caixinha</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Conta PJ ou PF</Label>
+            <Select
+              value={holderType}
+              onValueChange={(value) => value && setHolderType(value as HolderType)}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue>{(value: HolderType) => holderTypeLabel[value]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="INDIVIDUAL">Pessoa física</SelectItem>
+                <SelectItem value="COMPANY">Pessoa jurídica</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Data de início do controle</Label>
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button variant="outline" className="w-full justify-start font-normal" />
+              }
+            >
+              <CalendarIcon />
+              {formatDate(controlStartDate)}
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={controlStartDate}
+                onSelect={(date) => date && setControlStartDate(date)}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="initialBalance">Saldo inicial</Label>
+          <Input
+            id="initialBalance"
+            value={initialBalance}
+            onChange={(event) => setInitialBalance(event.target.value)}
+            onBlur={() => setInitialBalance(formatBRLInput(parseBRLInput(initialBalance)))}
+          />
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+      </div>
+
+      <DialogFooter>
+        <Button type="submit" disabled={pending}>
+          {pending ? "Salvando..." : "Salvar"}
+        </Button>
+      </DialogFooter>
+    </form>
   )
 }

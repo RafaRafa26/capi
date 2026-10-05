@@ -40,21 +40,37 @@ function fromDatabase(row: ContactRow): Contact {
   return { ...row, bankDetails: (row.bankDetails as BankDetails | null) ?? null };
 }
 
+// Os seis campos sempre presentes (vazios como ""), ou null quando nenhum foi
+// preenchido — quem lê bankDetails não precisa checar campo a campo.
+function bankDetailsToDatabase(input: ContactInput): BankDetails | null {
+  if (input.contactType !== "BENEFICIARY" || !input.bankDetails) return null;
+  const { pixKey, bank, branchNumber, accountNumber, accountType, accountHolder } = input.bankDetails;
+  const details: BankDetails = {
+    pixKey: pixKey ?? "",
+    bank: bank ?? "",
+    branchNumber: branchNumber ?? "",
+    accountNumber: accountNumber ?? "",
+    accountType: accountType ?? "",
+    accountHolder: accountHolder ?? "",
+  };
+  return Object.values(details).some(Boolean) ? details : null;
+}
+
 function toDatabase(input: ContactInput) {
+  const bankDetails = bankDetailsToDatabase(input);
   return {
     name: input.name,
     legalName: input.personType === "COMPANY" ? input.legalName || null : null,
-    document: input.document,
+    // null, não "": a unicidade do documento ignora nulos, então vários
+    // contatos podem ficar sem documento.
+    document: input.document || null,
     personType: input.personType,
     contactType: input.contactType,
     phone: input.phone || null,
     email: input.email || null,
     city: input.city || null,
     state: input.state || null,
-    bankDetails:
-      input.contactType === "BENEFICIARY"
-        ? ((input.bankDetails ?? Prisma.JsonNull) as Prisma.InputJsonValue)
-        : Prisma.JsonNull,
+    bankDetails: bankDetails ? { ...bankDetails } : Prisma.JsonNull,
   };
 }
 
@@ -88,7 +104,7 @@ export async function createContact(
   input: ContactInput,
 ): Promise<Contact> {
   const row = await withOrganization(organizationId, async (tx) => {
-    await rejectDuplicateDocument(tx, input.document);
+    if (input.document) await rejectDuplicateDocument(tx, input.document);
     return tx.contact.create({
       data: { organizationId, ...toDatabase(input) },
       select: FIELDS,
@@ -124,10 +140,24 @@ export async function updateContact(
   input: ContactInput,
 ): Promise<Contact> {
   const row = await withOrganization(organizationId, async (tx) => {
-    const current = await tx.contact.findUnique({ where: { id } });
+    const current = await tx.contact.findUnique({
+      where: { id },
+      select: { contactType: true, _count: { select: { beneficiaryAllocations: true, payouts: true } } },
+    });
     if (!current) throw new NotFound("Contato");
 
-    await rejectDuplicateDocument(tx, input.document, id);
+    // Repasses e rateios só enxergam contatos do tipo Favorecido — trocar o
+    // tipo esconderia o que já foi lançado para ele.
+    const { beneficiaryAllocations, payouts } = current._count;
+    if (
+      current.contactType === "BENEFICIARY" &&
+      input.contactType !== "BENEFICIARY" &&
+      beneficiaryAllocations + payouts > 0
+    ) {
+      throw new BusinessError("Este favorecido já tem vendas ou repasses — não dá para trocar o tipo.", "contactType");
+    }
+
+    if (input.document) await rejectDuplicateDocument(tx, input.document, id);
     return tx.contact.update({
       where: { id },
       data: toDatabase(input),

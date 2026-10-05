@@ -3,15 +3,17 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { prismaAdmin } from "@/db/client"
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment"
 import { createSettlement } from "@/modules/settlements/service"
-import { getBankAccountStatement, getBankAccountsOverview } from "./service"
+import { getBankAccount, getBankAccountStatement, getBankAccountsOverview, updateBankAccount } from "./service"
 
 const INITIAL_BALANCE = 100_000
 
 let org: TestOrg
+let otherOrg: TestOrg
 let accountId: string
 
 beforeAll(async () => {
   org = await createTestOrganization("BankAccounts")
+  otherOrg = await createTestOrganization("BankAccounts other")
   const suffix = Date.now()
 
   const account = await prismaAdmin.bankAccount.create({
@@ -30,7 +32,7 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await removeTestOrganizations([org.id])
+  await removeTestOrganizations([org.id, otherOrg.id])
 })
 
 async function createTransaction(amount: number, date: Date) {
@@ -130,5 +132,32 @@ describe("getBankAccountStatement", () => {
     expect(statement.lines[0].settledEntries).toHaveLength(1)
     expect(statement.lines[0].settledEntries[0].contactName).toBe("Test Contact")
     expect(statement.lines[0].settledEntries[0].description).toBe("Lançamento RECEIVABLE")
+  })
+})
+
+describe("updateBankAccount", () => {
+  const input = {
+    name: "Conta renomeada",
+    bank: "Banco novo",
+    branchNumber: "0002",
+    accountNumber: "12345-6",
+    kind: "SAVINGS_POCKET" as const,
+    holderType: "INDIVIDUAL" as const,
+    // Como o formulário manda: "2026-07-15", que o zod lê como meia-noite UTC.
+    controlStartDate: new Date("2026-07-15"),
+    initialBalance: 250_000,
+  }
+
+  it("saves every field and reads the control start date back on the same day", async () => {
+    await updateBankAccount(org.id, org.bankAccountId, input)
+
+    const account = await getBankAccount(org.id, org.bankAccountId)
+    expect(account).toMatchObject({ ...input, controlStartDate: expect.any(Date) })
+    const date = account.controlStartDate
+    expect([date.getFullYear(), date.getMonth(), date.getDate()]).toEqual([2026, 6, 15])
+  })
+
+  it("can't touch another organization's account", async () => {
+    await expect(updateBankAccount(otherOrg.id, org.bankAccountId, input)).rejects.toThrow("not found")
   })
 })

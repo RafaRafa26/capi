@@ -1,4 +1,4 @@
-import { NewBankAccountDialog } from "@/components/bank-accounts/new-bank-account-dialog"
+import { EditBankAccountDialog, NewBankAccountDialog } from "@/components/bank-accounts/new-bank-account-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatBRL, formatDate } from "@/lib/format"
@@ -34,6 +34,7 @@ export default async function BankAccountsPage() {
                     <p className="text-sm font-medium">{account.name}</p>
                     <Badge variant="secondary">{kindLabel[account.kind]}</Badge>
                     <Badge variant="outline">{holderTypeLabel[account.holderType]}</Badge>
+                    <EditBankAccountDialog bankAccount={account} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {account.bank} · Ag {account.branchNumber} · Cc {account.accountNumber}
