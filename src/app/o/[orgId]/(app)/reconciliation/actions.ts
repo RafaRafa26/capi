@@ -1,5 +1,8 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
+import { orgPath } from "@/lib/org-path";
 import { requireSession } from "@/modules/auth/session";
 import { getBankAccountStatement } from "@/modules/bank-accounts/service";
 import type { BankAccountStatement } from "@/modules/bank-accounts/types";
@@ -18,7 +21,7 @@ import {
   getMatchInfoForTransactions,
   listCandidateEntries,
   manualSettleEntry,
-  undoSettlement,
+  undoBankTransactionReconciliation,
 } from "@/modules/settlements/service";
 import type { CandidateEntry, TransactionMatchInfo } from "@/modules/settlements/types";
 import { importStatementInputSchema } from "@/modules/statements/schema";
@@ -138,10 +141,12 @@ export async function createSettlementBatchAction(input: unknown): Promise<Resul
   }
 }
 
-export async function undoSettlementAction(settlementId: string): Promise<Result> {
+/** Desconciliar pelo extrato da conta — a transação volta para a tela de conciliação. */
+export async function undoBankTransactionReconciliationAction(bankTransactionId: string): Promise<Result> {
   try {
     const session = await requireSession("write");
-    await undoSettlement(session.organizationId, settlementId);
+    await undoBankTransactionReconciliation(session.organizationId, bankTransactionId);
+    revalidatePath(orgPath(session.organizationId, "/accounts"));
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);

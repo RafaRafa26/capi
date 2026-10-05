@@ -8,11 +8,11 @@ import { ptBR } from "date-fns/locale"
 import { createSaleAction } from "@/app/o/[orgId]/(app)/new-sale/actions"
 import { CurrencyInput } from "@/components/sales/currency-input"
 import { InstallmentsDialog } from "@/components/sales/installments-dialog"
+import { buildCategoryGroups } from "@/components/categories/category-groups"
 import { QuickAddContactDialog } from "@/components/contacts/quick-add-contact-dialog"
 import { NewSaleCategoryDialog } from "@/components/sales/new-sale-category-dialog"
 import {
   SearchableSelect,
-  type SearchableSelectGroup,
   type SearchableSelectOption,
 } from "@/components/sales/searchable-select"
 import { NewBankAccountDialog } from "@/components/bank-accounts/new-bank-account-dialog"
@@ -137,22 +137,6 @@ interface AllocationRow {
   id: string
   beneficiaryId: string
   value: number
-}
-
-/** One section per top-level category, listing its subcategories — or the
- * category itself, for one with no subcategories yet. */
-function buildCategoryGroups(categories: Category[]): SearchableSelectGroup[] {
-  const topLevel = categories.filter((category) => !category.parentId)
-  return topLevel.map((top) => {
-    const subcategories = categories.filter((category) => category.parentId === top.id)
-    return {
-      label: top.name,
-      options:
-        subcategories.length > 0
-          ? subcategories.map((sub) => ({ value: sub.id, label: sub.name }))
-          : [{ value: top.id, label: top.name }],
-    }
-  })
 }
 
 interface NewSaleFormProps {

@@ -2,17 +2,29 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { ChevronLeftIcon, ChevronRightIcon, UnlinkIcon } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
-import { getBankAccountStatementAction } from "@/app/o/[orgId]/(app)/reconciliation/actions"
+import {
+  getBankAccountStatementAction,
+  undoBankTransactionReconciliationAction,
+} from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { balanceAxisScale } from "@/lib/chart-scale"
 import { cn } from "@/lib/utils"
 import { formatBankAccountNumbers, formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
-import type { BankAccountOverview, BankAccountStatement } from "@/modules/bank-accounts/types"
+import type { BankAccountOverview, BankAccountStatement, BankAccountStatementLine } from "@/modules/bank-accounts/types"
 import { useOrgPath } from "@/hooks/use-org-path"
 
 const chartConfig = {
@@ -50,6 +62,10 @@ export function BankAccountsWorkspace({
   const [activeSeries, setActiveSeries] = React.useState<ChartSeries>("saldo")
   const [selectedMonth, setSelectedMonth] = React.useState(() => startOfMonth(new Date()))
   const loadedForAccount = React.useRef(accounts[0]?.id ?? "")
+  const router = useRouter()
+  const [unreconciling, setUnreconciling] = React.useState<BankAccountStatementLine | null>(null)
+  const [unreconcilePending, setUnreconcilePending] = React.useState(false)
+  const [unreconcileError, setUnreconcileError] = React.useState<string | null>(null)
 
   const selectedAccount = React.useMemo(() => accounts.find((a) => a.id === selectedId) ?? null, [accounts, selectedId])
 
@@ -65,6 +81,26 @@ export function BankAccountsWorkspace({
       }
       setLoading(false)
     })
+  }
+
+  // A transação sai do extrato e volta para a tela de conciliação; os
+  // lançamentos que ela quitava voltam a ficar em aberto.
+  async function confirmUnreconcile() {
+    if (!unreconciling) return
+    setUnreconcilePending(true)
+    setUnreconcileError(null)
+    const result = await undoBankTransactionReconciliationAction(unreconciling.bankTransactionId)
+    if (!result.ok) {
+      setUnreconcilePending(false)
+      setUnreconcileError(result.error)
+      return
+    }
+    const response = await getBankAccountStatementAction(selectedId)
+    if (response.ok) setStatement(response.data)
+    // Saldo e "conciliações pendentes" da lista de contas vêm do servidor.
+    router.refresh()
+    setUnreconcilePending(false)
+    setUnreconciling(null)
   }
 
   function shiftMonth(delta: number) {
@@ -271,15 +307,16 @@ export function BankAccountsWorkspace({
                 </div>
 
                 <div className="rounded-lg border">
-                  <div className="grid grid-cols-[120px_1fr_140px_140px] gap-4 border-b px-4 py-3 text-sm font-medium text-muted-foreground">
+                  <div className="grid grid-cols-[120px_1fr_140px_140px_28px] gap-4 border-b px-4 py-3 text-sm font-medium text-muted-foreground">
                     <div>Data</div>
                     <div>Descrição</div>
                     <div className="text-right">Valor</div>
                     <div className="text-right">Saldo</div>
+                    <div />
                   </div>
                   <div className="divide-y">
                     {[...filteredLines].reverse().map((line) => (
-                      <div key={line.bankTransactionId} className="grid grid-cols-[120px_1fr_140px_140px] items-center gap-4 px-4 py-3">
+                      <div key={line.bankTransactionId} className="grid grid-cols-[120px_1fr_140px_140px_28px] items-center gap-4 px-4 py-3">
                         <div className="text-sm text-muted-foreground">{formatDate(line.date)}</div>
                         <div className="min-w-0">
                           <p className="truncate text-sm font-medium">{line.description}</p>
@@ -294,6 +331,18 @@ export function BankAccountsWorkspace({
                           {formatBRL(Math.abs(line.amount))}
                         </div>
                         <div className="text-right text-sm font-medium">{formatBRL(line.runningBalance)}</div>
+                        <Button
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label="Desconciliar"
+                          title="Desconciliar"
+                          onClick={() => {
+                            setUnreconcileError(null)
+                            setUnreconciling(line)
+                          }}
+                        >
+                          <UnlinkIcon />
+                        </Button>
                       </div>
                     ))}
                     {filteredLines.length === 0 && (
@@ -308,6 +357,38 @@ export function BankAccountsWorkspace({
           </>
         )}
       </div>
+
+      <Dialog open={unreconciling !== null} onOpenChange={(open) => !open && !unreconcilePending && setUnreconciling(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Desconciliar transação?</DialogTitle>
+            <DialogDescription>
+              “{unreconciling?.description}” volta para a tela de conciliação da conta, e{" "}
+              {unreconciling?.settledEntries.length === 1
+                ? "o lançamento vinculado volta a ficar em aberto."
+                : "os lançamentos vinculados voltam a ficar em aberto."}
+            </DialogDescription>
+          </DialogHeader>
+          {unreconciling && unreconciling.settledEntries.length > 0 && (
+            <ul className="space-y-1 text-sm">
+              {unreconciling.settledEntries.map((entry) => (
+                <li key={entry.entryId} className="truncate">
+                  {entry.contactName} — <span className="text-muted-foreground">{entry.description}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {unreconcileError && <p className="text-sm text-destructive">{unreconcileError}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnreconciling(null)} disabled={unreconcilePending}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmUnreconcile} disabled={unreconcilePending}>
+              {unreconcilePending ? "Desconciliando..." : "Desconciliar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -9,10 +9,10 @@ import {
   createSettlementBatchAction,
   searchCandidateEntriesAction,
 } from "@/app/o/[orgId]/(app)/reconciliation/actions"
+import { ReconciliationCategoryPicker, ReconciliationContactPicker } from "@/components/reconciliation/entry-pickers"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatBRL, formatDate } from "@/lib/format"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
@@ -41,6 +41,8 @@ export function ReconciliationMatchModal({
   bankAccountId,
   contacts,
   categories,
+  onContactCreated,
+  onCategoryCreated,
 }: {
   open: boolean
   onClose: () => void
@@ -51,6 +53,8 @@ export function ReconciliationMatchModal({
   bankAccountId: string
   contacts: Contact[]
   categories: Category[]
+  onContactCreated: (contact: Contact) => void
+  onCategoryCreated: (category: Category) => void
 }) {
   const [tab, setTab] = React.useState<"buscar" | "criar">("buscar")
   const [query, setQuery] = React.useState("")
@@ -62,9 +66,6 @@ export function ReconciliationMatchModal({
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
 
-  const expenseCategories = categories.filter((category) => category.type === "EXPENSE")
-  const incomeCategories = categories.filter((category) => category.type === "INCOME")
-  const categoryOptions = direction === "PAYABLE" ? expenseCategories : incomeCategories
   const absTransactionAmount = Math.abs(transactionAmount)
 
   React.useEffect(() => {
@@ -253,37 +254,30 @@ export function ReconciliationMatchModal({
             {items.map((item, index) => (
               <div key={index} className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted p-3">
                 <div className="flex min-w-0 items-center gap-2">
-                  <Select value={item.contactId} onValueChange={(value) => value && updateItem(index, { contactId: value })}>
-                    <SelectTrigger className="min-w-0 flex-1">
-                      <SelectValue placeholder="Contato">
-                        {(value: string) => contacts.find((contact) => contact.id === value)?.name ?? "Contato"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contacts.map((contact) => (
-                        <SelectItem key={contact.id} value={contact.id}>
-                          {contact.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select
-                    value={item.categoryId}
-                    onValueChange={(value) => value && updateItem(index, { categoryId: value })}
-                  >
-                    <SelectTrigger className="min-w-0 flex-1">
-                      <SelectValue placeholder="Categoria">
-                        {(value: string) => categoryOptions.find((category) => category.id === value)?.name ?? "Categoria"}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categoryOptions.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="min-w-0 flex-1">
+                    <ReconciliationContactPicker
+                      contacts={contacts}
+                      direction={direction}
+                      value={item.contactId}
+                      onValueChange={(contactId) => updateItem(index, { contactId })}
+                      onCreated={(contact) => {
+                        onContactCreated(contact)
+                        updateItem(index, { contactId: contact.id })
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <ReconciliationCategoryPicker
+                      categories={categories}
+                      direction={direction}
+                      value={item.categoryId}
+                      onValueChange={(categoryId) => updateItem(index, { categoryId })}
+                      onCreated={(category) => {
+                        onCategoryCreated(category)
+                        updateItem(index, { categoryId: category.id })
+                      }}
+                    />
+                  </div>
                   {items.length > 1 && (
                     <button
                       type="button"

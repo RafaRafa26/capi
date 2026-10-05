@@ -276,6 +276,25 @@ export async function undoSettlement(organizationId: string, settlementId: strin
 }
 
 /**
+ * Desconciliar pelo extrato: desfaz todas as Settlements da transação de uma
+ * vez — numa quitação múltipla (RN-07) são várias. A transação volta a
+ * PENDING, reaparecendo na tela de conciliação, e cada lançamento recalcula
+ * o próprio status (em aberto, ou parcial se tiver outras baixas).
+ */
+export async function undoBankTransactionReconciliation(organizationId: string, bankTransactionId: string): Promise<void> {
+  await withOrganization(organizationId, async (tx) => {
+    await loadBankTransaction(tx, bankTransactionId)
+
+    const settlements = await tx.settlement.findMany({ where: { bankTransactionId }, select: { entryId: true } })
+    await tx.settlement.deleteMany({ where: { bankTransactionId } })
+    for (const entryId of new Set(settlements.map((settlement) => settlement.entryId))) {
+      await reconcileEntryAggregate(tx, entryId)
+    }
+    await reconcileBankTransactionStatus(tx, bankTransactionId)
+  })
+}
+
+/**
  * Baixa manual (RN-20) — date + value + free-text "conta de terceiro" note.
  * Never touches a bank transaction and never credits a favorecido (RN-01a:
  * only a STATEMENT-origin settlement generates balance). `settledAmount`

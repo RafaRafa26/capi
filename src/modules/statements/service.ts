@@ -62,13 +62,18 @@ export async function importStatement(
   })
 }
 
+/**
+ * What's still left to reconcile in `bankAccountId`. Reconciled transactions
+ * leave this list and show up in the account's statement instead, where
+ * they can be unreconciled (undoBankTransactionReconciliation).
+ */
 export async function listBankTransactions(
   organizationId: string,
   bankAccountId: string,
 ): Promise<BankTransaction[]> {
   const transactions = await withOrganization(organizationId, (tx) =>
     tx.bankTransaction.findMany({
-      where: { bankAccountId },
+      where: { bankAccountId, status: { not: "RECONCILED" } },
       orderBy: { date: "desc" },
     }),
   )

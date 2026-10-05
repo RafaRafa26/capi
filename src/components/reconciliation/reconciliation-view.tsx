@@ -20,8 +20,8 @@ import {
   deleteBankTransactionAction,
   getMatchInfoForTransactionsAction,
   listBankTransactionsAction,
-  undoSettlementAction,
 } from "@/app/o/[orgId]/(app)/reconciliation/actions"
+import { ReconciliationCategoryPicker, ReconciliationContactPicker } from "@/components/reconciliation/entry-pickers"
 import { ImportOfxButton } from "@/components/reconciliation/import-ofx-button"
 import { ReconciliationMatchModal } from "@/components/reconciliation/reconciliation-match-modal"
 import { Input } from "@/components/ui/input"
@@ -33,19 +33,13 @@ import type { BankAccount } from "@/modules/bank-accounts/types"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
 import { directionForTransactionAmount } from "@/modules/settlements/domain"
-import type { EntryType, TransactionMatchInfo } from "@/modules/settlements/types"
+import type { TransactionMatchInfo } from "@/modules/settlements/types"
 import type { BankTransaction } from "@/modules/statements/types"
 import { useOrgPath } from "@/hooks/use-org-path"
+import { toast } from "sonner"
 
 type FiltroTipo = "todas" | "entrada" | "saida"
 type QuickFormMode = "lancamento" | "transferencia"
-
-// Rótulos do lançamento já conciliado no Capi (lado direito da tela).
-const entryTypeLabels: Record<EntryType, { titulo: string; subtitulo: string }> = {
-  RECEIVABLE: { titulo: "Recebimento", subtitulo: "Contas a receber" },
-  PAYABLE: { titulo: "Pagamento", subtitulo: "Contas a pagar" },
-  TRANSFER: { titulo: "Transferência", subtitulo: "Transferência" },
-}
 
 interface QuickForm {
   mode: QuickFormMode
@@ -61,8 +55,8 @@ interface QuickForm {
 export function ReconciliationView({
   bankAccount,
   bankAccounts,
-  contacts,
-  categories,
+  contacts: initialContacts,
+  categories: initialCategories,
 }: {
   bankAccount: BankAccount
   bankAccounts: BankAccount[]
@@ -76,28 +70,14 @@ export function ReconciliationView({
   const [carregando, setCarregando] = React.useState(true)
   const [filtroTipo, setFiltroTipo] = React.useState<FiltroTipo>("todas")
   const [busca, setBusca] = React.useState("")
-  const [quickForms, setQuickForms] = React.useState<Record<string, QuickForm>>({})
-  const [pendingIds, setPendingIds] = React.useState<Set<string>>(new Set())
   const [modalTransactionId, setModalTransactionId] = React.useState<string | null>(null)
   const [refreshKey, setRefreshKey] = React.useState(0)
 
-  const expenseCategories = React.useMemo(() => categories.filter((c) => c.type === "EXPENSE"), [categories])
-  const incomeCategories = React.useMemo(() => categories.filter((c) => c.type === "INCOME"), [categories])
-
-  const emptyQuickForm = React.useCallback(
-    (): QuickForm => ({
-      mode: "lancamento",
-      contactId: "",
-      categoryId: "",
-      description: "",
-      transferAccountId: bankAccountId,
-    }),
-    [bankAccountId],
-  )
-
-  function updateQuickForm(transactionId: string, patch: Partial<QuickForm>) {
-    setQuickForms((prev) => ({ ...prev, [transactionId]: { ...(prev[transactionId] ?? emptyQuickForm()), ...patch } }))
-  }
+  // Locais para que contato/categoria criados aqui entrem na hora nas listas.
+  const [contacts, setContacts] = React.useState(initialContacts)
+  const [categories, setCategories] = React.useState(initialCategories)
+  const addContact = React.useCallback((contact: Contact) => setContacts((prev) => [...prev, contact]), [])
+  const addCategory = React.useCallback((category: Category) => setCategories((prev) => [...prev, category]), [])
 
   const refreshMatchInfo = React.useCallback(async (ids: string[]) => {
     if (ids.length === 0) return
@@ -146,63 +126,18 @@ export function ReconciliationView({
     return [...porTipo].sort((a, b) => a.date.getTime() - b.date.getTime())
   }, [filtradasPorBusca, filtroTipo])
 
-  function markPending(id: string, pending: boolean) {
-    setPendingIds((prev) => {
-      const next = new Set(prev)
-      if (pending) next.add(id)
-      else next.delete(id)
-      return next
-    })
-  }
+  // Conciliada, a transação sai daqui — passa a aparecer no extrato da conta,
+  // que é de onde se desconcilia.
+  const removeReconciled = React.useCallback((transactionId: string) => {
+    setTransacoes((prev) => prev.filter((t) => t.id !== transactionId))
+  }, [])
 
-  async function confirmSuggestion(transaction: BankTransaction, entryId: string) {
-    markPending(transaction.id, true)
-    await createSettlementAction({
-      entryId,
-      bankTransactionId: transaction.id,
-      settledAmount: Math.abs(transaction.amount),
-      settledAt: transaction.date,
-    })
-    await refreshMatchInfo([transaction.id])
-    markPending(transaction.id, false)
-  }
-
-  async function confirmQuickEntry(transaction: BankTransaction) {
-    const form = quickForms[transaction.id] ?? emptyQuickForm()
-    if (form.mode !== "lancamento") return
-    if (!form.contactId || !form.categoryId || !form.description.trim()) return
-
-    markPending(transaction.id, true)
-    const action =
-      directionForTransactionAmount(transaction.amount) === "PAYABLE"
-        ? createAndSettlePayableAction
-        : createAndSettleReceivableAction
-    await action({
-      contactId: form.contactId,
-      categoryId: form.categoryId,
-      bankAccountId,
-      description: form.description.trim(),
-      bankTransactionId: transaction.id,
-      settledAmount: Math.abs(transaction.amount),
-      settledAt: transaction.date,
-    })
-    await refreshMatchInfo([transaction.id])
-    markPending(transaction.id, false)
-  }
-
-  async function handleUndo(settlementId: string, transactionId: string) {
-    markPending(transactionId, true)
-    await undoSettlementAction(settlementId)
-    await refreshMatchInfo([transactionId])
-    markPending(transactionId, false)
-  }
-
-  async function removerTransacao(id: string) {
+  const removerTransacao = React.useCallback(async (id: string) => {
     const response = await deleteBankTransactionAction(id)
     if (response.ok) {
       setTransacoes((prev) => prev.filter((t) => t.id !== id))
     }
-  }
+  }, [])
 
   const modalTransaction = transacoes.find((t) => t.id === modalTransactionId) ?? null
 
@@ -269,240 +204,27 @@ export function ReconciliationView({
           <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
         ) : (
           <>
-            {visiveis.map((transacao) => {
-              const isEntrada = transacao.amount >= 0
-              const info = matchInfo[transacao.id]
-              const isPending = pendingIds.has(transacao.id)
-              const direction = directionForTransactionAmount(transacao.amount)
-              const quickForm = quickForms[transacao.id] ?? emptyQuickForm()
-
-              return (
-                <div key={transacao.id} className="flex items-stretch overflow-hidden rounded-lg border bg-card">
-                  <div className="flex flex-1 flex-col justify-between gap-3 p-4">
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={cn(
-                          "flex size-8 shrink-0 items-center justify-center rounded-full",
-                          isEntrada ? "bg-emerald-500/15 text-emerald-500" : "bg-red-500/15 text-red-500",
-                        )}
-                      >
-                        {isEntrada ? <ArrowDownLeftIcon className="size-4" /> : <ArrowUpRightIcon className="size-4" />}
-                      </span>
-                      <div className="min-w-0 flex-1 space-y-0.5">
-                        <p className="text-sm font-medium">{transacao.description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(transacao.date)} · {isEntrada ? "Entrada" : "Saída"}
-                        </p>
-                        <p className={cn("text-sm font-semibold", isEntrada ? "text-emerald-500" : "text-red-500")}>
-                          {isEntrada ? "" : "- "}
-                          {formatBRL(Math.abs(transacao.amount))}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => removerTransacao(transacao.id)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2Icon className="size-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="w-px shrink-0 bg-border" />
-
-                  <div className="flex min-h-38 flex-1 flex-col justify-center gap-2 p-4">
-                    {info && info.matches.length > 0 ? (
-                      <div className="flex flex-col gap-3">
-                        {info.matches.map((match) => {
-                          const labels = entryTypeLabels[match.entryType]
-                          return (
-                            <div key={match.settlementId} className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">
-                                  {labels.titulo} — {match.contactName}
-                                </p>
-                                <p className="truncate text-xs text-muted-foreground">
-                                  {labels.subtitulo} · {formatDate(match.dueDate)} · {match.categoryName}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUndo(match.settlementId, transacao.id)}
-                                  disabled={isPending}
-                                  className="mt-1 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                                >
-                                  Desvincular
-                                </button>
-                              </div>
-                              <span className="shrink-0 text-sm font-semibold">{formatBRL(match.settledAmount)}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : info && info.suggestions.length > 0 ? (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-muted-foreground">Sugestão automática</span>
-                          <button
-                            type="button"
-                            onClick={() => setModalTransactionId(transacao.id)}
-                            className="shrink-0 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            Buscar / Criar Vários
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">{info.suggestions[0].contactName}</p>
-                            <p className="truncate text-xs text-muted-foreground">
-                              {info.suggestions[0].description} · {formatDate(info.suggestions[0].dueDate)}
-                            </p>
-                          </div>
-                          <span className="shrink-0 text-sm font-semibold">{formatBRL(info.suggestions[0].amount)}</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <ToggleGroup
-                            variant="outline"
-                            spacing={0}
-                            multiple={false}
-                            value={[quickForm.mode]}
-                            onValueChange={(value) =>
-                              value[0] && updateQuickForm(transacao.id, { mode: value[0] as QuickFormMode })
-                            }
-                          >
-                            <ToggleGroupItem value="lancamento" size="sm" className="text-xs">
-                              {direction === "PAYABLE" ? "Pagamento" : "Recebimento"}
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="transferencia" size="sm" className="text-xs">
-                              Transferência
-                            </ToggleGroupItem>
-                          </ToggleGroup>
-                          <button
-                            type="button"
-                            onClick={() => setModalTransactionId(transacao.id)}
-                            className="shrink-0 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-                          >
-                            Buscar / Criar Vários
-                          </button>
-                        </div>
-
-                        {quickForm.mode === "transferencia" ? (
-                          <Select
-                            value={quickForm.transferAccountId}
-                            onValueChange={(value) => {
-                              if (!value) return
-                              const origem = bankAccounts.find((a) => a.id === bankAccountId)
-                              const destino = bankAccounts.find((a) => a.id === value)
-                              updateQuickForm(transacao.id, {
-                                transferAccountId: value,
-                                description:
-                                  origem && destino ? `Transferência de ${origem.name} para ${destino.name}` : quickForm.description,
-                              })
-                            }}
-                          >
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Conta de destino">
-                                {(value: string) => {
-                                  const account = bankAccounts.find((a) => a.id === value)
-                                  return account
-                                    ? formatBankAccountLabel(account)
-                                    : "Conta de destino"
-                                }}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                              {bankAccounts.map((account) => (
-                                <SelectItem key={account.id} value={account.id}>
-                                  {formatBankAccountLabel(account)}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <div className="grid grid-cols-2 gap-2">
-                            <Select
-                              value={quickForm.contactId}
-                              onValueChange={(value) => value && updateQuickForm(transacao.id, { contactId: value })}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Contato">
-                                  {(value: string) => contacts.find((contact) => contact.id === value)?.name ?? "Contato"}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {contacts.map((contact) => (
-                                  <SelectItem key={contact.id} value={contact.id}>
-                                    {contact.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Select
-                              value={quickForm.categoryId}
-                              onValueChange={(value) => value && updateQuickForm(transacao.id, { categoryId: value })}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Categoria">
-                                  {(value: string) => {
-                                    const categoryList = direction === "PAYABLE" ? expenseCategories : incomeCategories
-                                    return categoryList.find((category) => category.id === value)?.name ?? "Categoria"
-                                  }}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {(direction === "PAYABLE" ? expenseCategories : incomeCategories).map((category) => (
-                                  <SelectItem key={category.id} value={category.id}>
-                                    {category.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-                        <Input
-                          placeholder="Descrição"
-                          value={quickForm.description}
-                          onChange={(event) => updateQuickForm(transacao.id, { description: event.target.value })}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex w-9 shrink-0 items-center justify-center">
-                    {info && info.matches.length > 0 ? (
-                      <span className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
-                        <CheckIcon className="size-4" />
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={
-                          isPending ||
-                          quickForm.mode === "transferencia" ||
-                          ((info?.suggestions.length ?? 0) === 0 &&
-                            !(quickForm.contactId && quickForm.categoryId && quickForm.description.trim()))
-                        }
-                        onClick={() =>
-                          info && info.suggestions.length > 0
-                            ? confirmSuggestion(transacao, info.suggestions[0].id)
-                            : confirmQuickEntry(transacao)
-                        }
-                        className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 transition-colors hover:bg-emerald-500/25 disabled:opacity-40"
-                      >
-                        <CheckIcon className="size-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+            {visiveis.map((transacao) => (
+              <ReconciliationRow
+                key={transacao.id}
+                transacao={transacao}
+                info={matchInfo[transacao.id]}
+                bankAccountId={bankAccountId}
+                bankAccounts={bankAccounts}
+                contacts={contacts}
+                categories={categories}
+                onReconciled={removeReconciled}
+                onRemove={removerTransacao}
+                onOpenModal={setModalTransactionId}
+                onContactCreated={addContact}
+                onCategoryCreated={addCategory}
+              />
+            ))}
             {visiveis.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                Nenhum lançamento encontrado para os filtros selecionados.
+                {transacoes.length === 0
+                  ? "Nenhuma transação pendente de conciliação."
+                  : "Nenhum lançamento encontrado para os filtros selecionados."}
               </p>
             )}
           </>
@@ -514,15 +236,272 @@ export function ReconciliationView({
           key={modalTransaction.id}
           open
           onClose={() => setModalTransactionId(null)}
-          onSettled={() => refreshMatchInfo([modalTransaction.id])}
+          onSettled={() => removeReconciled(modalTransaction.id)}
           bankTransactionId={modalTransaction.id}
           direction={directionForTransactionAmount(modalTransaction.amount)}
           transactionAmount={modalTransaction.amount}
           bankAccountId={bankAccountId}
           contacts={contacts}
           categories={categories}
+          onContactCreated={addContact}
+          onCategoryCreated={addCategory}
         />
       )}
     </div>
   )
 }
+
+const emptyQuickForm = (bankAccountId: string): QuickForm => ({
+  mode: "lancamento",
+  contactId: "",
+  categoryId: "",
+  description: "",
+  transferAccountId: bankAccountId,
+})
+
+/**
+ * Um card da conciliação. Memoizado e com o formulário rápido no próprio
+ * estado: digitar a descrição redesenha só este card, não a lista inteira
+ * (cada card tem seus seletores de contato/categoria, que pesam).
+ */
+const ReconciliationRow = React.memo(function ReconciliationRow({
+  transacao,
+  info,
+  bankAccountId,
+  bankAccounts,
+  contacts,
+  categories,
+  onReconciled,
+  onRemove,
+  onOpenModal,
+  onContactCreated,
+  onCategoryCreated,
+}: {
+  transacao: BankTransaction
+  info: TransactionMatchInfo | undefined
+  bankAccountId: string
+  bankAccounts: BankAccount[]
+  contacts: Contact[]
+  categories: Category[]
+  onReconciled: (transactionId: string) => void
+  onRemove: (transactionId: string) => void
+  onOpenModal: (transactionId: string) => void
+  onContactCreated: (contact: Contact) => void
+  onCategoryCreated: (category: Category) => void
+}) {
+  const [quickForm, setQuickForm] = React.useState(() => emptyQuickForm(bankAccountId))
+  const [isPending, setIsPending] = React.useState(false)
+  const isEntrada = transacao.amount >= 0
+  const direction = directionForTransactionAmount(transacao.amount)
+
+  function updateQuickForm(patch: Partial<QuickForm>) {
+    setQuickForm((prev) => ({ ...prev, ...patch }))
+  }
+
+  async function confirmSuggestion(entryId: string) {
+    setIsPending(true)
+    const response = await createSettlementAction({
+      entryId,
+      bankTransactionId: transacao.id,
+      settledAmount: Math.abs(transacao.amount),
+      settledAt: transacao.date,
+    })
+    setIsPending(false)
+    if (response.ok) onReconciled(transacao.id)
+    else toast.error(response.error)
+  }
+
+  async function confirmQuickEntry() {
+    if (quickForm.mode !== "lancamento") return
+    if (!quickForm.contactId || !quickForm.categoryId || !quickForm.description.trim()) return
+
+    setIsPending(true)
+    const action = direction === "PAYABLE" ? createAndSettlePayableAction : createAndSettleReceivableAction
+    const response = await action({
+      contactId: quickForm.contactId,
+      categoryId: quickForm.categoryId,
+      bankAccountId,
+      description: quickForm.description.trim(),
+      bankTransactionId: transacao.id,
+      settledAmount: Math.abs(transacao.amount),
+      settledAt: transacao.date,
+    })
+    setIsPending(false)
+    if (response.ok) onReconciled(transacao.id)
+    else toast.error(response.error)
+  }
+
+  return (
+    <div className="flex items-stretch overflow-hidden rounded-lg border bg-card">
+      <div className="flex flex-1 flex-col justify-between gap-3 p-4">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-full",
+              isEntrada ? "bg-emerald-500/15 text-emerald-500" : "bg-red-500/15 text-red-500",
+            )}
+          >
+            {isEntrada ? <ArrowDownLeftIcon className="size-4" /> : <ArrowUpRightIcon className="size-4" />}
+          </span>
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="text-sm font-medium">{transacao.description}</p>
+            <p className="text-xs text-muted-foreground">
+              {formatDate(transacao.date)} · {isEntrada ? "Entrada" : "Saída"}
+            </p>
+            <p className={cn("text-sm font-semibold", isEntrada ? "text-emerald-500" : "text-red-500")}>
+              {isEntrada ? "" : "- "}
+              {formatBRL(Math.abs(transacao.amount))}
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => onRemove(transacao.id)}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <Trash2Icon className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="w-px shrink-0 bg-border" />
+
+      <div className="flex min-h-38 flex-1 flex-col justify-center gap-2 p-4">
+        {info && info.suggestions.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-muted-foreground">Sugestão automática</span>
+              <button
+                type="button"
+                onClick={() => onOpenModal(transacao.id)}
+                className="shrink-0 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                Buscar / Criar Vários
+              </button>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{info.suggestions[0].contactName}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {info.suggestions[0].description} · {formatDate(info.suggestions[0].dueDate)}
+                </p>
+              </div>
+              <span className="shrink-0 text-sm font-semibold">{formatBRL(info.suggestions[0].amount)}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2">
+              <ToggleGroup
+                variant="outline"
+                spacing={0}
+                multiple={false}
+                value={[quickForm.mode]}
+                onValueChange={(value) =>
+                  value[0] && updateQuickForm({ mode: value[0] as QuickFormMode })
+                }
+              >
+                <ToggleGroupItem value="lancamento" size="sm" className="text-xs">
+                  {direction === "PAYABLE" ? "Pagamento" : "Recebimento"}
+                </ToggleGroupItem>
+                <ToggleGroupItem value="transferencia" size="sm" className="text-xs">
+                  Transferência
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <button
+                type="button"
+                onClick={() => onOpenModal(transacao.id)}
+                className="shrink-0 rounded-md border px-2 py-0.5 text-[10.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                Buscar / Criar Vários
+              </button>
+            </div>
+
+            {quickForm.mode === "transferencia" ? (
+              <Select
+                value={quickForm.transferAccountId}
+                onValueChange={(value) => {
+                  if (!value) return
+                  const origem = bankAccounts.find((a) => a.id === bankAccountId)
+                  const destino = bankAccounts.find((a) => a.id === value)
+                  updateQuickForm({
+                    transferAccountId: value,
+                    description:
+                      origem && destino ? `Transferência de ${origem.name} para ${destino.name}` : quickForm.description,
+                  })
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Conta de destino">
+                    {(value: string) => {
+                      const account = bankAccounts.find((a) => a.id === value)
+                      return account
+                        ? formatBankAccountLabel(account)
+                        : "Conta de destino"
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {bankAccounts.map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      {formatBankAccountLabel(account)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <ReconciliationContactPicker
+                  contacts={contacts}
+                  direction={direction}
+                  value={quickForm.contactId}
+                  onValueChange={(contactId) => updateQuickForm({ contactId })}
+                  onCreated={(contact) => {
+                    onContactCreated(contact)
+                    updateQuickForm({ contactId: contact.id })
+                  }}
+                />
+                <ReconciliationCategoryPicker
+                  categories={categories}
+                  direction={direction}
+                  value={quickForm.categoryId}
+                  onValueChange={(categoryId) => updateQuickForm({ categoryId })}
+                  onCreated={(category) => {
+                    onCategoryCreated(category)
+                    updateQuickForm({ categoryId: category.id })
+                  }}
+                />
+              </div>
+            )}
+            <Input
+              placeholder="Descrição"
+              value={quickForm.description}
+              onChange={(event) => updateQuickForm({ description: event.target.value })}
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="flex w-9 shrink-0 items-center justify-center">
+        <button
+          type="button"
+          disabled={
+            isPending ||
+            quickForm.mode === "transferencia" ||
+            ((info?.suggestions.length ?? 0) === 0 &&
+              !(quickForm.contactId && quickForm.categoryId && quickForm.description.trim()))
+          }
+          onClick={() =>
+            info && info.suggestions.length > 0
+              ? confirmSuggestion(info.suggestions[0].id)
+              : confirmQuickEntry()
+          }
+          className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 transition-colors hover:bg-emerald-500/25 disabled:opacity-40"
+        >
+          <CheckIcon className="size-4" />
+        </button>
+      </div>
+    </div>
+  )
+})
