@@ -37,7 +37,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { formatBRL, formatDate } from "@/lib/format"
+import { formatBankAccountLabel, formatBRL, formatDate } from "@/lib/format"
 import type { BankAccount } from "@/modules/bank-accounts/types"
 import {
   generateInstallments,
@@ -297,7 +297,7 @@ export function NewSaleForm({
 
   const bankAccountOptions: SearchableSelectOption[] = bankAccounts.map((account) => ({
     value: account.id,
-    label: `${account.name} - Ag ${account.branchNumber} / CC ${account.accountNumber}`,
+    label: formatBankAccountLabel(account),
   }))
 
   const beneficiaryOptions: SearchableSelectOption[] = beneficiaries.map((beneficiary) => ({
