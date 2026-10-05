@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { prismaAdmin } from "@/db/client"
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment"
 import { getBeneficiaryStatement } from "@/modules/payouts/service"
+import { listBankTransactions } from "@/modules/statements/service"
 import { BusinessError, NotFound } from "@/shared/errors"
 import {
   createAndSettlePayable,
@@ -11,6 +12,7 @@ import {
   getSettlementReceipt,
   manualSettleEntry,
   suggestMatchesForTransaction,
+  undoBankTransactionReconciliation,
   undoSettlement,
 } from "./service"
 
@@ -214,6 +216,57 @@ describe("undoSettlement", () => {
 
     const updatedTransaction = await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: transaction.id } })
     expect(updatedTransaction.status).toBe("PENDING")
+  })
+})
+
+describe("undoBankTransactionReconciliation", () => {
+  async function isListedForReconciliation(transactionId: string) {
+    return (await listBankTransactions(org.id, org.bankAccountId)).some((t) => t.id === transactionId)
+  }
+
+  it("unlinks every entry a batch settled and puts the transaction back up for reconciliation", async () => {
+    const { entry: entryA } = await createReceivableEntry(7_000)
+    const { entry: entryB } = await createReceivableEntry(3_000)
+    const transaction = await createBankTransaction(10_000)
+
+    await createSettlementBatch(org.id, {
+      bankTransactionId: transaction.id,
+      items: [
+        { entryId: entryA.id, settledAmount: 7_000, settledAt: new Date(2026, 7, 10) },
+        { entryId: entryB.id, settledAmount: 3_000, settledAt: new Date(2026, 7, 10) },
+      ],
+    })
+    expect(await isListedForReconciliation(transaction.id)).toBe(false)
+
+    await undoBankTransactionReconciliation(org.id, transaction.id)
+
+    const entries = await prismaAdmin.entry.findMany({ where: { id: { in: [entryA.id, entryB.id] } } })
+    expect(entries.map((entry) => [entry.status, entry.settledAmount])).toEqual([
+      ["FORECAST", null],
+      ["FORECAST", null],
+    ])
+    expect(await prismaAdmin.settlement.count({ where: { bankTransactionId: transaction.id } })).toBe(0)
+    const updatedTransaction = await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: transaction.id } })
+    expect(updatedTransaction.status).toBe("PENDING")
+    expect(await isListedForReconciliation(transaction.id)).toBe(true)
+  })
+
+  it("keeps the entry's other settlements, leaving it partially settled", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+    await manualSettleEntry(org.id, { entryId: entry.id, settledAmount: 4_000, settledAt: new Date(2026, 7, 5), note: "Dinheiro" })
+    const transaction = await createBankTransaction(6_000)
+    await createSettlement(org.id, {
+      entryId: entry.id,
+      bankTransactionId: transaction.id,
+      settledAmount: 6_000,
+      settledAt: new Date(2026, 7, 10),
+    })
+
+    await undoBankTransactionReconciliation(org.id, transaction.id)
+
+    const updated = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(updated.status).toBe("PARTIAL")
+    expect(updated.settledAmount).toBe(4_000)
   })
 })
 
