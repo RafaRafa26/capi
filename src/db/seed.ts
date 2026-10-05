@@ -4,6 +4,7 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hash as argonHash } from "@node-rs/argon2";
 
+import { DEFAULT_MARKERS } from "../modules/markers/defaults";
 import { PrismaClient } from "./generated/client";
 
 // Development seed. Runs under the database owner role, bypassing RLS on
@@ -25,6 +26,10 @@ async function main() {
 
   const organization = await prisma.organization.create({
     data: { name: "Capi Demo", document: "12345678000190" },
+  });
+
+  await prisma.marker.createMany({
+    data: DEFAULT_MARKERS.map((marker) => ({ organizationId: organization.id, ...marker })),
   });
 
   await prisma.user.create({

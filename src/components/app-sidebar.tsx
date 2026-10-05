@@ -21,6 +21,7 @@ import {
   UsersIcon,
   LandmarkIcon,
   TagIcon,
+  BookmarkIcon,
   ArrowDownRightIcon,
   ArrowUpRightIcon,
   UserCogIcon,
@@ -37,6 +38,7 @@ const navCadastros = [
   { title: "Contatos", url: "/contacts", icon: <UsersIcon /> },
   { title: "Contas bancárias", url: "/bank-accounts", icon: <LandmarkIcon /> },
   { title: "Categorias", url: "/categories", icon: <TagIcon /> },
+  { title: "Marcadores", url: "/markers", icon: <BookmarkIcon /> },
 ]
 
 const navConfiguracoes = [{ title: "Membros", url: "/members", icon: <UserCogIcon /> }]

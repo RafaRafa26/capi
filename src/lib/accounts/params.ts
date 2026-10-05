@@ -1,10 +1,10 @@
 // URL query-param encoding for the accounts screens' filters — shared
-// between the client view (accounts-view.tsx) and the server-rendered PDF
-// report (app/reports/accounts), so "Exportar" produces a report that
-// matches exactly what's on screen, one URLSearchParams read of the other.
+// between the client view (accounts-view.tsx) and the PDF/XLSX export
+// (lib/accounts/report.ts), so "Exportar" produces a report that matches
+// exactly what's on screen, one URLSearchParams read of the other.
 import { getPeriodRange, type FilterChipKey, type FilterChips, type PeriodPreset, type PeriodRange } from "./filter"
 
-export const chipOrder: FilterChipKey[] = ["contact", "category", "paymentMethod", "bankAccount"]
+export const chipOrder: FilterChipKey[] = ["contact", "category", "paymentMethod", "bankAccount", "marker"]
 
 export function encodeChipValues(values: string[]): string {
   return values.map(encodeURIComponent).join(",")

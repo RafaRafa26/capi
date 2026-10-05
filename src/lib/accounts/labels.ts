@@ -1,7 +1,7 @@
 // PT labels shared between the accounts table and its detail Sheet — kept
 // here (not in accounts-view.tsx) so the Sheet can import them without a
 // circular dependency, since accounts-view.tsx renders the Sheet.
-import type { AccountStatus } from "@/lib/accounts/filter"
+import type { AccountStatus, FilterChipKey } from "@/lib/accounts/filter"
 import type {
   AllocationMode,
   ContractBillingFrequency,
@@ -32,6 +32,14 @@ export const contractModalityLabel: Record<ContractModality, string> = {
 export const allocationModeLabel: Record<AllocationMode, string> = {
   PERCENTAGE: "Percentual",
   FIXED_AMOUNT: "Valor fixo",
+}
+
+export const chipLabel: Record<FilterChipKey, string> = {
+  contact: "Favorecido",
+  category: "Categoria",
+  paymentMethod: "Forma de pagamento",
+  bankAccount: "Conta",
+  marker: "Marcador",
 }
 
 export const kindConfig: Record<

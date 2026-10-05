@@ -2,7 +2,7 @@ import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { BusinessError, NotFound } from "@/shared/errors"
-import type { UpdateAccountEntryInput } from "./schema"
+import type { UpdateAccountEntryInput, UpdateEntryNotesInput } from "./schema"
 import type { AccountContract, AccountEntry, LedgerKind, PaymentMethodCode } from "./types"
 
 const paymentMethodLabel: Record<PaymentMethodCode, string> = {
@@ -17,6 +17,7 @@ const ENTRY_INCLUDE = {
   contact: true,
   category: true,
   bankAccount: true,
+  marker: { select: { id: true, name: true, color: true } },
   sale: {
     select: {
       id: true,
@@ -106,6 +107,9 @@ function toAccountEntry(entry: EntryWithRelations, kind: LedgerKind): AccountEnt
       beneficiaryIds: allocations.map((allocation) => allocation.beneficiaryId),
     beneficiaryNames: allocations.map((allocation) => allocation.beneficiary.name),
     entryStatus: entry.status as AccountEntry["entryStatus"],
+    marker: entry.marker,
+    notes: entry.notes,
+    notesUpdatedAt: entry.notesUpdatedAt,
   }
 }
 
@@ -193,6 +197,38 @@ export async function updateAccountEntry(
         paymentMethod: input.paymentMethod,
         ...(entry.status === "FORECAST" ? { dueDate: input.dueDate, amount: input.amount } : {}),
       },
+    })
+  })
+}
+
+/**
+ * Marcador e observação de um lançamento (RN-36) — salvos pela listagem sem
+ * abrir o lançamento, em qualquer situação, inclusive já liquidado. O
+ * marcador precisa ser do mesmo lado (a receber/a pagar) do lançamento.
+ */
+export async function updateEntryNotes(
+  organizationId: string,
+  entryId: string,
+  input: UpdateEntryNotesInput,
+): Promise<void> {
+  return withOrganization(organizationId, async (tx) => {
+    const entry = await tx.entry.findUnique({ where: { id: entryId } })
+    if (!entry || entry.status === "CANCELED") throw new NotFound("Lançamento")
+
+    if (input.markerId) {
+      const marker = await tx.marker.findUnique({ where: { id: input.markerId } })
+      if (!marker) throw new NotFound("Marcador")
+      if (marker.type !== entry.type) {
+        throw new BusinessError("Esse marcador não é deste tipo de lançamento.", "markerId")
+      }
+    }
+
+    const changed = (input.markerId ?? null) !== entry.markerId || (input.notes ?? null) !== entry.notes
+    if (!changed) return
+
+    await tx.entry.update({
+      where: { id: entryId },
+      data: { markerId: input.markerId, notes: input.notes, notesUpdatedAt: new Date() },
     })
   })
 }

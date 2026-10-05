@@ -83,4 +83,9 @@ export interface AccountEntry {
   // The real DB status — gates which fields the edit dialog lets you touch
   // (RN-17: due date/amount are only editable before conciliação).
   entryStatus: EntryStatus
+  // Acompanhamento (RN-36) — o marcador atual e a observação livre, que
+  // saem nos relatórios. Null quando nunca foram preenchidos.
+  marker: { id: string; name: string; color: string } | null
+  notes: string | null
+  notesUpdatedAt: Date | null
 }

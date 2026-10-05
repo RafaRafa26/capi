@@ -13,6 +13,7 @@ import {
   shiftPeriod,
   sortEntries,
   totalPages,
+  NO_MARKER_LABEL,
   type FilterChips,
 } from "./filter"
 
@@ -28,6 +29,8 @@ interface FakeEntry {
   paymentMethod: string
   bankAccountName: string
   beneficiaryNames: string[]
+  marker?: { name: string } | null
+  notes?: string | null
 }
 
 function entry(overrides: Partial<FakeEntry>): FakeEntry {
@@ -161,6 +164,11 @@ describe("filterBySearch", () => {
   it("returns everything for an empty query", () => {
     expect(filterBySearch(entries, "  ")).toHaveLength(2)
   })
+
+  it("matches by the follow-up note", () => {
+    const withNotes = [...entries, entry({ notes: "Combinou pagamento para 02/09/26" })]
+    expect(filterBySearch(withNotes, "combinou")).toHaveLength(1)
+  })
 })
 
 describe("applyChips", () => {
@@ -183,6 +191,16 @@ describe("applyChips", () => {
   it("ignores chip keys with no selected values", () => {
     const chips: FilterChips = { category: ["Vendas"], paymentMethod: [] }
     expect(applyChips(entries, chips)).toHaveLength(2)
+  })
+
+  it("filters by marker, with Sem marcador matching entries that have none", () => {
+    const withMarkers = [
+      entry({ description: "A", marker: { name: "Cobrado, sem retorno" } }),
+      entry({ description: "B", marker: { name: "Pagamento combinado" } }),
+      entry({ description: "C", marker: null }),
+    ]
+    const chips: FilterChips = { marker: ["Cobrado, sem retorno", NO_MARKER_LABEL] }
+    expect(applyChips(withMarkers, chips).map((e) => e.description)).toEqual(["A", "C"])
   })
 
   it("matches a multi-valued field (Favorecido) when any of its values is selected", () => {
