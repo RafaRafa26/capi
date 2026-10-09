@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   computeBeneficiaryShare,
   directionForTransactionAmount,
+  netSettledAmount,
   recomputeEntryAggregate,
   suggestMatches,
 } from "./domain"
@@ -57,6 +58,13 @@ describe("recomputeEntryAggregate", () => {
     )
     expect(afterUndoingOne.status).toBe("PARTIAL")
     expect(afterUndoingOne.settledAmount).toBe(4_000)
+  })
+})
+
+describe("netSettledAmount", () => {
+  it("adds interest and fine and subtracts discount", () => {
+    expect(netSettledAmount({ settledAmount: 10_000, interest: 500, fine: 200, discount: 0 })).toBe(10_700)
+    expect(netSettledAmount({ settledAmount: 10_000, interest: 0, fine: 0, discount: 500 })).toBe(9_500)
   })
 })
 

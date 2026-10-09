@@ -2,9 +2,10 @@ import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { BusinessError, NotFound } from "@/shared/errors"
-import { directionForTransactionAmount, recomputeEntryAggregate, suggestMatches } from "./domain"
+import { directionForTransactionAmount, netSettledAmount, recomputeEntryAggregate, suggestMatches } from "./domain"
 import type {
   CreateAndSettlePayableInput,
+  CreateAndSettleTransferInput,
   CreateSettlementBatchInput,
   CreateSettlementInput,
   ManualSettleInput,
@@ -87,7 +88,25 @@ interface InsertSettlementInput {
 
 async function insertSettlement(tx: Tx, organizationId: string, input: InsertSettlementInput) {
   await loadEntry(tx, input.entryId)
-  if (input.bankTransactionId) await loadBankTransaction(tx, input.bankTransactionId)
+
+  const net = netSettledAmount({
+    settledAmount: input.settledAmount,
+    interest: input.interest ?? 0,
+    fine: input.fine ?? 0,
+    discount: input.discount ?? 0,
+  })
+  if (net <= 0) throw new BusinessError("O desconto não pode ser maior do que o valor liquidado.", "discount")
+
+  if (input.bankTransactionId) {
+    // Invariante (ARQUITETURA.md §5.2): o que se concilia numa transação, já
+    // com juros, multa e desconto, nunca passa do valor dela.
+    const transaction = await loadBankTransaction(tx, input.bankTransactionId)
+    const existing = await tx.settlement.findMany({ where: { bankTransactionId: input.bankTransactionId } })
+    const total = existing.reduce((sum, settlement) => sum + netSettledAmount(settlement), net)
+    if (total > Math.abs(transaction.amount)) {
+      throw new BusinessError("A soma dos valores conciliados passa do valor da transação bancária.")
+    }
+  }
 
   await tx.settlement.create({
     data: {
@@ -108,16 +127,25 @@ async function insertSettlement(tx: Tx, organizationId: string, input: InsertSet
   if (input.bankTransactionId) await reconcileBankTransactionStatus(tx, input.bankTransactionId)
 }
 
-function toCandidateEntry(entry: { id: string; contact: { name: string }; description: string; dueDate: Date; amount: number; settledAmount: number | null; type: CandidateEntry["type"] }): CandidateEntry {
+// Transferência (RN-15) não tem contato nem categoria — onde a tela mostra um
+// deles, mostra isto no lugar.
+const TRANSFER_LABEL = "Transferência"
+
+function toCandidateEntry(entry: { id: string; contact: { name: string } | null; description: string; dueDate: Date; amount: number; settledAmount: number | null; type: CandidateEntry["type"] }): CandidateEntry {
   return {
     id: entry.id,
-    contactName: entry.contact.name,
+    contactName: entry.contact?.name ?? TRANSFER_LABEL,
     description: entry.description,
     dueDate: fromDbDate(entry.dueDate),
     amount: entry.amount,
     settledAmount: entry.settledAmount,
     type: entry.type,
   }
+}
+
+/** A saída de uma conta é a perna OUT de uma transferência; a entrada, a IN. */
+function transferDirectionFor(direction: "RECEIVABLE" | "PAYABLE"): "IN" | "OUT" {
+  return direction === "RECEIVABLE" ? "IN" : "OUT"
 }
 
 /** For the "Buscar existente" tab — open entries of the given direction, optionally filtered by text. */
@@ -154,8 +182,15 @@ export async function suggestMatchesForTransaction(
 ): Promise<CandidateEntry[]> {
   return withOrganization(organizationId, async (tx) => {
     const transaction = await loadBankTransaction(tx, bankTransactionId)
+    const direction = directionForTransactionAmount(transaction.amount)
     const openEntries = await tx.entry.findMany({
-      where: { type: directionForTransactionAmount(transaction.amount), status: { in: ["FORECAST", "PARTIAL"] } },
+      where: {
+        status: { in: ["FORECAST", "PARTIAL"] },
+        OR: [
+          { type: direction },
+          { type: "TRANSFER", bankAccountId: transaction.bankAccountId, transferDirection: transferDirectionFor(direction) },
+        ],
+      },
       include: { contact: true },
     })
 
@@ -202,9 +237,9 @@ export async function getMatchInfoForTransactions(
         settlementId: settlement.id,
         entryId: settlement.entryId,
         entryType: settlement.entry.type,
-        contactName: settlement.entry.contact.name,
+        contactName: settlement.entry.contact?.name ?? TRANSFER_LABEL,
         description: settlement.entry.description,
-        categoryName: settlement.entry.category.name,
+        categoryName: settlement.entry.category?.name ?? TRANSFER_LABEL,
         dueDate: fromDbDate(settlement.entry.dueDate),
         settledAmount: settlement.settledAmount,
       })
@@ -215,12 +250,24 @@ export async function getMatchInfoForTransactions(
     const needsReceivables = unmatched.some((t) => directionForTransactionAmount(t.amount) === "RECEIVABLE")
     const needsPayables = unmatched.some((t) => directionForTransactionAmount(t.amount) === "PAYABLE")
 
-    const [receivableEntries, payableEntries] = await Promise.all([
+    const [receivableEntries, payableEntries, transferLegs] = await Promise.all([
       needsReceivables
         ? tx.entry.findMany({ where: { type: "RECEIVABLE", status: { in: ["FORECAST", "PARTIAL"] } }, include: { contact: true } })
         : Promise.resolve([]),
       needsPayables
         ? tx.entry.findMany({ where: { type: "PAYABLE", status: { in: ["FORECAST", "PARTIAL"] } }, include: { contact: true } })
+        : Promise.resolve([]),
+      // A outra perna de uma transferência (RN-15) só concilia com o extrato
+      // da própria conta — ao contrário de recebimento/pagamento, filtra por conta.
+      unmatched.length > 0
+        ? tx.entry.findMany({
+            where: {
+              type: "TRANSFER",
+              status: { in: ["FORECAST", "PARTIAL"] },
+              bankAccountId: { in: [...new Set(unmatched.map((t) => t.bankAccountId))] },
+            },
+            include: { contact: true },
+          })
         : Promise.resolve([]),
     ])
 
@@ -228,7 +275,13 @@ export async function getMatchInfoForTransactions(
       const matches = settlementsByTransaction.get(transaction.id) ?? []
       if (matches.length > 0) return { bankTransactionId: transaction.id, matches, suggestions: [] }
 
-      const pool = directionForTransactionAmount(transaction.amount) === "RECEIVABLE" ? receivableEntries : payableEntries
+      const direction = directionForTransactionAmount(transaction.amount)
+      const pool = [
+        ...(direction === "RECEIVABLE" ? receivableEntries : payableEntries),
+        ...transferLegs.filter(
+          (leg) => leg.bankAccountId === transaction.bankAccountId && leg.transferDirection === transferDirectionFor(direction),
+        ),
+      ]
       const rankable = pool.map((entry) => ({
         id: entry.id,
         amount: entry.amount,
@@ -289,9 +342,29 @@ export async function undoBankTransactionReconciliation(organizationId: string, 
     await tx.settlement.deleteMany({ where: { bankTransactionId } })
     for (const entryId of new Set(settlements.map((settlement) => settlement.entryId))) {
       await reconcileEntryAggregate(tx, entryId)
+      await discardUnsettledTransfer(tx, entryId)
     }
     await reconcileBankTransactionStatus(tx, bankTransactionId)
   })
+}
+
+/**
+ * A transferência nasce da conciliação e não tem tela própria: se, depois de
+ * desconciliar, nenhuma das duas pernas tem mais liquidação, ela deixa de
+ * existir — senão a outra perna ficaria sugerida para sempre na outra conta.
+ * Com uma perna ainda conciliada, a transferência fica.
+ */
+async function discardUnsettledTransfer(tx: Tx, entryId: string) {
+  const entry = await tx.entry.findUniqueOrThrow({ where: { id: entryId }, include: { transferPairOf: true } })
+  if (entry.type !== "TRANSFER") return
+
+  const legIds = [entry.id, entry.transferPairId ?? entry.transferPairOf?.id].filter((id): id is string => !!id)
+  const remaining = await tx.settlement.count({ where: { entryId: { in: legIds } } })
+  if (remaining > 0) return
+
+  // A perna OUT referencia a IN — solta o vínculo antes de apagar as duas.
+  await tx.entry.updateMany({ where: { id: { in: legIds } }, data: { transferPairId: null } })
+  await tx.entry.deleteMany({ where: { id: { in: legIds } } })
 }
 
 /**
@@ -396,6 +469,55 @@ export async function createAndSettleReceivable(organizationId: string, input: C
   })
 }
 
+/**
+ * Transferência entre contas próprias (RN-15), criada pela tela de
+ * conciliação: o valor e a data vêm da transação bancária, e o usuário só
+ * informa a conta contrária. Gera as duas pernas — a desta conta já
+ * conciliada com a transação, a da outra conta prevista, para ser conciliada
+ * quando o extrato de lá chegar. Fora da custódia (RN-14): não tem contato,
+ * categoria nem destinação.
+ */
+export async function createAndSettleTransfer(organizationId: string, input: CreateAndSettleTransferInput): Promise<void> {
+  await withOrganization(organizationId, async (tx) => {
+    const transaction = await loadBankTransaction(tx, input.bankTransactionId)
+    if (input.counterpartBankAccountId === transaction.bankAccountId) {
+      throw new BusinessError("Selecione uma conta diferente da conta do extrato.", "counterpartBankAccountId")
+    }
+    const [thisAccount, counterpart] = await Promise.all([
+      loadBankAccount(tx, transaction.bankAccountId),
+      loadBankAccount(tx, input.counterpartBankAccountId),
+    ])
+
+    // Saída do extrato: esta conta é a origem. Entrada: é o destino.
+    const isOutgoing = directionForTransactionAmount(transaction.amount) === "PAYABLE"
+    const [origin, destination] = isOutgoing ? [thisAccount, counterpart] : [counterpart, thisAccount]
+    const amount = Math.abs(transaction.amount)
+    const leg = {
+      organizationId,
+      type: "TRANSFER" as const,
+      description: `Transferência de ${origin.name} para ${destination.name}`,
+      dueDate: transaction.date,
+      amount,
+      paymentMethod: "BANK_TRANSFER" as const,
+    }
+
+    const incoming = await tx.entry.create({
+      data: { ...leg, bankAccountId: destination.id, transferDirection: "IN" },
+    })
+    const outgoing = await tx.entry.create({
+      data: { ...leg, bankAccountId: origin.id, transferDirection: "OUT", transferPairId: incoming.id },
+    })
+
+    await insertSettlement(tx, organizationId, {
+      entryId: isOutgoing ? outgoing.id : incoming.id,
+      bankTransactionId: transaction.id,
+      origin: "STATEMENT",
+      settledAmount: amount,
+      settledAt: transaction.date,
+    })
+  })
+}
+
 /** The "Emitir recibo" printable view's data, for one Settlement row of the accounts detail Sheet's history tab. */
 export async function getSettlementReceipt(organizationId: string, settlementId: string): Promise<SettlementReceipt> {
   return withOrganization(organizationId, async (tx) => {
@@ -423,8 +545,8 @@ export async function getSettlementReceipt(organizationId: string, settlementId:
       note: settlement.note,
       entryType: settlement.entry.type,
       entryDescription: settlement.entry.description,
-      contactName: settlement.entry.contact.name,
-      categoryName: settlement.entry.category.name,
+      contactName: settlement.entry.contact?.name ?? TRANSFER_LABEL,
+      categoryName: settlement.entry.category?.name ?? TRANSFER_LABEL,
       installment:
         settlement.entry.sale && settlement.entry.sale.billingType === "INSTALLMENTS" && settlement.entry.installmentNumber
           ? `${settlement.entry.installmentNumber}/${settlement.entry.sale.installmentsCount}`

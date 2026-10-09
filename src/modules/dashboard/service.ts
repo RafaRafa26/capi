@@ -13,7 +13,7 @@ async function summarize(tx: Tx, type: "RECEIVABLE" | "PAYABLE"): Promise<Resumo
   })
 
   const bucketable: BucketableEntry[] = entries.map((entry) => ({
-    contactName: entry.contact.name,
+    contactName: entry.contact?.name ?? "",
     description: entry.description,
     dueDate: fromDbDate(entry.dueDate),
     amount: entry.amount,

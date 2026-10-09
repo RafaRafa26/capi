@@ -8,6 +8,7 @@ import { getBankAccountStatement } from "@/modules/bank-accounts/service";
 import type { BankAccountStatement } from "@/modules/bank-accounts/types";
 import {
   createAndSettlePayableInputSchema,
+  createAndSettleTransferInputSchema,
   createSettlementBatchInputSchema,
   createSettlementInputSchema,
   manualSettleInputSchema,
@@ -16,6 +17,7 @@ import {
 import {
   createAndSettlePayable,
   createAndSettleReceivable,
+  createAndSettleTransfer,
   createSettlement,
   createSettlementBatch,
   getMatchInfoForTransactions,
@@ -192,6 +194,21 @@ export async function createAndSettleReceivableAction(input: unknown): Promise<R
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await createAndSettleReceivable(session.organizationId, parsed.data);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createAndSettleTransferAction(input: unknown): Promise<Result> {
+  try {
+    const session = await requireSession("write");
+    const parsed = createAndSettleTransferInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return { ok: false, error: issue.message, field: String(issue.path[0]) };
+    }
+    await createAndSettleTransfer(session.organizationId, parsed.data);
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);

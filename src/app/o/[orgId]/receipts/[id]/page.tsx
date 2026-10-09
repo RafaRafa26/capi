@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { PrintButton } from "@/components/print-button"
 import { formatBRL, formatDate } from "@/lib/format"
 import { requireSessionOrRedirect } from "@/modules/auth/session"
+import { netSettledAmount } from "@/modules/settlements/domain"
 import { getSettlementReceipt } from "@/modules/settlements/service"
 import { NotFound } from "@/shared/errors"
 
@@ -30,6 +31,7 @@ export default async function ReceiptPage(props: PageProps<"/o/[orgId]/receipts/
   const isReceivable = receipt.entryType === "RECEIVABLE"
   const title = isReceivable ? "Recibo de recebimento" : "Recibo de pagamento"
   const partyLabel = isReceivable ? "Recebido de" : "Pago a"
+  const hasAdjustments = receipt.interest > 0 || receipt.fine > 0 || receipt.discount > 0
 
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-160 flex-col gap-6 px-6 py-10">
@@ -46,7 +48,7 @@ export default async function ReceiptPage(props: PageProps<"/o/[orgId]/receipts/
 
         <div className="text-center">
           <p className="text-xs text-muted-foreground">Valor</p>
-          <p className="text-3xl font-semibold">{formatBRL(receipt.settledAmount)}</p>
+          <p className="text-3xl font-semibold">{formatBRL(netSettledAmount(receipt))}</p>
         </div>
 
         <div className="flex flex-col divide-y">
@@ -56,6 +58,7 @@ export default async function ReceiptPage(props: PageProps<"/o/[orgId]/receipts/
           <Row label="Categoria" value={receipt.categoryName} />
           <Row label="Data" value={formatDate(receipt.settledAt)} />
           {receipt.note && <Row label="Identificador" value={receipt.note} />}
+          {hasAdjustments && <Row label="Valor original" value={formatBRL(receipt.settledAmount)} />}
           {receipt.interest > 0 && <Row label="Juros" value={formatBRL(receipt.interest)} />}
           {receipt.fine > 0 && <Row label="Multa" value={formatBRL(receipt.fine)} />}
           {receipt.discount > 0 && <Row label="Desconto" value={`− ${formatBRL(receipt.discount)}`} />}
