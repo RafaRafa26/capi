@@ -10,6 +10,16 @@ export interface SettlementAmounts {
 }
 
 /**
+ * Quanto uma liquidação movimentou de fato no banco (RN-02/RN-03):
+ * `settledAmount` é a parte do valor original do lançamento que ela quitou, e
+ * juros e multa somam, desconto subtrai. É esse valor que tem que fechar com
+ * a transação bancária e que compõe o crédito do favorecido.
+ */
+export function netSettledAmount(settlement: SettlementAmounts): number {
+  return settlement.settledAmount + settlement.interest + settlement.fine - settlement.discount
+}
+
+/**
  * Recomputes an Entry's aggregate (status + settledAmount + interest/fine/
  * discount) from the full set of its Settlement rows, instead of patching it
  * incrementally on every create/undo — so it can never drift from its own

@@ -2,7 +2,7 @@ import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import type { BankDetails } from "@/modules/contacts/types"
-import { computeBeneficiaryShare } from "@/modules/settlements/domain"
+import { computeBeneficiaryShare, netSettledAmount } from "@/modules/settlements/domain"
 import { BusinessError, NotFound } from "@/shared/errors"
 import type { GeneratePayoutInput } from "./schema"
 import type {
@@ -39,7 +39,8 @@ async function loadCredits(tx: Tx, beneficiaryId?: string): Promise<Map<string, 
   for (const allocation of allocations) {
     for (const entry of allocation.sale.entries) {
       for (const settlement of entry.settlements) {
-        const amount = computeBeneficiaryShare(settlement.settledAmount, allocation.sale.totalAmount, allocation.amount)
+        // Juros e multa compõem o crédito, desconto reduz (RN-02/RN-03).
+        const amount = computeBeneficiaryShare(netSettledAmount(settlement), allocation.sale.totalAmount, allocation.amount)
         if (amount === 0) continue
 
         const list = byBeneficiary.get(allocation.beneficiaryId) ?? []

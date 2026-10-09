@@ -57,7 +57,7 @@ afterAll(async () => {
   await removeTestOrganizations([org.id])
 })
 
-async function createReceivableEntry(amount: number, opts?: { allocationAmount?: number }) {
+async function createReceivableEntry(amount: number, opts?: { allocationAmount?: number; beneficiaryId?: string }) {
   const sale = await prismaAdmin.sale.create({
     data: {
       organizationId: org.id,
@@ -93,7 +93,7 @@ async function createReceivableEntry(amount: number, opts?: { allocationAmount?:
               create: [
                 {
                   organizationId: org.id,
-                  beneficiaryId,
+                  beneficiaryId: opts.beneficiaryId ?? beneficiaryId,
                   mode: "FIXED_AMOUNT" as const,
                   amount: opts.allocationAmount,
                   order: 0,
@@ -194,6 +194,62 @@ describe("createSettlementBatch", () => {
     ])
     expect(updatedA.status).toBe("SETTLED")
     expect(updatedB.status).toBe("SETTLED")
+  })
+
+  it("closes a transaction paid with interest and fine against the entry's original amount (RN-03)", async () => {
+    const ownBeneficiary = await prismaAdmin.contact.create({
+      data: {
+        organizationId: org.id,
+        name: "Favorecido com juros",
+        document: `beneficiary-interest-${Date.now()}`,
+        personType: "INDIVIDUAL",
+        contactType: "BENEFICIARY",
+      },
+    })
+    const { entry } = await createReceivableEntry(10_000, { allocationAmount: 10_000, beneficiaryId: ownBeneficiary.id })
+    const transaction = await createBankTransaction(10_700)
+
+    await createSettlementBatch(org.id, {
+      bankTransactionId: transaction.id,
+      items: [{ entryId: entry.id, settledAmount: 10_000, interest: 500, fine: 200, settledAt: new Date(2026, 7, 10) }],
+    })
+
+    const updated = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(updated).toMatchObject({ status: "SETTLED", settledAmount: 10_000, interest: 500, fine: 200, discount: 0 })
+    // Juros e multa compõem o crédito do favorecido (RN-02).
+    const statement = await getBeneficiaryStatement(org.id, ownBeneficiary.id)
+    expect(statement.available).toBe(10_700)
+  })
+
+  it("settles an entry in full when paid with a discount", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+    const transaction = await createBankTransaction(9_500)
+
+    await createSettlementBatch(org.id, {
+      bankTransactionId: transaction.id,
+      items: [{ entryId: entry.id, settledAmount: 10_000, discount: 500, settledAt: new Date(2026, 7, 10) }],
+    })
+
+    const updated = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(updated).toMatchObject({ status: "SETTLED", settledAmount: 10_000, discount: 500 })
+    const receipt = await getSettlementReceipt(
+      org.id,
+      (await prismaAdmin.settlement.findFirstOrThrow({ where: { entryId: entry.id } })).id,
+    )
+    expect(receipt).toMatchObject({ settledAmount: 10_000, discount: 500 })
+  })
+
+  it("rejects settling more than the bank transaction, adjustments included", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+    const transaction = await createBankTransaction(10_000)
+
+    await expect(
+      createSettlementBatch(org.id, {
+        bankTransactionId: transaction.id,
+        items: [{ entryId: entry.id, settledAmount: 10_000, interest: 1, settledAt: new Date(2026, 7, 10) }],
+      }),
+    ).rejects.toBeInstanceOf(BusinessError)
+    expect((await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })).status).toBe("FORECAST")
   })
 })
 

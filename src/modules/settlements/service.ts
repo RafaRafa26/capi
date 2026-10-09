@@ -2,7 +2,7 @@ import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { BusinessError, NotFound } from "@/shared/errors"
-import { directionForTransactionAmount, recomputeEntryAggregate, suggestMatches } from "./domain"
+import { directionForTransactionAmount, netSettledAmount, recomputeEntryAggregate, suggestMatches } from "./domain"
 import type {
   CreateAndSettlePayableInput,
   CreateAndSettleTransferInput,
@@ -88,7 +88,25 @@ interface InsertSettlementInput {
 
 async function insertSettlement(tx: Tx, organizationId: string, input: InsertSettlementInput) {
   await loadEntry(tx, input.entryId)
-  if (input.bankTransactionId) await loadBankTransaction(tx, input.bankTransactionId)
+
+  const net = netSettledAmount({
+    settledAmount: input.settledAmount,
+    interest: input.interest ?? 0,
+    fine: input.fine ?? 0,
+    discount: input.discount ?? 0,
+  })
+  if (net <= 0) throw new BusinessError("O desconto não pode ser maior do que o valor liquidado.", "discount")
+
+  if (input.bankTransactionId) {
+    // Invariante (ARQUITETURA.md §5.2): o que se concilia numa transação, já
+    // com juros, multa e desconto, nunca passa do valor dela.
+    const transaction = await loadBankTransaction(tx, input.bankTransactionId)
+    const existing = await tx.settlement.findMany({ where: { bankTransactionId: input.bankTransactionId } })
+    const total = existing.reduce((sum, settlement) => sum + netSettledAmount(settlement), net)
+    if (total > Math.abs(transaction.amount)) {
+      throw new BusinessError("A soma dos valores conciliados passa do valor da transação bancária.")
+    }
+  }
 
   await tx.settlement.create({
     data: {
