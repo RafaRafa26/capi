@@ -16,6 +16,7 @@ import {
 import {
   createAndSettlePayableAction,
   createAndSettleReceivableAction,
+  createAndSettleTransferAction,
   createSettlementAction,
   deleteBankTransactionAction,
   getMatchInfoForTransactionsAction,
@@ -46,9 +47,8 @@ interface QuickForm {
   contactId: string
   categoryId: string
   description: string
-  // "Transferência" ainda não tem back-end (RN a definir) — o select só existe
-  // no visual por enquanto, e o botão de confirmar fica sempre desabilitado
-  // nesse modo (ver render do botão de check mais abaixo).
+  // Só no modo "Transferência" (RN-15): a conta contrária. O valor é o da
+  // transação e a descrição é gerada no servidor.
   transferAccountId: string
 }
 
@@ -251,12 +251,12 @@ export function ReconciliationView({
   )
 }
 
-const emptyQuickForm = (bankAccountId: string): QuickForm => ({
+const emptyQuickForm = (): QuickForm => ({
   mode: "lancamento",
   contactId: "",
   categoryId: "",
   description: "",
-  transferAccountId: bankAccountId,
+  transferAccountId: "",
 })
 
 /**
@@ -289,10 +289,11 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
   onContactCreated: (contact: Contact) => void
   onCategoryCreated: (category: Category) => void
 }) {
-  const [quickForm, setQuickForm] = React.useState(() => emptyQuickForm(bankAccountId))
+  const [quickForm, setQuickForm] = React.useState(emptyQuickForm)
   const [isPending, setIsPending] = React.useState(false)
   const isEntrada = transacao.amount >= 0
   const direction = directionForTransactionAmount(transacao.amount)
+  const contaContrariaLabel = isEntrada ? "Conta de origem" : "Conta de destino"
 
   function updateQuickForm(patch: Partial<QuickForm>) {
     setQuickForm((prev) => ({ ...prev, ...patch }))
@@ -311,8 +312,21 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
     else toast.error(response.error)
   }
 
+  async function confirmTransfer() {
+    if (!quickForm.transferAccountId) return
+
+    setIsPending(true)
+    const response = await createAndSettleTransferAction({
+      bankTransactionId: transacao.id,
+      counterpartBankAccountId: quickForm.transferAccountId,
+    })
+    setIsPending(false)
+    if (response.ok) onReconciled(transacao.id)
+    else toast.error(response.error)
+  }
+
   async function confirmQuickEntry() {
-    if (quickForm.mode !== "lancamento") return
+    if (quickForm.mode === "transferencia") return confirmTransfer()
     if (!quickForm.contactId || !quickForm.categoryId || !quickForm.description.trim()) return
 
     setIsPending(true)
@@ -423,27 +437,26 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
                 value={quickForm.transferAccountId}
                 onValueChange={(value) => {
                   if (!value) return
-                  const origem = bankAccounts.find((a) => a.id === bankAccountId)
-                  const destino = bankAccounts.find((a) => a.id === value)
+                  const contraria = bankAccounts.find((a) => a.id === value)
+                  const esta = bankAccounts.find((a) => a.id === bankAccountId)
+                  // Saída: esta conta é a origem; entrada: é o destino.
+                  const [origem, destino] = isEntrada ? [contraria, esta] : [esta, contraria]
                   updateQuickForm({
                     transferAccountId: value,
-                    description:
-                      origem && destino ? `Transferência de ${origem.name} para ${destino.name}` : quickForm.description,
+                    description: origem && destino ? `Transferência de ${origem.name} para ${destino.name}` : "",
                   })
                 }}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Conta de destino">
+                  <SelectValue placeholder={contaContrariaLabel}>
                     {(value: string) => {
                       const account = bankAccounts.find((a) => a.id === value)
-                      return account
-                        ? formatBankAccountLabel(account)
-                        : "Conta de destino"
+                      return account ? formatBankAccountLabel(account) : contaContrariaLabel
                     }}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {bankAccounts.map((account) => (
+                  {bankAccounts.filter((account) => account.id !== bankAccountId).map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {formatBankAccountLabel(account)}
                     </SelectItem>
@@ -477,6 +490,8 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
             <Input
               placeholder="Descrição"
               value={quickForm.description}
+              // Na transferência a descrição é gerada (RN-15).
+              readOnly={quickForm.mode === "transferencia"}
               onChange={(event) => updateQuickForm({ description: event.target.value })}
             />
           </div>
@@ -488,9 +503,10 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
           type="button"
           disabled={
             isPending ||
-            quickForm.mode === "transferencia" ||
             ((info?.suggestions.length ?? 0) === 0 &&
-              !(quickForm.contactId && quickForm.categoryId && quickForm.description.trim()))
+              (quickForm.mode === "transferencia"
+                ? !quickForm.transferAccountId
+                : !(quickForm.contactId && quickForm.categoryId && quickForm.description.trim())))
           }
           onClick={() =>
             info && info.suggestions.length > 0

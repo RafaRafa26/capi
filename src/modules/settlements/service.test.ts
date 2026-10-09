@@ -7,8 +7,10 @@ import { listBankTransactions } from "@/modules/statements/service"
 import { BusinessError, NotFound } from "@/shared/errors"
 import {
   createAndSettlePayable,
+  createAndSettleTransfer,
   createSettlement,
   createSettlementBatch,
+  getMatchInfoForTransactions,
   getSettlementReceipt,
   manualSettleEntry,
   suggestMatchesForTransaction,
@@ -106,14 +108,14 @@ async function createReceivableEntry(amount: number, opts?: { allocationAmount?:
   return { sale, entry: sale.entries[0] }
 }
 
-async function createBankTransaction(amount: number, date = new Date(2026, 7, 10)) {
+async function createBankTransaction(amount: number, date = new Date(2026, 7, 10), bankAccountId = org.bankAccountId) {
   const bankImport = await prismaAdmin.import.create({
-    data: { organizationId: org.id, bankAccountId: org.bankAccountId, fileName: "test.ofx" },
+    data: { organizationId: org.id, bankAccountId, fileName: "test.ofx" },
   })
   return prismaAdmin.bankTransaction.create({
     data: {
       organizationId: org.id,
-      bankAccountId: org.bankAccountId,
+      bankAccountId,
       importId: bankImport.id,
       bankReference: `ref-${Date.now()}-${Math.random()}`,
       date,
@@ -338,6 +340,101 @@ describe("createAndSettlePayable", () => {
 
     const updatedTransaction = await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: transaction.id } })
     expect(updatedTransaction.status).toBe("RECONCILED")
+  })
+})
+
+describe("createAndSettleTransfer", () => {
+  let savingsAccountId: string
+
+  beforeAll(async () => {
+    const savings = await prismaAdmin.bankAccount.create({
+      data: {
+        organizationId: org.id,
+        name: "Poupança",
+        bank: "Test Bank",
+        branchNumber: "",
+        accountNumber: `savings-${Date.now()}`,
+        holderType: "COMPANY",
+        controlStartDate: new Date(),
+      },
+    })
+    savingsAccountId = savings.id
+  })
+
+  it("creates both legs, settles this account's one and suggests the other on the counterpart account", async () => {
+    const outgoing = await createBankTransaction(-25_000, new Date(2026, 7, 12))
+
+    await createAndSettleTransfer(org.id, { bankTransactionId: outgoing.id, counterpartBankAccountId: savingsAccountId })
+
+    const settlement = await prismaAdmin.settlement.findFirstOrThrow({
+      where: { bankTransactionId: outgoing.id },
+      include: { entry: { include: { transferPair: true } } },
+    })
+    expect(settlement.settledAmount).toBe(25_000)
+    expect(settlement.entry).toMatchObject({
+      type: "TRANSFER",
+      transferDirection: "OUT",
+      bankAccountId: org.bankAccountId,
+      status: "SETTLED",
+      contactId: null,
+      categoryId: null,
+      description: "Transferência de Test Bank Account para Poupança",
+    })
+    expect(settlement.entry.transferPair).toMatchObject({
+      type: "TRANSFER",
+      transferDirection: "IN",
+      bankAccountId: savingsAccountId,
+      status: "FORECAST",
+      amount: 25_000,
+    })
+    expect((await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: outgoing.id } })).status).toBe("RECONCILED")
+
+    // A entrada na poupança sugere a outra perna — e só ela, não a OUT.
+    const incoming = await createBankTransaction(25_000, new Date(2026, 7, 12), savingsAccountId)
+    const [info] = await getMatchInfoForTransactions(org.id, [incoming.id])
+    expect(info.suggestions.map((s) => s.id)).toEqual([settlement.entry.transferPair!.id])
+    expect(info.suggestions[0].contactName).toBe("Transferência")
+
+    await createSettlement(org.id, {
+      entryId: settlement.entry.transferPair!.id,
+      bankTransactionId: incoming.id,
+      settledAmount: 25_000,
+      settledAt: incoming.date,
+    })
+    const [matched] = await getMatchInfoForTransactions(org.id, [incoming.id])
+    expect(matched.matches[0]).toMatchObject({ entryType: "TRANSFER", categoryName: "Transferência" })
+  })
+
+  it("from an entrada, the chosen account is the origin", async () => {
+    const incoming = await createBankTransaction(7_000)
+
+    await createAndSettleTransfer(org.id, { bankTransactionId: incoming.id, counterpartBankAccountId: savingsAccountId })
+
+    const settlement = await prismaAdmin.settlement.findFirstOrThrow({ where: { bankTransactionId: incoming.id }, include: { entry: true } })
+    expect(settlement.entry).toMatchObject({
+      transferDirection: "IN",
+      bankAccountId: org.bankAccountId,
+      description: "Transferência de Poupança para Test Bank Account",
+    })
+  })
+
+  it("rejects the statement's own account as the counterpart", async () => {
+    const transaction = await createBankTransaction(-1_000)
+    await expect(
+      createAndSettleTransfer(org.id, { bankTransactionId: transaction.id, counterpartBankAccountId: org.bankAccountId }),
+    ).rejects.toBeInstanceOf(BusinessError)
+  })
+
+  it("undoing the only settled leg discards the whole transfer", async () => {
+    const transaction = await createBankTransaction(-3_000)
+    await createAndSettleTransfer(org.id, { bankTransactionId: transaction.id, counterpartBankAccountId: savingsAccountId })
+    const settlement = await prismaAdmin.settlement.findFirstOrThrow({ where: { bankTransactionId: transaction.id } })
+    const leg = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: settlement.entryId } })
+
+    await undoBankTransactionReconciliation(org.id, transaction.id)
+
+    expect(await prismaAdmin.entry.count({ where: { id: { in: [leg.id, leg.transferPairId!] } } })).toBe(0)
+    expect((await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: transaction.id } })).status).toBe("PENDING")
   })
 })
 

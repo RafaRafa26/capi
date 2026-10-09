@@ -99,7 +99,7 @@ export async function getBankAccountStatement(organizationId: string, bankAccoun
         runningBalance,
         settledEntries: transaction.settlements.map((settlement) => ({
           entryId: settlement.entryId,
-          contactName: settlement.entry.contact.name,
+          contactName: settlement.entry.contact?.name ?? "Transferência",
           description: settlement.entry.description,
         })),
       };
