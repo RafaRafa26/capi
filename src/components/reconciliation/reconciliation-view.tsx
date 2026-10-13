@@ -8,7 +8,6 @@ import {
   ArrowLeftIcon,
   CheckIcon,
   LandmarkIcon,
-  Loader2Icon,
   FileTextIcon,
   SearchIcon,
   Trash2Icon,
@@ -38,6 +37,7 @@ import { directionForTransactionAmount } from "@/modules/settlements/domain"
 import type { TransactionMatchInfo } from "@/modules/settlements/types"
 import type { BankTransaction } from "@/modules/statements/types"
 import { useOrgPath } from "@/hooks/use-org-path"
+import type { Result } from "@/shared/errors"
 import { toast } from "sonner"
 
 type FiltroTipo = "todas" | "entrada" | "saida"
@@ -73,6 +73,10 @@ export function ReconciliationView({
   const [busca, setBusca] = React.useState("")
   const [modalTransactionId, setModalTransactionId] = React.useState<string | null>(null)
   const [refreshKey, setRefreshKey] = React.useState(0)
+  // Conciliadas/excluídas otimisticamente: somem na hora enquanto o servidor
+  // confirma. O card continua montado (oculto) para, se der erro, voltar com
+  // o que o usuário já tinha preenchido.
+  const [ocultas, setOcultas] = React.useState<ReadonlySet<string>>(() => new Set())
 
   // Locais para que contato/categoria criados aqui entrem na hora nas listas.
   const [contacts, setContacts] = React.useState(initialContacts)
@@ -114,10 +118,12 @@ export function ReconciliationView({
     return transacoes.filter((t) => t.description.toLowerCase().includes(busca.toLowerCase()))
   }, [transacoes, busca])
 
+  const pendentes = React.useMemo(() => filtradasPorBusca.filter((t) => !ocultas.has(t.id)), [filtradasPorBusca, ocultas])
+
   const contagens = {
-    todas: filtradasPorBusca.length,
-    entrada: filtradasPorBusca.filter((t) => t.amount >= 0).length,
-    saida: filtradasPorBusca.filter((t) => t.amount < 0).length,
+    todas: pendentes.length,
+    entrada: pendentes.filter((t) => t.amount >= 0).length,
+    saida: pendentes.filter((t) => t.amount < 0).length,
   }
 
   const visiveis = React.useMemo(() => {
@@ -126,6 +132,7 @@ export function ReconciliationView({
     )
     return [...porTipo].sort((a, b) => a.date.getTime() - b.date.getTime())
   }, [filtradasPorBusca, filtroTipo])
+  const algumaVisivel = visiveis.some((t) => !ocultas.has(t.id))
 
   // Conciliada, a transação sai daqui — passa a aparecer no extrato da conta,
   // que é de onde se desconcilia.
@@ -133,12 +140,42 @@ export function ReconciliationView({
     setTransacoes((prev) => prev.filter((t) => t.id !== transactionId))
   }, [])
 
-  const removerTransacao = React.useCallback(async (id: string) => {
-    const response = await deleteBankTransactionAction(id)
-    if (response.ok) {
-      setTransacoes((prev) => prev.filter((t) => t.id !== id))
-    }
+  const setOculta = React.useCallback((id: string, oculta: boolean) => {
+    setOcultas((prev) => {
+      const next = new Set(prev)
+      if (oculta) next.add(id)
+      else next.delete(id)
+      return next
+    })
   }, [])
+
+  /**
+   * Some com a transação na hora e confirma no servidor em segundo plano.
+   * Deu certo: sai da lista de vez. Deu erro: volta como estava, com o aviso.
+   */
+  const runOptimistic = React.useCallback(
+    async (transactionId: string, run: () => Promise<Result>) => {
+      setOculta(transactionId, true)
+      let response: Result
+      try {
+        response = await run()
+      } catch {
+        response = { ok: false, error: "Não foi possível concluir. Tente novamente." }
+      }
+      if (response.ok) {
+        setTransacoes((prev) => prev.filter((t) => t.id !== transactionId))
+      } else {
+        toast.error(response.error)
+      }
+      setOculta(transactionId, false)
+    },
+    [setOculta],
+  )
+
+  const removerTransacao = React.useCallback(
+    (id: string) => runOptimistic(id, () => deleteBankTransactionAction(id)),
+    [runOptimistic],
+  )
 
   const modalTransaction = transacoes.find((t) => t.id === modalTransactionId) ?? null
 
@@ -208,22 +245,23 @@ export function ReconciliationView({
             {visiveis.map((transacao) => (
               <ReconciliationRow
                 key={transacao.id}
+                hidden={ocultas.has(transacao.id)}
                 transacao={transacao}
                 info={matchInfo[transacao.id]}
                 bankAccountId={bankAccountId}
                 bankAccounts={bankAccounts}
                 contacts={contacts}
                 categories={categories}
-                onReconciled={removeReconciled}
+                onReconcile={runOptimistic}
                 onRemove={removerTransacao}
                 onOpenModal={setModalTransactionId}
                 onContactCreated={addContact}
                 onCategoryCreated={addCategory}
               />
             ))}
-            {visiveis.length === 0 && (
+            {!algumaVisivel && (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {transacoes.length === 0
+                {transacoes.length === ocultas.size
                   ? "Nenhuma transação pendente de conciliação."
                   : "Nenhum lançamento encontrado para os filtros selecionados."}
               </p>
@@ -266,32 +304,33 @@ const emptyQuickForm = (): QuickForm => ({
  * (cada card tem seus seletores de contato/categoria, que pesam).
  */
 const ReconciliationRow = React.memo(function ReconciliationRow({
+  hidden,
   transacao,
   info,
   bankAccountId,
   bankAccounts,
   contacts,
   categories,
-  onReconciled,
+  onReconcile,
   onRemove,
   onOpenModal,
   onContactCreated,
   onCategoryCreated,
 }: {
+  hidden: boolean
   transacao: BankTransaction
   info: TransactionMatchInfo | undefined
   bankAccountId: string
   bankAccounts: BankAccount[]
   contacts: Contact[]
   categories: Category[]
-  onReconciled: (transactionId: string) => void
+  onReconcile: (transactionId: string, run: () => Promise<Result>) => void
   onRemove: (transactionId: string) => void
   onOpenModal: (transactionId: string) => void
   onContactCreated: (contact: Contact) => void
   onCategoryCreated: (category: Category) => void
 }) {
   const [quickForm, setQuickForm] = React.useState(emptyQuickForm)
-  const [isPending, setIsPending] = React.useState(false)
   // Desvincular a sugestão só vale nesta tela: libera o formulário rápido e o
   // "Buscar / Criar Vários" para escolher outro lançamento. Recarregar a
   // conciliação sugere de novo.
@@ -305,39 +344,31 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
     setQuickForm((prev) => ({ ...prev, ...patch }))
   }
 
-  async function confirmSuggestion(entryId: string) {
-    setIsPending(true)
-    const response = await createSettlementAction({
-      entryId,
-      bankTransactionId: transacao.id,
-      settledAmount: Math.abs(transacao.amount),
-      settledAt: transacao.date,
-    })
-    setIsPending(false)
-    if (response.ok) onReconciled(transacao.id)
-    else toast.error(response.error)
+  function confirmSuggestion(entryId: string) {
+    onReconcile(transacao.id, () =>
+      createSettlementAction({
+        entryId,
+        bankTransactionId: transacao.id,
+        settledAmount: Math.abs(transacao.amount),
+        settledAt: transacao.date,
+      }),
+    )
   }
 
-  async function confirmTransfer() {
-    if (!quickForm.transferAccountId) return
-
-    setIsPending(true)
-    const response = await createAndSettleTransferAction({
-      bankTransactionId: transacao.id,
-      counterpartBankAccountId: quickForm.transferAccountId,
-    })
-    setIsPending(false)
-    if (response.ok) onReconciled(transacao.id)
-    else toast.error(response.error)
+  function confirmTransfer() {
+    const counterpartBankAccountId = quickForm.transferAccountId
+    if (!counterpartBankAccountId) return
+    onReconcile(transacao.id, () =>
+      createAndSettleTransferAction({ bankTransactionId: transacao.id, counterpartBankAccountId }),
+    )
   }
 
-  async function confirmQuickEntry() {
+  function confirmQuickEntry() {
     if (quickForm.mode === "transferencia") return confirmTransfer()
     if (!quickForm.contactId || !quickForm.categoryId || !quickForm.description.trim()) return
 
-    setIsPending(true)
     const action = direction === "PAYABLE" ? createAndSettlePayableAction : createAndSettleReceivableAction
-    const response = await action({
+    const input = {
       contactId: quickForm.contactId,
       categoryId: quickForm.categoryId,
       bankAccountId,
@@ -345,14 +376,12 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
       bankTransactionId: transacao.id,
       settledAmount: Math.abs(transacao.amount),
       settledAt: transacao.date,
-    })
-    setIsPending(false)
-    if (response.ok) onReconciled(transacao.id)
-    else toast.error(response.error)
+    }
+    onReconcile(transacao.id, () => action(input))
   }
 
   return (
-    <div className="flex items-stretch overflow-hidden rounded-lg border bg-card">
+    <div className={cn("flex items-stretch overflow-hidden rounded-lg border bg-card", hidden && "hidden")}>
       <div className="flex flex-1 flex-col justify-between gap-3 p-4">
         <div className="flex items-start gap-3">
           <span
@@ -508,7 +537,7 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
         <button
           type="button"
           disabled={
-            isPending ||
+            hidden ||
             (!suggestion &&
               (quickForm.mode === "transferencia"
                 ? !quickForm.transferAccountId
@@ -517,15 +546,10 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
           onClick={() =>
             suggestion ? confirmSuggestion(suggestion.id) : confirmQuickEntry()
           }
-          aria-busy={isPending}
-          aria-label={isPending ? "Conciliando" : "Conciliar"}
-          className={cn(
-            "flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 transition-colors hover:bg-emerald-500/25 disabled:opacity-40",
-            // Enquanto concilia o botão fica desabilitado, mas o spinner não deve sumir no opacity-40.
-            isPending && "disabled:opacity-100",
-          )}
+          aria-label="Conciliar"
+          className="flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 transition-colors hover:bg-emerald-500/25 disabled:opacity-40"
         >
-          {isPending ? <Loader2Icon className="size-4 animate-spin" /> : <CheckIcon className="size-4" />}
+          <CheckIcon className="size-4" />
         </button>
       </div>
     </div>
