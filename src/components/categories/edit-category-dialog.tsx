@@ -52,7 +52,9 @@ export function EditCategoryDialog({ id, name }: { id: string; name: string }) {
           <div className="flex flex-col gap-3 py-2">
             <div className="space-y-1.5">
               <Label htmlFor={`name-${id}`}>Nome</Label>
-              <Input id={`name-${id}`} name="name" defaultValue={name} required />
+              {/* key: depois de salvar, o nome novo chega com o dialog ainda montado (animação de saída);
+                  remontar evita trocar o defaultValue de um input não controlado. */}
+              <Input key={name} id={`name-${id}`} name="name" defaultValue={name} required />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>

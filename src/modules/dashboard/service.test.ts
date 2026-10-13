@@ -5,7 +5,8 @@ import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@
 import { createExpense } from "@/modules/expenses/service"
 import { generateInstallments } from "@/modules/sales/domain"
 import { createSale } from "@/modules/sales/service"
-import { getPayablesSummary, getReceivablesSummary } from "./service"
+import { createAndSettleTransfer } from "@/modules/settlements/service"
+import { getOverview, getPayablesSummary, getReceivablesSummary } from "./service"
 
 let org: TestOrg
 let expenseCategoryId: string
@@ -89,5 +90,43 @@ describe("getPayablesSummary", () => {
     const summary = await getPayablesSummary(org.id)
     const allItems = [...summary.buckets.vencido.itens, ...summary.buckets.venceHoje.itens, ...summary.buckets.aVencer.itens]
     expect(allItems.some((item) => item.descricao === "Venda dashboard")).toBe(false)
+  })
+})
+
+describe("getOverview", () => {
+  it("leaves transfers out of the cash flow, and they don't move the consolidated balance", async () => {
+    const counterpart = await prismaAdmin.bankAccount.create({
+      data: {
+        organizationId: org.id,
+        name: "Conta contrária dashboard",
+        bank: "Banco de teste",
+        branchNumber: "",
+        accountNumber: `dashboard-contraria-${Date.now()}`,
+        holderType: "COMPANY",
+        controlStartDate: new Date(2026, 7, 1),
+      },
+    })
+    const before = await getOverview(org.id)
+    const totalBefore = before.accounts.reduce((sum, account) => sum + account.balance, 0)
+
+    const bankImport = await prismaAdmin.import.create({
+      data: { organizationId: org.id, bankAccountId: org.bankAccountId, fileName: "dashboard.ofx" },
+    })
+    const outgoing = await prismaAdmin.bankTransaction.create({
+      data: {
+        organizationId: org.id,
+        bankAccountId: org.bankAccountId,
+        importId: bankImport.id,
+        bankReference: `ref-dashboard-${Date.now()}`,
+        date: new Date(Date.UTC(2026, 8, 3)),
+        amount: -6_000,
+        description: "Pix enviado",
+      },
+    })
+    await createAndSettleTransfer(org.id, { bankTransactionId: outgoing.id, counterpartBankAccountId: counterpart.id })
+
+    const after = await getOverview(org.id)
+    expect(after.realizedByDay.find((day) => day.day === "2026-09-03")).toBeUndefined()
+    expect(after.accounts.reduce((sum, account) => sum + account.balance, 0)).toBe(totalBefore)
   })
 })

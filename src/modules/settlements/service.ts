@@ -11,7 +11,7 @@ import type {
   ManualSettleInput,
   SearchCandidateEntriesInput,
 } from "./schema"
-import type { CandidateEntry, MatchedSettlement, SettlementReceipt, TransactionMatchInfo } from "./types"
+import type { CandidateEntry, MatchedSettlement, SettlementReceipt, TransactionMatchInfo, TransferDetail } from "./types"
 
 async function loadEntry(tx: Tx, entryId: string) {
   const entry = await tx.entry.findUnique({ where: { id: entryId } })
@@ -515,6 +515,69 @@ export async function createAndSettleTransfer(organizationId: string, input: Cre
       settledAmount: amount,
       settledAt: transaction.date,
     })
+  })
+}
+
+/** As duas pernas de uma transferência, a partir de qualquer uma delas. */
+async function loadTransferLegs(tx: Tx, entryId: string) {
+  const entry = await tx.entry.findUnique({ where: { id: entryId }, include: { transferPairOf: true } })
+  if (!entry || entry.type !== "TRANSFER") throw new NotFound("Transferência")
+  const pairId = entry.transferPairId ?? entry.transferPairOf?.id
+  return tx.entry.findMany({
+    where: { id: { in: [entry.id, ...(pairId ? [pairId] : [])] } },
+    include: { bankAccount: true, settlements: { include: { bankTransaction: true } } },
+  })
+}
+
+/** O painel "Transferência" do extrato: origem primeiro, depois destino. */
+export async function getTransfer(organizationId: string, entryId: string): Promise<TransferDetail> {
+  return withOrganization(organizationId, async (tx) => {
+    const legs = await loadTransferLegs(tx, entryId)
+    const sorted = [...legs].sort((a, b) => (a.transferDirection === "OUT" ? -1 : b.transferDirection === "OUT" ? 1 : 0))
+    return {
+      description: legs[0].description,
+      legs: sorted.map((leg) => ({
+        entryId: leg.id,
+        bankAccountName: leg.bankAccount?.name ?? "",
+        direction: leg.transferDirection ?? "IN",
+        date: fromDbDate(leg.dueDate),
+        amount: leg.transferDirection === "OUT" ? -leg.amount : leg.amount,
+        reconciled: leg.status === "SETTLED",
+        bankTransactions: leg.settlements.flatMap((settlement) =>
+          settlement.bankTransaction
+            ? [
+                {
+                  id: settlement.bankTransaction.id,
+                  description: settlement.bankTransaction.description,
+                  date: fromDbDate(settlement.bankTransaction.date),
+                  amount: settlement.bankTransaction.amount,
+                },
+              ]
+            : [],
+        ),
+      })),
+    }
+  })
+}
+
+/**
+ * Excluir a transferência pelo painel: some das duas contas, mesmo com uma
+ * perna já conciliada — a transação bancária dela volta a PENDING e
+ * reaparece na tela de conciliação.
+ */
+export async function deleteTransfer(organizationId: string, entryId: string): Promise<void> {
+  await withOrganization(organizationId, async (tx) => {
+    const legIds = (await loadTransferLegs(tx, entryId)).map((leg) => leg.id)
+    const settlements = await tx.settlement.findMany({ where: { entryId: { in: legIds } } })
+    const bankTransactionIds = new Set(settlements.map((s) => s.bankTransactionId).filter((id): id is string => id !== null))
+
+    await tx.settlement.deleteMany({ where: { entryId: { in: legIds } } })
+    // A perna OUT referencia a IN — solta o vínculo antes de apagar as duas.
+    await tx.entry.updateMany({ where: { id: { in: legIds } }, data: { transferPairId: null } })
+    await tx.entry.deleteMany({ where: { id: { in: legIds } } })
+    for (const bankTransactionId of bankTransactionIds) {
+      await reconcileBankTransactionStatus(tx, bankTransactionId)
+    }
   })
 }
 

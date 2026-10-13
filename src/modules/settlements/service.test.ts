@@ -8,6 +8,8 @@ import { BusinessError, NotFound } from "@/shared/errors"
 import {
   createAndSettlePayable,
   createAndSettleTransfer,
+  deleteTransfer,
+  getTransfer,
   createSettlement,
   createSettlementBatch,
   getMatchInfoForTransactions,
@@ -490,6 +492,46 @@ describe("createAndSettleTransfer", () => {
     await undoBankTransactionReconciliation(org.id, transaction.id)
 
     expect(await prismaAdmin.entry.count({ where: { id: { in: [leg.id, leg.transferPairId!] } } })).toBe(0)
+    expect((await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: transaction.id } })).status).toBe("PENDING")
+  })
+
+  it("getTransfer lists the origin first and which leg is reconciled, from either leg", async () => {
+    const transaction = await createBankTransaction(-4_000, new Date(2026, 7, 15))
+    await createAndSettleTransfer(org.id, { bankTransactionId: transaction.id, counterpartBankAccountId: savingsAccountId })
+    const settlement = await prismaAdmin.settlement.findFirstOrThrow({ where: { bankTransactionId: transaction.id }, include: { entry: true } })
+
+    const expected = {
+      description: "Transferência de Test Bank Account para Poupança",
+      legs: [
+        {
+          bankAccountName: "Test Bank Account",
+          direction: "OUT",
+          amount: -4_000,
+          reconciled: true,
+          bankTransactions: [{ id: transaction.id, description: transaction.description, amount: -4_000 }],
+        },
+        { bankAccountName: "Poupança", direction: "IN", amount: 4_000, reconciled: false, bankTransactions: [] },
+      ],
+    }
+    expect(await getTransfer(org.id, settlement.entryId)).toMatchObject(expected)
+    expect(await getTransfer(org.id, settlement.entry.transferPairId!)).toMatchObject(expected)
+  })
+
+  it("getTransfer rejects an entry that isn't a transfer", async () => {
+    const { entry } = await createReceivableEntry(1_000)
+    await expect(getTransfer(org.id, entry.id)).rejects.toBeInstanceOf(NotFound)
+  })
+
+  it("deleteTransfer removes both legs, even with one reconciled, and frees the bank transaction", async () => {
+    const transaction = await createBankTransaction(-5_000)
+    await createAndSettleTransfer(org.id, { bankTransactionId: transaction.id, counterpartBankAccountId: savingsAccountId })
+    const settlement = await prismaAdmin.settlement.findFirstOrThrow({ where: { bankTransactionId: transaction.id }, include: { entry: true } })
+
+    // Pela perna IN (a não conciliada) também apaga as duas.
+    await deleteTransfer(org.id, settlement.entry.transferPairId!)
+
+    expect(await prismaAdmin.entry.count({ where: { id: { in: [settlement.entryId, settlement.entry.transferPairId!] } } })).toBe(0)
+    expect(await prismaAdmin.settlement.count({ where: { bankTransactionId: transaction.id } })).toBe(0)
     expect((await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: transaction.id } })).status).toBe("PENDING")
   })
 })

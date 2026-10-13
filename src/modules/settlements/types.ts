@@ -53,3 +53,21 @@ export interface SettlementReceipt {
   categoryName: string
   installment: string | null
 }
+
+// O painel "Transferência" (RN-15): as duas pernas, cada uma na sua conta.
+export interface TransferLeg {
+  entryId: string
+  bankAccountName: string
+  direction: "OUT" | "IN"
+  date: Date
+  // Com sinal: negativo na saída (origem), positivo na entrada (destino).
+  amount: number
+  reconciled: boolean
+  // As transações do extrato com que esta perna foi conciliada.
+  bankTransactions: { id: string; description: string; date: Date; amount: number }[]
+}
+
+export interface TransferDetail {
+  description: string
+  legs: TransferLeg[]
+}

@@ -15,18 +15,33 @@ export interface BankAccount {
 }
 
 export interface BankAccountOverview extends BankAccount {
-  // initialBalance + soma das BankTransaction RECONCILED da conta.
+  // initialBalance + soma das BankTransaction RECONCILED da conta + pernas de
+  // transferência ainda não conciliadas.
   currentBalance: number
   pendingCount: number
 }
 
+export interface BankAccountStatementEntry {
+  entryId: string
+  entryType: "RECEIVABLE" | "PAYABLE" | "TRANSFER"
+  // "Transferência" quando é perna de transferência (sem contato).
+  contactName: string
+  description: string
+}
+
 export interface BankAccountStatementLine {
-  bankTransactionId: string
+  // bankTransactionId, ou o id da perna de transferência ainda não conciliada.
+  id: string
+  // Nulo na perna de transferência que ainda espera o extrato desta conta.
+  bankTransactionId: string | null
   date: Date
   description: string
   amount: number
   runningBalance: number
-  settledEntries: { entryId: string; contactName: string; description: string }[]
+  // Os lançamentos da linha — o que o extrato mostra no lugar da descrição do
+  // banco, e o que abre a Sheet ao clicar. Na transação conciliada, os que ela
+  // quitou (vários na quitação múltipla); na perna pendente, ela mesma.
+  entries: BankAccountStatementEntry[]
 }
 
 export interface BankAccountStatement {

@@ -3,13 +3,18 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeftIcon, ChevronRightIcon, UnlinkIcon } from "lucide-react"
+import { ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, UnlinkIcon } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
+import { toast } from "sonner"
 
 import {
   getBankAccountStatementAction,
   undoBankTransactionReconciliationAction,
 } from "@/app/o/[orgId]/(app)/reconciliation/actions"
+import { getAccountEntryAction } from "@/app/o/[orgId]/(app)/payout/actions"
+import { EntryDetailSheet } from "@/components/accounts/entry-detail-sheet"
+import { BankAccountStatementSkeleton } from "@/components/page-skeletons"
+import { TransferSheet } from "@/components/reconciliation/transfer-sheet"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -24,7 +29,13 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { balanceAxisScale } from "@/lib/chart-scale"
 import { cn } from "@/lib/utils"
 import { formatBankAccountNumbers, formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
-import type { BankAccountOverview, BankAccountStatement, BankAccountStatementLine } from "@/modules/bank-accounts/types"
+import type { AccountEntry } from "@/modules/accounts/types"
+import type {
+  BankAccountOverview,
+  BankAccountStatement,
+  BankAccountStatementEntry,
+  BankAccountStatementLine,
+} from "@/modules/bank-accounts/types"
 import { useOrgPath } from "@/hooks/use-org-path"
 
 const chartConfig = {
@@ -66,6 +77,8 @@ export function BankAccountsWorkspace({
   const [unreconciling, setUnreconciling] = React.useState<BankAccountStatementLine | null>(null)
   const [unreconcilePending, setUnreconcilePending] = React.useState(false)
   const [unreconcileError, setUnreconcileError] = React.useState<string | null>(null)
+  const [openTransferId, setOpenTransferId] = React.useState<string | null>(null)
+  const [detailEntry, setDetailEntry] = React.useState<AccountEntry | null>(null)
 
   const selectedAccount = React.useMemo(() => accounts.find((a) => a.id === selectedId) ?? null, [accounts, selectedId])
 
@@ -86,7 +99,7 @@ export function BankAccountsWorkspace({
   // A transação sai do extrato e volta para a tela de conciliação; os
   // lançamentos que ela quitava voltam a ficar em aberto.
   async function confirmUnreconcile() {
-    if (!unreconciling) return
+    if (!unreconciling?.bankTransactionId) return
     setUnreconcilePending(true)
     setUnreconcileError(null)
     const result = await undoBankTransactionReconciliationAction(unreconciling.bankTransactionId)
@@ -95,12 +108,42 @@ export function BankAccountsWorkspace({
       setUnreconcileError(result.error)
       return
     }
-    const response = await getBankAccountStatementAction(selectedId)
-    if (response.ok) setStatement(response.data)
-    // Saldo e "conciliações pendentes" da lista de contas vêm do servidor.
-    router.refresh()
+    await reloadStatement()
     setUnreconcilePending(false)
     setUnreconciling(null)
+  }
+
+  async function reloadStatement() {
+    const response = await getBankAccountStatementAction(selectedId)
+    if (response.ok) setStatement(response.data)
+    // Saldo das contas na lista lateral vem do servidor.
+    router.refresh()
+  }
+
+  // Excluída a transferência, ela sai das duas contas — o extrato da outra,
+  // se já carregado, fica velho; recarrega quando for selecionada de novo.
+  async function handleTransferDeleted() {
+    setOpenTransferId(null)
+    loadedForAccount.current = selectedId
+    await reloadStatement()
+  }
+
+  // Transferência abre o painel das duas pernas; recebimento/pagamento, a
+  // mesma Sheet de Contas a receber/pagar, só leitura.
+  async function openEntry(entry: BankAccountStatementEntry) {
+    if (entry.entryType === "TRANSFER") {
+      setOpenTransferId(entry.entryId)
+      return
+    }
+    const response = await getAccountEntryAction(entry.entryId)
+    if (response.ok) setDetailEntry(response.data)
+    else toast.error(response.error)
+  }
+
+  // A Sheet pode estornar ou dar baixa — o extrato e os saldos recarregam ao fechar.
+  function closeEntryDetail() {
+    setDetailEntry(null)
+    void reloadStatement()
   }
 
   function shiftMonth(delta: number) {
@@ -232,7 +275,7 @@ export function BankAccountsWorkspace({
             </div>
 
             {loading ? (
-              <p className="py-16 text-center text-sm text-muted-foreground">Carregando...</p>
+              <BankAccountStatementSkeleton />
             ) : (
               <>
                 <Card className="py-0">
@@ -307,8 +350,9 @@ export function BankAccountsWorkspace({
                 </div>
 
                 <div className="rounded-lg border">
-                  <div className="grid grid-cols-[120px_1fr_140px_140px_28px] gap-4 border-b px-4 py-3 text-sm font-medium text-muted-foreground">
+                  <div className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] gap-4 border-b px-4 py-3 text-sm font-medium text-muted-foreground">
                     <div>Data</div>
+                    <div />
                     <div>Descrição</div>
                     <div className="text-right">Valor</div>
                     <div className="text-right">Saldo</div>
@@ -316,38 +360,62 @@ export function BankAccountsWorkspace({
                   </div>
                   <div className="divide-y">
                     {[...filteredLines].reverse().map((line) => (
-                      <div key={line.bankTransactionId} className="grid grid-cols-[120px_1fr_140px_140px_28px] items-center gap-4 px-4 py-3">
+                      <div key={line.id} className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 px-4 py-3">
                         <div className="text-sm text-muted-foreground">{formatDate(line.date)}</div>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{line.description}</p>
-                          {line.settledEntries.length > 0 && (
-                            <p className="truncate text-xs text-muted-foreground">
-                              {line.settledEntries.map((entry) => `${entry.contactName} — ${entry.description}`).join(" · ")}
-                            </p>
+                        {/* Sem ✓: perna de transferência esperando o extrato desta conta. */}
+                        <div>
+                          {line.bankTransactionId && (
+                            <CircleCheckIcon className="size-4 text-sky-600" aria-label="Conciliada">
+                              <title>Conciliada</title>
+                            </CircleCheckIcon>
                           )}
+                        </div>
+                        <div className="min-w-0">
+                          {/* O lançamento, não a descrição importada do banco — cada um abre a sua Sheet. */}
+                          <p className="truncate text-sm font-medium">
+                            {line.entries.map((entry, index) => (
+                              <React.Fragment key={entry.entryId}>
+                                {index > 0 && <span className="text-muted-foreground"> · </span>}
+                                <button
+                                  type="button"
+                                  className="text-left text-sky-700 hover:underline dark:text-sky-400"
+                                  onClick={() => openEntry(entry)}
+                                >
+                                  {entry.description}
+                                </button>
+                              </React.Fragment>
+                            ))}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {[...new Set(line.entries.map((entry) => entry.contactName))].join(", ")}
+                          </p>
                         </div>
                         <div className={cn("text-right text-sm font-semibold", line.amount >= 0 ? "text-emerald-500" : "text-red-500")}>
                           {line.amount >= 0 ? "" : "- "}
                           {formatBRL(Math.abs(line.amount))}
                         </div>
                         <div className="text-right text-sm font-medium">{formatBRL(line.runningBalance)}</div>
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          aria-label="Desconciliar"
-                          title="Desconciliar"
-                          onClick={() => {
-                            setUnreconcileError(null)
-                            setUnreconciling(line)
-                          }}
-                        >
-                          <UnlinkIcon />
-                        </Button>
+                        {line.bankTransactionId ? (
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            aria-label="Desconciliar"
+                            title="Desconciliar"
+                            onClick={() => {
+                              setUnreconcileError(null)
+                              setUnreconciling(line)
+                            }}
+                          >
+                            <UnlinkIcon />
+                          </Button>
+                        ) : (
+                          <div />
+                        )}
                       </div>
                     ))}
                     {filteredLines.length === 0 && (
                       <p className="py-8 text-center text-sm text-muted-foreground">
-                        Nenhuma transação conciliada neste mês.
+                        Nenhuma movimentação neste mês.
                       </p>
                     )}
                   </div>
@@ -358,20 +426,33 @@ export function BankAccountsWorkspace({
         )}
       </div>
 
+      <EntryDetailSheet
+        entry={detailEntry}
+        kind={detailEntry?.kind ?? "rec"}
+        open={detailEntry !== null}
+        onOpenChange={(open) => !open && closeEntryDetail()}
+      />
+
+      <TransferSheet
+        entryId={openTransferId}
+        onOpenChange={(open) => !open && setOpenTransferId(null)}
+        onDeleted={handleTransferDeleted}
+      />
+
       <Dialog open={unreconciling !== null} onOpenChange={(open) => !open && !unreconcilePending && setUnreconciling(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Desconciliar transação?</DialogTitle>
             <DialogDescription>
-              “{unreconciling?.description}” volta para a tela de conciliação da conta, e{" "}
-              {unreconciling?.settledEntries.length === 1
+              A transação volta para a tela de conciliação da conta, e{" "}
+              {unreconciling?.entries.length === 1
                 ? "o lançamento vinculado volta a ficar em aberto."
                 : "os lançamentos vinculados voltam a ficar em aberto."}
             </DialogDescription>
           </DialogHeader>
-          {unreconciling && unreconciling.settledEntries.length > 0 && (
+          {unreconciling && unreconciling.entries.length > 0 && (
             <ul className="space-y-1 text-sm">
-              {unreconciling.settledEntries.map((entry) => (
+              {unreconciling.entries.map((entry) => (
                 <li key={entry.entryId} className="truncate">
                   {entry.contactName} — <span className="text-muted-foreground">{entry.description}</span>
                 </li>
