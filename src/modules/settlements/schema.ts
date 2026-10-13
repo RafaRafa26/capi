@@ -65,3 +65,11 @@ export const createAndSettlePayableInputSchema = z.object({
   settledAt: z.coerce.date(),
 })
 export type CreateAndSettlePayableInput = z.infer<typeof createAndSettlePayableInputSchema>
+
+// Transferência pela conciliação (RN-15): valor e data são os da própria
+// transação bancária — só a conta contrária vem do usuário.
+export const createAndSettleTransferInputSchema = z.object({
+  bankTransactionId: z.string().min(1),
+  counterpartBankAccountId: z.string().min(1, "Selecione a conta."),
+})
+export type CreateAndSettleTransferInput = z.infer<typeof createAndSettleTransferInputSchema>

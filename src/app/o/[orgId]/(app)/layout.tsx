@@ -1,5 +1,3 @@
-import { cookies } from "next/headers";
-
 import { AppSidebar } from "@/components/app-sidebar";
 import { HideValuesButton, HideValuesProvider } from "@/components/overview/hide-values";
 import { PageTitle } from "@/components/page-title";
@@ -7,7 +5,6 @@ import { RegisterMenu } from "@/components/register-menu";
 import { RememberOrganization } from "@/components/remember-organization";
 import { Separator } from "@/components/ui/separator";
 import {
-  SIDEBAR_COOKIE_NAME,
   SidebarInset,
   SidebarProvider,
   SidebarTrigger,
@@ -19,13 +16,13 @@ import { listUserOrganizations } from "@/modules/organizations/service";
 
 export default async function AppLayout({ children }: LayoutProps<"/o/[orgId]">) {
   const session = await requireSessionOrRedirect();
-  const [organizations, jar] = await Promise.all([listUserOrganizations(session.userId), cookies()]);
-  const sidebarState = jar.get(SIDEBAR_COOKIE_NAME)?.value;
+  const organizations = await listUserOrganizations(session.userId);
 
   return (
     <TooltipProvider>
       <RememberOrganization organizationId={session.organizationId} />
-      <SidebarProvider defaultOpen={sidebarState !== "false"} className="h-svh overflow-hidden">
+      {/* Sempre começa recolhida (só os ícones); o usuário expande quando quiser. */}
+      <SidebarProvider defaultOpen={false} className="h-svh overflow-hidden">
         <AppSidebar
           organizationId={session.organizationId}
           organizations={organizations}

@@ -13,7 +13,7 @@ async function summarize(tx: Tx, type: "RECEIVABLE" | "PAYABLE"): Promise<Resumo
   })
 
   const bucketable: BucketableEntry[] = entries.map((entry) => ({
-    contactName: entry.contact.name,
+    contactName: entry.contact?.name ?? "",
     description: entry.description,
     dueDate: fromDbDate(entry.dueDate),
     amount: entry.amount,
@@ -45,7 +45,7 @@ export interface OverviewData {
   payables: ResumoLancamentos
   pendingReconciliationCount: number
   beneficiariesWithBalanceCount: number
-  /** Reconciled bank movements per day (active accounts), from Jan 1st of last year on. */
+  /** Reconciled bank movements per day (active accounts, transfers left out), from Jan 1st of last year on. */
   realizedByDay: DailyAmount[]
 }
 
@@ -60,9 +60,17 @@ export async function getOverview(organizationId: string): Promise<OverviewData>
     getPayablesSummary(organizationId),
     getPayoutSummary(organizationId),
     withOrganization(organizationId, async (tx) => {
+      // Transferência (RN-15) só troca dinheiro de conta — fica fora do fluxo,
+      // que é receita e despesa. O saldo consolidado já a anula (as duas
+      // pernas, conciliadas ou não, somam zero).
       const realized = await tx.bankTransaction.groupBy({
         by: ["date"],
-        where: { status: "RECONCILED", date: { gte: realizedSince }, bankAccount: { active: true } },
+        where: {
+          status: "RECONCILED",
+          date: { gte: realizedSince },
+          bankAccount: { active: true },
+          settlements: { none: { entry: { type: "TRANSFER" } } },
+        },
         _sum: { amount: true },
       })
       return { realized }

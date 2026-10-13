@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { prismaAdmin } from "@/db/client"
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment"
-import { createSettlement } from "@/modules/settlements/service"
+import { createAndSettleTransfer, createSettlement } from "@/modules/settlements/service"
 import { bankAccountInputSchema } from "./schema"
 import { createBankAccount, getBankAccount, getBankAccountStatement, getBankAccountsOverview, updateBankAccount } from "./service"
 
@@ -113,7 +113,7 @@ describe("getBankAccountsOverview", () => {
 })
 
 describe("getBankAccountStatement", () => {
-  it("lists only reconciled transactions, in chronological order, with a running balance", async () => {
+  it("lists reconciled transactions, in chronological order, with a running balance", async () => {
     const statement = await getBankAccountStatement(org.id, accountId)
 
     expect(statement.lines).toHaveLength(2)
@@ -130,9 +130,92 @@ describe("getBankAccountStatement", () => {
   it("says which lançamento each transaction settled", async () => {
     const statement = await getBankAccountStatement(org.id, accountId)
 
-    expect(statement.lines[0].settledEntries).toHaveLength(1)
-    expect(statement.lines[0].settledEntries[0].contactName).toBe("Test Contact")
-    expect(statement.lines[0].settledEntries[0].description).toBe("Lançamento RECEIVABLE")
+    expect(statement.lines[0].entries).toEqual([
+      expect.objectContaining({ entryType: "RECEIVABLE", contactName: "Test Contact", description: "Lançamento RECEIVABLE" }),
+    ])
+  })
+})
+
+describe("pending transfer leg (RN-15)", () => {
+  let counterpartId: string
+  let counterpartBalanceBefore: number
+
+  beforeAll(async () => {
+    const counterpart = await prismaAdmin.bankAccount.create({
+      data: {
+        organizationId: org.id,
+        name: "Conta contrária",
+        bank: "Banco de teste",
+        branchNumber: "",
+        accountNumber: `acc-contraria-${Date.now()}`,
+        holderType: "COMPANY",
+        controlStartDate: new Date(2026, 7, 1),
+        initialBalance: 0,
+      },
+    })
+    counterpartId = counterpart.id
+    counterpartBalanceBefore = (await overviewFor(accountId))!.currentBalance
+
+    // Saída da conta do extrato para a contrária, conciliada só deste lado.
+    const outgoing = await createTransaction(-8_000, new Date(2026, 7, 20))
+    await createAndSettleTransfer(org.id, { bankTransactionId: outgoing.id, counterpartBankAccountId: counterpartId })
+  })
+
+  it("shows up on the counterpart's statement, not reconciled, and counts in its balance", async () => {
+    const statement = await getBankAccountStatement(org.id, counterpartId)
+
+    expect(statement.lines).toHaveLength(1)
+    expect(statement.lines[0]).toMatchObject({
+      bankTransactionId: null,
+      amount: 8_000,
+      runningBalance: 8_000,
+      description: "Transferência de Conta do extrato para Conta contrária",
+    })
+    expect(statement.lines[0].entries).toEqual([
+      {
+        entryId: statement.lines[0].id,
+        entryType: "TRANSFER",
+        contactName: "Transferência",
+        description: "Transferência de Conta do extrato para Conta contrária",
+      },
+    ])
+    expect(statement.currentBalance).toBe(8_000)
+    expect((await overviewFor(counterpartId))?.currentBalance).toBe(8_000)
+  })
+
+  it("the reconciled leg points to its transfer on this account's statement", async () => {
+    const statement = await getBankAccountStatement(org.id, accountId)
+    const line = statement.lines.at(-1)!
+
+    expect(line.amount).toBe(-8_000)
+    expect(line.bankTransactionId).not.toBeNull()
+    expect(line.entries.map((entry) => entry.entryType)).toEqual(["TRANSFER"])
+    expect((await overviewFor(accountId))?.currentBalance).toBe(counterpartBalanceBefore - 8_000)
+  })
+
+  it("once the counterpart's statement reconciles it, the balance doesn't count it twice", async () => {
+    const [leg] = (await getBankAccountStatement(org.id, counterpartId)).lines
+    const bankImport = await prismaAdmin.import.create({
+      data: { organizationId: org.id, bankAccountId: counterpartId, fileName: "contraria.ofx" },
+    })
+    const incoming = await prismaAdmin.bankTransaction.create({
+      data: {
+        organizationId: org.id,
+        bankAccountId: counterpartId,
+        importId: bankImport.id,
+        bankReference: `ref-contraria-${Date.now()}`,
+        date: new Date(2026, 7, 20),
+        amount: 8_000,
+        description: "TED recebida",
+      },
+    })
+    await createSettlement(org.id, { entryId: leg.id, bankTransactionId: incoming.id, settledAmount: 8_000, settledAt: incoming.date })
+
+    const statement = await getBankAccountStatement(org.id, counterpartId)
+    expect(statement.lines).toHaveLength(1)
+    expect(statement.lines[0]).toMatchObject({ bankTransactionId: incoming.id, amount: 8_000 })
+    expect(statement.lines[0].entries.map((entry) => entry.entryId)).toEqual([leg.id])
+    expect((await overviewFor(counterpartId))?.currentBalance).toBe(8_000)
   })
 })
 

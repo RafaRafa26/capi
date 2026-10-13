@@ -8,6 +8,7 @@ import { getBankAccountStatement } from "@/modules/bank-accounts/service";
 import type { BankAccountStatement } from "@/modules/bank-accounts/types";
 import {
   createAndSettlePayableInputSchema,
+  createAndSettleTransferInputSchema,
   createSettlementBatchInputSchema,
   createSettlementInputSchema,
   manualSettleInputSchema,
@@ -16,14 +17,17 @@ import {
 import {
   createAndSettlePayable,
   createAndSettleReceivable,
+  createAndSettleTransfer,
   createSettlement,
   createSettlementBatch,
+  deleteTransfer,
   getMatchInfoForTransactions,
+  getTransfer,
   listCandidateEntries,
   manualSettleEntry,
   undoBankTransactionReconciliation,
 } from "@/modules/settlements/service";
-import type { CandidateEntry, TransactionMatchInfo } from "@/modules/settlements/types";
+import type { CandidateEntry, TransactionMatchInfo, TransferDetail } from "@/modules/settlements/types";
 import { importStatementInputSchema } from "@/modules/statements/schema";
 import { deleteBankTransaction, importStatement, listBankTransactions } from "@/modules/statements/service";
 import type { BankTransaction, ImportStatementResult } from "@/modules/statements/types";
@@ -192,6 +196,43 @@ export async function createAndSettleReceivableAction(input: unknown): Promise<R
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await createAndSettleReceivable(session.organizationId, parsed.data);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createAndSettleTransferAction(input: unknown): Promise<Result> {
+  try {
+    const session = await requireSession("write");
+    const parsed = createAndSettleTransferInputSchema.safeParse(input);
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return { ok: false, error: issue.message, field: String(issue.path[0]) };
+    }
+    await createAndSettleTransfer(session.organizationId, parsed.data);
+    return { ok: true, data: undefined };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function getTransferAction(entryId: string): Promise<Result<TransferDetail>> {
+  try {
+    const session = await requireSession();
+    const transfer = await getTransfer(session.organizationId, entryId);
+    return { ok: true, data: transfer };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Exclui as duas pernas da transferência; a transação conciliada volta para a tela de conciliação. */
+export async function deleteTransferAction(entryId: string): Promise<Result> {
+  try {
+    const session = await requireSession("write");
+    await deleteTransfer(session.organizationId, entryId);
+    revalidatePath(orgPath(session.organizationId, "/accounts"));
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);

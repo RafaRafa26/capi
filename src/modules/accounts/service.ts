@@ -41,7 +41,8 @@ function loadEntries(tx: Tx, where: { type?: "RECEIVABLE" | "PAYABLE"; id?: stri
   return tx.entry.findMany({
     // One query with JOINs instead of ~10 sequential ones (one per relation).
     relationLoadStrategy: "join",
-    where: { ...where, status: { not: "CANCELED" } },
+    // Transferência (RN-15) não é conta a receber/pagar — nem buscada por id.
+    where: { ...where, type: where.type ?? { in: ["RECEIVABLE", "PAYABLE"] }, status: { not: "CANCELED" } },
     include: ENTRY_INCLUDE,
     orderBy: { dueDate: "asc" },
   })
@@ -52,11 +53,11 @@ function toAccountEntry(entry: EntryWithRelations, kind: LedgerKind): AccountEnt
   return {
       id: entry.id,
       kind,
-      contactId: entry.contactId,
-      contactName: entry.contact.name,
+      contactId: entry.contactId ?? "",
+      contactName: entry.contact?.name ?? "",
       description: entry.description,
-      categoryId: entry.categoryId,
-      categoryName: entry.category.name,
+      categoryId: entry.categoryId ?? "",
+      categoryName: entry.category?.name ?? "",
       paymentMethod: paymentMethodLabel[entry.paymentMethod as PaymentMethodCode] ?? entry.paymentMethod,
       paymentMethodCode: entry.paymentMethod as PaymentMethodCode,
       bankAccountId: entry.bankAccountId,

@@ -41,17 +41,37 @@ export async function getBankAccount(organizationId: string, bankAccountId: stri
 }
 
 /**
+ * Pernas de transferência (RN-15) ainda não conciliadas — a que nasceu
+ * prevista na outra conta quando a transferência foi criada pela conciliação.
+ * Entram no extrato e no saldo (exceção da RN-21) até o extrato daquela conta
+ * chegar e conciliá-las; a partir daí quem conta é a BankTransaction.
+ * Entrada (IN) soma, saída (OUT) subtrai — só o que ainda falta conciliar.
+ */
+async function findPendingTransferLegs(tx: Tx, bankAccountIds: string[]) {
+  const legs = await tx.entry.findMany({
+    where: { type: "TRANSFER", status: { in: ["FORECAST", "PARTIAL"] }, bankAccountId: { in: bankAccountIds } },
+    orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }],
+  });
+  return legs.map((leg) => {
+    const remaining = leg.amount - (leg.settledAmount ?? 0);
+    return { ...leg, signedAmount: leg.transferDirection === "OUT" ? -remaining : remaining };
+  });
+}
+
+/**
  * Saldo de caixa (ARQUITETURA.md §2): initialBalance + a soma das
  * BankTransaction já RECONCILED daquela conta — não conta o que ainda está
  * importado mas sem conciliar (RN confirmada com o Rafael: o saldo só se
  * move quando a conciliação acontece, não só pela importação do extrato).
+ * A exceção são as pernas de transferência ainda não conciliadas, que já
+ * contam (ver findPendingTransferLegs).
  */
 export async function getBankAccountsOverview(organizationId: string): Promise<BankAccountOverview[]> {
   return withOrganization(organizationId, async (tx) => {
     const accounts = await tx.bankAccount.findMany({ where: { active: true }, select: FIELDS, orderBy: { name: "asc" } });
     if (accounts.length === 0) return [];
 
-    const [reconciledSums, pendingCounts] = await Promise.all([
+    const [reconciledSums, pendingCounts, pendingLegs] = await Promise.all([
       tx.bankTransaction.groupBy({
         by: ["bankAccountId"],
         where: { bankAccountId: { in: accounts.map((a) => a.id) }, status: "RECONCILED" },
@@ -62,9 +82,13 @@ export async function getBankAccountsOverview(organizationId: string): Promise<B
         where: { bankAccountId: { in: accounts.map((a) => a.id) }, status: "PENDING" },
         _count: { _all: true },
       }),
+      findPendingTransferLegs(tx, accounts.map((a) => a.id)),
     ]);
 
     const sumByAccount = new Map(reconciledSums.map((row) => [row.bankAccountId, row._sum.amount ?? 0]));
+    for (const leg of pendingLegs) {
+      sumByAccount.set(leg.bankAccountId!, (sumByAccount.get(leg.bankAccountId!) ?? 0) + leg.signedAmount);
+    }
     const pendingByAccount = new Map(pendingCounts.map((row) => [row.bankAccountId, row._count._all]));
 
     return accounts.map((account) => ({
@@ -75,34 +99,61 @@ export async function getBankAccountsOverview(organizationId: string): Promise<B
   });
 }
 
-/** Extrato somente-leitura de uma conta: só as transações já conciliadas, com saldo corrente. */
+/**
+ * Extrato somente-leitura de uma conta, com saldo corrente: as transações já
+ * conciliadas e as pernas de transferência que ainda esperam o extrato desta
+ * conta (sem BankTransaction — ver findPendingTransferLegs).
+ */
 export async function getBankAccountStatement(organizationId: string, bankAccountId: string): Promise<BankAccountStatement> {
   return withOrganization(organizationId, async (tx) => {
     const bankAccount = await loadBankAccount(tx, bankAccountId);
 
-    const transactions = await tx.bankTransaction.findMany({
-      where: { bankAccountId, status: "RECONCILED" },
-      include: {
-        settlements: { include: { entry: { include: { contact: true } } } },
-      },
-      orderBy: [{ date: "asc" }, { createdAt: "asc" }],
-    });
+    const [transactions, pendingLegs] = await Promise.all([
+      tx.bankTransaction.findMany({
+        where: { bankAccountId, status: "RECONCILED" },
+        include: {
+          settlements: { include: { entry: { include: { contact: true } } } },
+        },
+        orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+      }),
+      findPendingTransferLegs(tx, [bankAccountId]),
+    ]);
+
+    // createdAt só desempata o dia — não vai para a linha do extrato.
+    const rows = [
+      ...transactions.map((transaction) => ({
+        createdAt: transaction.createdAt,
+        line: {
+          id: transaction.id,
+          bankTransactionId: transaction.id as string | null,
+          date: fromDbDate(transaction.date),
+          description: transaction.description,
+          amount: transaction.amount,
+          entries: transaction.settlements.map((settlement) => ({
+            entryId: settlement.entryId,
+            entryType: settlement.entry.type,
+            contactName: settlement.entry.contact?.name ?? "Transferência",
+            description: settlement.entry.description,
+          })),
+        },
+      })),
+      ...pendingLegs.map((leg) => ({
+        createdAt: leg.createdAt,
+        line: {
+          id: leg.id,
+          bankTransactionId: null,
+          date: fromDbDate(leg.dueDate),
+          description: leg.description,
+          amount: leg.signedAmount,
+          entries: [{ entryId: leg.id, entryType: leg.type, contactName: "Transferência", description: leg.description }],
+        },
+      })),
+    ].sort((a, b) => a.line.date.getTime() - b.line.date.getTime() || a.createdAt.getTime() - b.createdAt.getTime());
 
     let runningBalance = bankAccount.initialBalance;
-    const lines = transactions.map((transaction) => {
-      runningBalance += transaction.amount;
-      return {
-        bankTransactionId: transaction.id,
-        date: fromDbDate(transaction.date),
-        description: transaction.description,
-        amount: transaction.amount,
-        runningBalance,
-        settledEntries: transaction.settlements.map((settlement) => ({
-          entryId: settlement.entryId,
-          contactName: settlement.entry.contact.name,
-          description: settlement.entry.description,
-        })),
-      };
+    const lines = rows.map(({ line }) => {
+      runningBalance += line.amount;
+      return { ...line, runningBalance };
     });
 
     return {

@@ -16,12 +16,54 @@ import { Input } from "@/components/ui/input"
 import { formatBRL, formatDate } from "@/lib/format"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
+import { netSettledAmount } from "@/modules/settlements/domain"
 import type { CandidateEntry } from "@/modules/settlements/types"
 import { cn } from "@/lib/utils"
 
+// `amount` é quanto do valor original do lançamento esta conciliação quita;
+// juros, multa e desconto (RN-03) fecham a diferença com a transação.
 interface SelectedCandidate {
   entry: CandidateEntry
   amount: number
+  interest: number
+  fine: number
+  discount: number
+}
+
+type Adjustment = "interest" | "fine" | "discount"
+
+const adjustmentLabels: Record<Adjustment, string> = {
+  interest: "Juros",
+  fine: "Multa",
+  discount: "Desconto",
+}
+
+function centsFromInput(value: string): number {
+  return Math.max(0, Math.round(Number(value) * 100) || 0)
+}
+
+function MoneyInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (cents: number) => void
+}) {
+  return (
+    <label className="flex min-w-0 flex-col gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <Input
+        type="number"
+        min={0}
+        step="0.01"
+        className="text-right"
+        value={value / 100}
+        onChange={(event) => onChange(centsFromInput(event.target.value))}
+      />
+    </label>
+  )
 }
 
 interface NewItem {
@@ -60,6 +102,7 @@ export function ReconciliationMatchModal({
   const [query, setQuery] = React.useState("")
   const [results, setResults] = React.useState<CandidateEntry[]>([])
   const [selected, setSelected] = React.useState<Record<string, SelectedCandidate>>({})
+  const [reviewing, setReviewing] = React.useState(false)
   const [items, setItems] = React.useState<NewItem[]>([
     { contactId: "", categoryId: "", description: "", amount: Math.abs(transactionAmount) },
   ])
@@ -85,14 +128,14 @@ export function ReconciliationMatchModal({
       if (next[entry.id]) {
         delete next[entry.id]
       } else {
-        next[entry.id] = { entry, amount: entry.amount - (entry.settledAmount ?? 0) }
+        next[entry.id] = { entry, amount: entry.amount - (entry.settledAmount ?? 0), interest: 0, fine: 0, discount: 0 }
       }
       return next
     })
   }
 
-  function setCandidateAmount(entryId: string, amount: number) {
-    setSelected((prev) => (prev[entryId] ? { ...prev, [entryId]: { ...prev[entryId], amount } } : prev))
+  function updateCandidate(entryId: string, patch: Partial<Omit<SelectedCandidate, "entry">>) {
+    setSelected((prev) => (prev[entryId] ? { ...prev, [entryId]: { ...prev[entryId], ...patch } } : prev))
   }
 
   function updateItem(index: number, patch: Partial<NewItem>) {
@@ -104,8 +147,9 @@ export function ReconciliationMatchModal({
   }
 
   const selectedList = Object.values(selected)
-  const sumSelected = selectedList.reduce((sum, s) => sum + s.amount, 0)
+  const sumSelected = selectedList.reduce((sum, s) => sum + netSettledAmount({ settledAmount: s.amount, ...s }), 0)
   const diffSelected = absTransactionAmount - sumSelected
+  const showReview = reviewing && selectedList.length > 0
 
   async function confirmSearch() {
     if (selectedList.length === 0) return
@@ -113,7 +157,14 @@ export function ReconciliationMatchModal({
     setError(null)
     const response = await createSettlementBatchAction({
       bankTransactionId,
-      items: selectedList.map((s) => ({ entryId: s.entry.id, settledAmount: s.amount, settledAt: new Date() })),
+      items: selectedList.map((s) => ({
+        entryId: s.entry.id,
+        settledAmount: s.amount,
+        interest: s.interest,
+        fine: s.fine,
+        discount: s.discount,
+        settledAt: new Date(),
+      })),
     })
     setPending(false)
     if (!response.ok) {
@@ -196,34 +247,58 @@ export function ReconciliationMatchModal({
 
             <div className="flex max-h-72 min-w-0 flex-col gap-2 overflow-y-auto">
               {results.map((entry) => {
-                const isSelected = Boolean(selected[entry.id])
+                const candidate = selected[entry.id]
+                const open = entry.amount - (entry.settledAmount ?? 0)
                 return (
                   <div
                     key={entry.id}
                     className={cn(
-                      "flex min-w-0 items-center justify-between gap-3 rounded-lg border p-3",
-                      isSelected && "border-primary bg-primary/5",
+                      "flex min-w-0 flex-col gap-3 rounded-lg border p-3",
+                      candidate && "border-primary bg-primary/5",
                     )}
                   >
-                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => toggleCandidate(entry)}>
-                      <p className="truncate text-sm font-medium">{entry.contactName}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {entry.description} · {formatDate(entry.dueDate)}
-                      </p>
-                    </button>
-                    {isSelected ? (
-                      <Input
-                        type="number"
-                        className="w-28 shrink-0 text-right"
-                        value={selected[entry.id].amount / 100}
-                        onChange={(event) =>
-                          setCandidateAmount(entry.id, Math.round(Number(event.target.value) * 100))
-                        }
-                      />
-                    ) : (
-                      <span className="shrink-0 text-sm font-semibold">
-                        {formatBRL(entry.amount - (entry.settledAmount ?? 0))}
-                      </span>
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => toggleCandidate(entry)}>
+                        <p className="truncate text-sm font-medium">{entry.contactName}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {entry.description} · {formatDate(entry.dueDate)}
+                        </p>
+                      </button>
+                      {candidate && !showReview ? (
+                        <Input
+                          type="number"
+                          className="w-28 shrink-0 text-right"
+                          value={candidate.amount / 100}
+                          onChange={(event) => updateCandidate(entry.id, { amount: centsFromInput(event.target.value) })}
+                        />
+                      ) : (
+                        <span className="shrink-0 text-sm font-semibold">{formatBRL(open)}</span>
+                      )}
+                    </div>
+                    {candidate && showReview && (
+                      <div className="flex flex-col gap-2 border-t pt-3">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          <MoneyInput
+                            label="Valor original"
+                            value={candidate.amount}
+                            onChange={(amount) => updateCandidate(entry.id, { amount })}
+                          />
+                          {(Object.keys(adjustmentLabels) as Adjustment[]).map((key) => (
+                            <MoneyInput
+                              key={key}
+                              label={adjustmentLabels[key]}
+                              value={candidate[key]}
+                              onChange={(cents) => updateCandidate(entry.id, { [key]: cents })}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-right text-xs text-muted-foreground">
+                          Total conciliado:{" "}
+                          <span className="font-semibold text-foreground">
+                            {formatBRL(netSettledAmount({ settledAmount: candidate.amount, ...candidate }))}
+                          </span>
+                        </p>
+                      </div>
                     )}
                   </div>
                 )
@@ -240,12 +315,22 @@ export function ReconciliationMatchModal({
                   {diffSelected === 0 ? (
                     <span className="ml-2 text-emerald-600">✓ confere com a transação</span>
                   ) : (
-                    <span className="ml-2 text-amber-600">diferença de {formatBRL(Math.abs(diffSelected))}</span>
+                    <span className="ml-2 text-amber-600">
+                      {diffSelected > 0 ? "faltam" : "sobram"} {formatBRL(Math.abs(diffSelected))}
+                    </span>
                   )}
                 </span>
-                <Button size="sm" onClick={confirmSearch} disabled={pending}>
-                  Vincular e conciliar
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {/* Valor diferente do original: juros, multa ou desconto (RN-03). */}
+                  {(diffSelected !== 0 || showReview) && (
+                    <Button size="sm" variant="outline" onClick={() => setReviewing((prev) => !prev)}>
+                      {showReview ? "Ocultar revisão" : "Revisar valores"}
+                    </Button>
+                  )}
+                  <Button size="sm" onClick={confirmSearch} disabled={pending}>
+                    Vincular e conciliar
+                  </Button>
+                </div>
               </div>
             )}
           </div>
