@@ -29,7 +29,17 @@ function createClient(url: string | undefined, name: string): PrismaClient {
   if (!url) {
     throw new Error(`${name} is not set. Copy .env.example to .env and fill in the database URLs.`);
   }
-  const pool = new pg.Pool({ connectionString: url });
+  const pool = new pg.Pool({
+    connectionString: url,
+    // pg's default closes idle connections after 10s, so a click after a short
+    // pause paid a fresh TCP + TLS + auth handshake before the first query.
+    idleTimeoutMillis: 60_000,
+    keepAlive: true,
+  });
+  // An idle connection dropped by the server (restart, pooler timeout) is
+  // emitted here; without a listener it would crash the process. The pool
+  // discards that client and opens a new one on the next query.
+  pool.on("error", (error) => console.error(`[db] idle client error (${name}):`, error.message));
   return new PrismaClient({ adapter: new PrismaPg(pool) });
 }
 
