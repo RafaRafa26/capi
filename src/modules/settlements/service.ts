@@ -55,13 +55,16 @@ async function loadBankAccount(tx: Tx, bankAccountId: string) {
   return bankAccount
 }
 
-/** Recomputes and persists an Entry's aggregate from its full Settlement history. */
-async function reconcileEntryAggregate(tx: Tx, entryId: string) {
-  const [entry, settlements] = await Promise.all([
-    tx.entry.findUniqueOrThrow({ where: { id: entryId } }),
+/**
+ * Recomputes and persists an Entry's aggregate from its full Settlement history.
+ * Pass `entryAmount` when the caller already loaded the entry, to skip re-reading it.
+ */
+async function reconcileEntryAggregate(tx: Tx, entryId: string, entryAmount?: number) {
+  const [amount, settlements] = await Promise.all([
+    entryAmount ?? tx.entry.findUniqueOrThrow({ where: { id: entryId } }).then((entry) => entry.amount),
     tx.settlement.findMany({ where: { entryId } }),
   ])
-  const aggregate = recomputeEntryAggregate(settlements, entry.amount)
+  const aggregate = recomputeEntryAggregate(settlements, amount)
   await tx.entry.update({ where: { id: entryId }, data: aggregate })
 }
 
@@ -84,10 +87,13 @@ interface InsertSettlementInput {
   discount?: number
   settledAt: Date
   note?: string
+  /** Já carregados por quem chama — evitam reler a mesma linha dentro da transação. */
+  entry?: { id: string; amount: number }
+  bankTransaction?: { id: string; amount: number }
 }
 
 async function insertSettlement(tx: Tx, organizationId: string, input: InsertSettlementInput) {
-  await loadEntry(tx, input.entryId)
+  const entry = input.entry ?? (await loadEntry(tx, input.entryId))
 
   const net = netSettledAmount({
     settledAmount: input.settledAmount,
@@ -100,7 +106,7 @@ async function insertSettlement(tx: Tx, organizationId: string, input: InsertSet
   if (input.bankTransactionId) {
     // Invariante (ARQUITETURA.md §5.2): o que se concilia numa transação, já
     // com juros, multa e desconto, nunca passa do valor dela.
-    const transaction = await loadBankTransaction(tx, input.bankTransactionId)
+    const transaction = input.bankTransaction ?? (await loadBankTransaction(tx, input.bankTransactionId))
     const existing = await tx.settlement.findMany({ where: { bankTransactionId: input.bankTransactionId } })
     const total = existing.reduce((sum, settlement) => sum + netSettledAmount(settlement), net)
     if (total > Math.abs(transaction.amount)) {
@@ -123,8 +129,11 @@ async function insertSettlement(tx: Tx, organizationId: string, input: InsertSet
     },
   })
 
-  await reconcileEntryAggregate(tx, input.entryId)
-  if (input.bankTransactionId) await reconcileBankTransactionStatus(tx, input.bankTransactionId)
+  await reconcileEntryAggregate(tx, input.entryId, entry.amount)
+  // Acabou de ganhar uma Settlement: é RECONCILED, sem precisar contar.
+  if (input.bankTransactionId) {
+    await tx.bankTransaction.update({ where: { id: input.bankTransactionId }, data: { status: "RECONCILED" } })
+  }
 }
 
 // Transferência (RN-15) não tem contato nem categoria — onde a tela mostra um
@@ -309,9 +318,9 @@ export async function createSettlement(organizationId: string, input: CreateSett
 /** Quitação múltipla (RN-07) — one bank transaction settling several entries at once. */
 export async function createSettlementBatch(organizationId: string, input: CreateSettlementBatchInput): Promise<void> {
   await withOrganization(organizationId, async (tx) => {
-    await loadBankTransaction(tx, input.bankTransactionId)
+    const bankTransaction = await loadBankTransaction(tx, input.bankTransactionId)
     for (const item of input.items) {
-      await insertSettlement(tx, organizationId, { ...item, bankTransactionId: input.bankTransactionId, origin: "STATEMENT" })
+      await insertSettlement(tx, organizationId, { ...item, bankTransactionId: input.bankTransactionId, bankTransaction, origin: "STATEMENT" })
     }
   })
 }
@@ -387,6 +396,7 @@ export async function manualSettleEntry(organizationId: string, input: ManualSet
 
     await insertSettlement(tx, organizationId, {
       entryId: input.entryId,
+      entry,
       origin: "MANUAL",
       settledAmount: input.settledAmount ?? remaining,
       settledAt: input.settledAt,
@@ -428,6 +438,8 @@ export async function createAndSettlePayable(organizationId: string, input: Crea
       origin: "STATEMENT",
       settledAmount: input.settledAmount,
       settledAt: input.settledAt,
+      entry,
+      bankTransaction: transaction,
     })
   })
 }
@@ -465,6 +477,8 @@ export async function createAndSettleReceivable(organizationId: string, input: C
       origin: "STATEMENT",
       settledAmount: input.settledAmount,
       settledAt: input.settledAt,
+      entry,
+      bankTransaction: transaction,
     })
   })
 }
@@ -514,6 +528,8 @@ export async function createAndSettleTransfer(organizationId: string, input: Cre
       origin: "STATEMENT",
       settledAmount: amount,
       settledAt: transaction.date,
+      entry: isOutgoing ? outgoing : incoming,
+      bankTransaction: transaction,
     })
   })
 }
