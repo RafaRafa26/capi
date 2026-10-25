@@ -330,8 +330,9 @@ export function ReconciliationMatchModal({
                     <div className="flex min-w-0 items-center justify-between gap-3">
                       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => toggleCandidate(entry)}>
                         <p className="truncate text-sm font-medium">{entry.contactName}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {entry.description} · {formatDate(entry.dueDate)}
+                        <p className="flex min-w-0 text-xs text-muted-foreground" title={entry.description}>
+                          <span className="truncate">{entry.description}</span>
+                          <span className="shrink-0 whitespace-pre"> · Venc. {formatDate(entry.dueDate)}</span>
                         </p>
                       </button>
                       {candidate && !showReview ? (

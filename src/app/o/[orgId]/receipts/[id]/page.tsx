@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 
 import { PrintButton } from "@/components/print-button"
 import { formatBRL, formatDate } from "@/lib/format"
+import { businessToday } from "@/lib/today"
 import { requireSessionOrRedirect } from "@/modules/auth/session"
 import { netSettledAmount } from "@/modules/settlements/domain"
 import { getSettlementReceipt } from "@/modules/settlements/service"
@@ -65,7 +66,7 @@ export default async function ReceiptPage(props: PageProps<"/o/[orgId]/receipts/
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          Documento gerado por {session.organizationName} em {formatDate(new Date())}.
+          Documento gerado por {session.organizationName} em {formatDate(businessToday())}.
         </p>
       </div>
     </div>

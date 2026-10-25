@@ -1,6 +1,7 @@
 import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
+import { businessToday } from "@/lib/today"
 import { getBankAccountsOverview } from "@/modules/bank-accounts/service"
 import { getPayoutSummary } from "@/modules/payouts/service"
 import { bucketEntries, type BucketableEntry, type DailyAmount, type ResumoLancamentos } from "./domain"
@@ -21,7 +22,7 @@ async function summarize(tx: Tx, type: "RECEIVABLE" | "PAYABLE"): Promise<Resumo
     status: entry.status,
   }))
 
-  return bucketEntries(bucketable, new Date())
+  return bucketEntries(bucketable, businessToday())
 }
 
 /** "Contas a receber" card — open RECEIVABLE entries (from Sale, avulsas). */

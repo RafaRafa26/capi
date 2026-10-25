@@ -403,8 +403,10 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex-1" title={suggestion.description}>
                 <p className="truncate text-sm font-medium">{suggestion.contactName}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {suggestion.description} · {formatDate(suggestion.dueDate)}
+                {/* Só a descrição trunca: o vencimento fica sempre visível. */}
+                <p className="flex min-w-0 text-xs text-muted-foreground">
+                  <span className="truncate">{suggestion.description}</span>
+                  <span className="shrink-0 whitespace-pre"> · Venc. {formatDate(suggestion.dueDate)}</span>
                 </p>
               </div>
               <span className="shrink-0 text-sm font-semibold">{formatBRL(suggestion.amount)}</span>
