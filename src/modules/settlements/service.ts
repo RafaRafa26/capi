@@ -157,7 +157,7 @@ function transferDirectionFor(direction: "RECEIVABLE" | "PAYABLE"): "IN" | "OUT"
   return direction === "RECEIVABLE" ? "IN" : "OUT"
 }
 
-/** For the "Buscar existente" tab — open entries of the given direction, optionally filtered by text. */
+/** For the "Buscar existente" tab — open entries of the given direction, optionally filtered by text, due date and amount. */
 export async function listCandidateEntries(
   organizationId: string,
   input: SearchCandidateEntriesInput,
@@ -173,6 +173,22 @@ export async function listCandidateEntries(
                 { description: { contains: input.query, mode: "insensitive" } },
                 { contact: { name: { contains: input.query, mode: "insensitive" } } },
               ],
+            }
+          : {}),
+        ...(input.dueFrom || input.dueTo
+          ? {
+              dueDate: {
+                ...(input.dueFrom ? { gte: new Date(`${input.dueFrom}T00:00:00Z`) } : {}),
+                ...(input.dueTo ? { lte: new Date(`${input.dueTo}T00:00:00Z`) } : {}),
+              },
+            }
+          : {}),
+        ...(input.minAmount !== undefined || input.maxAmount !== undefined
+          ? {
+              amount: {
+                ...(input.minAmount !== undefined ? { gte: input.minAmount } : {}),
+                ...(input.maxAmount !== undefined ? { lte: input.maxAmount } : {}),
+              },
             }
           : {}),
       },

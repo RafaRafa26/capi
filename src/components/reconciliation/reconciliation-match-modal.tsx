@@ -1,7 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { SearchIcon, XIcon } from "lucide-react"
+import { format, subDays } from "date-fns"
+import { ptBR } from "date-fns/locale"
+import { CalendarIcon, SearchIcon, XIcon } from "lucide-react"
+import type { DateRange } from "react-day-picker"
 
 import {
   createAndSettlePayableAction,
@@ -11,9 +14,11 @@ import {
 } from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { ReconciliationCategoryPicker, ReconciliationContactPicker } from "@/components/reconciliation/entry-pickers"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { formatBRL, formatDate } from "@/lib/format"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { formatBRL, formatDate, parseBRLInput } from "@/lib/format"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
 import { netSettledAmount } from "@/modules/settlements/domain"
@@ -66,6 +71,20 @@ function MoneyInput({
   )
 }
 
+/** Default due-date filter of the search tab: the last 7 days, today included. */
+function lastSevenDays(): DateRange {
+  const today = new Date()
+  return { from: subDays(today, 6), to: today }
+}
+
+function formatRange(range: DateRange | undefined): string {
+  if (!range?.from) return "Todas as datas"
+  if (!range.to || range.to.getTime() === range.from.getTime()) return formatDate(range.from)
+  return `${formatDate(range.from)} – ${formatDate(range.to)}`
+}
+
+const toIsoDay = (date: Date) => format(date, "yyyy-MM-dd")
+
 interface NewItem {
   contactId: string
   categoryId: string
@@ -100,6 +119,10 @@ export function ReconciliationMatchModal({
 }) {
   const [tab, setTab] = React.useState<"buscar" | "criar">("buscar")
   const [query, setQuery] = React.useState("")
+  const [dueRange, setDueRange] = React.useState<DateRange | undefined>(lastSevenDays)
+  // Text inputs ("1.234,56"); empty means no bound.
+  const [minAmount, setMinAmount] = React.useState("")
+  const [maxAmount, setMaxAmount] = React.useState("")
   const [results, setResults] = React.useState<CandidateEntry[]>([])
   const [selected, setSelected] = React.useState<Record<string, SelectedCandidate>>({})
   const [reviewing, setReviewing] = React.useState(false)
@@ -111,16 +134,27 @@ export function ReconciliationMatchModal({
 
   const absTransactionAmount = Math.abs(transactionAmount)
 
+  const dueFrom = dueRange?.from
+  const dueTo = dueRange?.to
+
   React.useEffect(() => {
     let ignore = false
-    searchCandidateEntriesAction({ type: direction, query: query.trim() || undefined }).then((response) => {
+    searchCandidateEntriesAction({
+      type: direction,
+      query: query.trim() || undefined,
+      dueFrom: dueFrom ? toIsoDay(dueFrom) : undefined,
+      // A range still being picked (only `from`) filters that single day.
+      dueTo: dueFrom ? toIsoDay(dueTo ?? dueFrom) : undefined,
+      minAmount: minAmount.trim() ? parseBRLInput(minAmount) : undefined,
+      maxAmount: maxAmount.trim() ? parseBRLInput(maxAmount) : undefined,
+    }).then((response) => {
       if (ignore) return
       if (response.ok) setResults(response.data)
     })
     return () => {
       ignore = true
     }
-  }, [open, direction, query])
+  }, [open, direction, query, dueFrom, dueTo, minAmount, maxAmount])
 
   function toggleCandidate(entry: CandidateEntry) {
     setSelected((prev) => {
@@ -245,6 +279,42 @@ export function ReconciliationMatchModal({
               />
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              <Popover>
+                <PopoverTrigger
+                  render={<Button variant="outline" className="justify-start font-normal" />}
+                >
+                  <CalendarIcon />
+                  {formatRange(dueRange)}
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="range" selected={dueRange} onSelect={setDueRange} locale={ptBR} />
+                  {dueRange?.from && (
+                    <div className="border-t p-2">
+                      <Button size="sm" variant="ghost" className="w-full" onClick={() => setDueRange(undefined)}>
+                        Todas as datas
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              <Input
+                inputMode="decimal"
+                placeholder="Valor mín."
+                className="w-28 text-right"
+                value={minAmount}
+                onChange={(event) => setMinAmount(event.target.value)}
+              />
+              <span className="text-xs text-muted-foreground">até</span>
+              <Input
+                inputMode="decimal"
+                placeholder="Valor máx."
+                className="w-28 text-right"
+                value={maxAmount}
+                onChange={(event) => setMaxAmount(event.target.value)}
+              />
+            </div>
+
             <div className="flex max-h-72 min-w-0 flex-col gap-2 overflow-y-auto">
               {results.map((entry) => {
                 const candidate = selected[entry.id]
@@ -303,7 +373,7 @@ export function ReconciliationMatchModal({
                   </div>
                 )
               })}
-              {results.length === 0 && query && (
+              {results.length === 0 && (
                 <p className="py-6 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>
               )}
             </div>
