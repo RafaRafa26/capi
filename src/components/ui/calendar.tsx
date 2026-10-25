@@ -176,8 +176,19 @@ function Calendar({
         ...components,
       }}
       {...props}
+      defaultMonth={props.defaultMonth ?? selectedMonth("selected" in props ? props.selected : undefined)}
     />
   )
+}
+
+// Opens the calendar on the month of the current selection instead of today.
+function selectedMonth(selected: unknown): Date | undefined {
+  if (selected instanceof Date) return selected
+  if (Array.isArray(selected)) return selected[0]
+  if (selected && typeof selected === "object" && "from" in selected) {
+    return (selected as { from?: Date }).from
+  }
+  return undefined
 }
 
 function CalendarDayButton({

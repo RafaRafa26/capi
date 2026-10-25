@@ -3,6 +3,7 @@ import "server-only"
 import type { NextRequest } from "next/server"
 
 import { buildAccountsReport, type AccountsReport } from "@/lib/accounts/report"
+import { businessToday } from "@/lib/today"
 import { listPayables, listReceivables } from "@/modules/accounts/service"
 import { currentSession, currentUser } from "@/modules/auth/session"
 
@@ -26,6 +27,6 @@ export async function loadAccountsReport(request: NextRequest): Promise<Accounts
     kind,
     params,
     organizationName: session.organizationName,
-    today: new Date(),
+    today: businessToday(),
   })
 }

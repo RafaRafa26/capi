@@ -353,7 +353,7 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
 
   return (
     <div className="flex items-stretch overflow-hidden rounded-lg border bg-card">
-      <div className="flex flex-1 flex-col justify-between gap-3 p-4">
+      <div className="flex min-w-0 flex-1 flex-col justify-between gap-3 p-4">
         <div className="flex items-start gap-3">
           <span
             className={cn(
@@ -387,7 +387,7 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
 
       <div className="w-px shrink-0 bg-border" />
 
-      <div className="flex min-h-38 flex-1 flex-col justify-center gap-2 p-4">
+      <div className="flex min-h-38 min-w-0 flex-1 flex-col justify-center gap-2 p-4">
         {suggestion ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
@@ -401,10 +401,12 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
               </button>
             </div>
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1" title={suggestion.description}>
                 <p className="truncate text-sm font-medium">{suggestion.contactName}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {suggestion.description} · {formatDate(suggestion.dueDate)}
+                {/* Só a descrição trunca: o vencimento fica sempre visível. */}
+                <p className="flex min-w-0 text-xs text-muted-foreground">
+                  <span className="truncate">{suggestion.description}</span>
+                  <span className="shrink-0 whitespace-pre"> · Venc. {formatDate(suggestion.dueDate)}</span>
                 </p>
               </div>
               <span className="shrink-0 text-sm font-semibold">{formatBRL(suggestion.amount)}</span>

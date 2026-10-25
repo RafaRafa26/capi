@@ -14,6 +14,7 @@ import {
   createSettlementBatch,
   getMatchInfoForTransactions,
   getSettlementReceipt,
+  listCandidateEntries,
   manualSettleEntry,
   suggestMatchesForTransaction,
   undoBankTransactionReconciliation,
@@ -126,6 +127,22 @@ async function createBankTransaction(amount: number, date = new Date(2026, 7, 10
     },
   })
 }
+
+describe("listCandidateEntries", () => {
+  it("filters open entries by due date range and amount range", async () => {
+    const { entry } = await createReceivableEntry(12_345)
+    const search = (filters: Partial<Parameters<typeof listCandidateEntries>[1]>) =>
+      listCandidateEntries(org.id, { type: "RECEIVABLE", minAmount: 12_345, maxAmount: 12_345, ...filters }).then(
+        (entries) => entries.map((e) => e.id),
+      )
+
+    expect(await search({ dueFrom: "2026-08-10", dueTo: "2026-08-10" })).toContain(entry.id)
+    expect(await search({ dueFrom: "2026-08-11" })).not.toContain(entry.id)
+    expect(await search({ dueTo: "2026-08-09" })).not.toContain(entry.id)
+    expect(await search({ minAmount: 12_346 })).not.toContain(entry.id)
+    expect(await search({ maxAmount: 12_344 })).not.toContain(entry.id)
+  })
+})
 
 describe("createSettlement", () => {
   it("settles an entry in full and marks the bank transaction RECONCILED", async () => {
