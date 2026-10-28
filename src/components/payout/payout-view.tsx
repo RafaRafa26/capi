@@ -116,7 +116,8 @@ function GerarRepasseDialog({
               {beneficiario.document ? ` — ${beneficiario.document}` : ""}
             </p>
 
-            <div className="flex flex-col gap-1">
+            {/* min-w-0: sem isso a descrição longa (truncate) alarga a coluna do grid do Dialog. */}
+            <div className="flex min-w-0 flex-col gap-1">
               <span className="text-xs text-muted-foreground">Recebimentos que compõem o saldo disponível</span>
               <ScrollArea className="h-56 pr-4">
                 <div className="divide-y">
@@ -124,8 +125,9 @@ function GerarRepasseDialog({
                     <div key={credit.settlementId} className="flex min-w-0 items-center justify-between gap-4 py-3 text-sm">
                       <div className="min-w-0">
                         <p className="truncate font-medium">{credit.payerName}</p>
-                        <p className="truncate text-muted-foreground">
-                          {credit.description} · Recebido em {formatDate(credit.settledAt)}
+                        <p className="flex min-w-0 text-muted-foreground" title={credit.description}>
+                          <span className="truncate">{credit.description}</span>
+                          <span className="shrink-0 whitespace-pre"> · Recebido em {formatDate(credit.settledAt)}</span>
                         </p>
                       </div>
                       <span className="shrink-0 font-medium">{formatBRL(credit.amount)}</span>

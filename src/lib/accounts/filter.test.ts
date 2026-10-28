@@ -213,6 +213,16 @@ describe("applyChips", () => {
     expect(applyChips(withBeneficiaries, chips).map((e) => e.description)).toEqual(["A"])
   })
 
+  it("filters by the entry's own contact (Cliente)", () => {
+    const withClients = [
+      entry({ description: "A", contactName: "Ana" }),
+      entry({ description: "B", contactName: "Bruno" }),
+      entry({ description: "C", contactName: "Ana" }),
+    ]
+    const chips: FilterChips = { client: ["Ana"] }
+    expect(applyChips(withClients, chips).map((e) => e.description)).toEqual(["A", "C"])
+  })
+
   it("excludes entries with no favorecido when the Favorecido chip is active", () => {
     const withBeneficiaries = [
       entry({ description: "A", beneficiaryNames: ["Ana"] }),

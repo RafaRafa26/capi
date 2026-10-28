@@ -180,7 +180,7 @@ export function filterBySearch<T extends { contactName: string; description: str
   )
 }
 
-export type FilterChipKey = "contact" | "category" | "paymentMethod" | "bankAccount" | "marker"
+export type FilterChipKey = "client" | "contact" | "category" | "paymentMethod" | "bankAccount" | "marker"
 
 // Valor do chip Marcador para quem não tem nenhum — "quem ainda não cobrei".
 export const NO_MARKER_LABEL = "Sem marcador"
@@ -188,6 +188,8 @@ export const NO_MARKER_LABEL = "Sem marcador"
 export type FilterChips = Partial<Record<FilterChipKey, string[]>>
 
 interface ChippableEntry {
+  // Cliente do lançamento — só oferecido como chip em Contas a Receber.
+  contactName: string
   // "contact" here means Favorecido (RN-04's repasse beneficiary) — a sale
   // can pay out to more than one, so this is a list, unlike the other
   // single-valued chip fields.
@@ -201,6 +203,8 @@ interface ChippableEntry {
 
 function chipValues(entry: ChippableEntry, key: FilterChipKey): string[] {
   switch (key) {
+    case "client":
+      return [entry.contactName]
     case "contact":
       return entry.beneficiaryNames
     case "category":
