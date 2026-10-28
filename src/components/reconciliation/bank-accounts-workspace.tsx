@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, UnlinkIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, UnlinkIcon } from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { toast } from "sonner"
 
@@ -79,6 +79,7 @@ export function BankAccountsWorkspace({
   const [unreconcileError, setUnreconcileError] = React.useState<string | null>(null)
   const [openTransferId, setOpenTransferId] = React.useState<string | null>(null)
   const [detailEntry, setDetailEntry] = React.useState<AccountEntry | null>(null)
+  const [expandedLineIds, setExpandedLineIds] = React.useState<Set<string>>(() => new Set())
 
   const selectedAccount = React.useMemo(() => accounts.find((a) => a.id === selectedId) ?? null, [accounts, selectedId])
 
@@ -138,6 +139,15 @@ export function BankAccountsWorkspace({
     const response = await getAccountEntryAction(entry.entryId)
     if (response.ok) setDetailEntry(response.data)
     else toast.error(response.error)
+  }
+
+  function toggleLineExpanded(lineId: string) {
+    setExpandedLineIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(lineId)) next.delete(lineId)
+      else next.add(lineId)
+      return next
+    })
   }
 
   // A Sheet pode estornar ou dar baixa — o extrato e os saldos recarregam ao fechar.
@@ -359,60 +369,97 @@ export function BankAccountsWorkspace({
                     <div />
                   </div>
                   <div className="divide-y">
-                    {[...filteredLines].reverse().map((line) => (
-                      <div key={line.id} className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 px-4 py-3">
-                        <div className="text-sm text-muted-foreground">{formatDate(line.date)}</div>
-                        {/* Sem ✓: perna de transferência esperando o extrato desta conta. */}
-                        <div>
-                          {line.bankTransactionId && (
-                            <CircleCheckIcon className="size-4 text-sky-600" aria-label="Conciliada">
-                              <title>Conciliada</title>
-                            </CircleCheckIcon>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          {/* O lançamento, não a descrição importada do banco — cada um abre a sua Sheet. */}
-                          <p className="truncate text-sm font-medium">
-                            {line.entries.map((entry, index) => (
-                              <React.Fragment key={entry.entryId}>
-                                {index > 0 && <span className="text-muted-foreground"> · </span>}
+                    {[...filteredLines].reverse().map((line) => {
+                      const expanded = expandedLineIds.has(line.id)
+                      return (
+                        <React.Fragment key={line.id}>
+                          <div className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 px-4 py-3">
+                            <div className="text-sm text-muted-foreground">{formatDate(line.date)}</div>
+                            {/* Sem ✓: perna de transferência esperando o extrato desta conta. */}
+                            <div>
+                              {line.bankTransactionId && (
+                                <CircleCheckIcon className="size-4 text-sky-600" aria-label="Conciliada">
+                                  <title>Conciliada</title>
+                                </CircleCheckIcon>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              {/* O lançamento, não a descrição importada do banco — cada um abre a sua Sheet. */}
+                              {line.entries.length > 1 ? (
+                                // Vários lançamentos não cabem lado a lado na linha — cada um vira uma sub-linha.
                                 <button
                                   type="button"
-                                  className="text-left text-sky-700 hover:underline dark:text-sky-400"
-                                  onClick={() => openEntry(entry)}
+                                  aria-expanded={expanded}
+                                  className="flex items-center gap-1 text-left text-sm font-medium text-sky-700 hover:underline dark:text-sky-400"
+                                  onClick={() => toggleLineExpanded(line.id)}
                                 >
-                                  {entry.description}
+                                  {line.entries.length} lançamentos
+                                  <ChevronDownIcon className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
                                 </button>
-                              </React.Fragment>
+                              ) : (
+                                <p className="truncate text-sm font-medium">
+                                  {line.entries.map((entry) => (
+                                    <button
+                                      key={entry.entryId}
+                                      type="button"
+                                      className="text-left text-sky-700 hover:underline dark:text-sky-400"
+                                      onClick={() => openEntry(entry)}
+                                    >
+                                      {entry.description}
+                                    </button>
+                                  ))}
+                                </p>
+                              )}
+                              <p className="truncate text-xs text-muted-foreground">
+                                {[...new Set(line.entries.map((entry) => entry.contactName))].join(", ")}
+                              </p>
+                            </div>
+                            <div className={cn("text-right text-sm font-semibold", line.amount >= 0 ? "text-emerald-500" : "text-red-500")}>
+                              {line.amount >= 0 ? "" : "- "}
+                              {formatBRL(Math.abs(line.amount))}
+                            </div>
+                            <div className="text-right text-sm font-medium">{formatBRL(line.runningBalance)}</div>
+                            {line.bankTransactionId ? (
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                aria-label="Desconciliar"
+                                title="Desconciliar"
+                                onClick={() => {
+                                  setUnreconcileError(null)
+                                  setUnreconciling(line)
+                                }}
+                              >
+                                <UnlinkIcon />
+                              </Button>
+                            ) : (
+                              <div />
+                            )}
+                          </div>
+                          {expanded &&
+                            line.entries.map((entry) => (
+                              <div
+                                key={entry.entryId}
+                                className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 bg-muted/40 px-4 py-2"
+                              >
+                                <div />
+                                <div />
+                                <button type="button" className="min-w-0 text-left" onClick={() => openEntry(entry)}>
+                                  <p className="truncate text-sm text-sky-700 hover:underline dark:text-sky-400">
+                                    {entry.description}
+                                  </p>
+                                  <p className="truncate text-xs text-muted-foreground">{entry.contactName}</p>
+                                </button>
+                                <div className="text-right text-sm text-muted-foreground tabular-nums">
+                                  {formatBRL(entry.amount)}
+                                </div>
+                                <div />
+                                <div />
+                              </div>
                             ))}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {[...new Set(line.entries.map((entry) => entry.contactName))].join(", ")}
-                          </p>
-                        </div>
-                        <div className={cn("text-right text-sm font-semibold", line.amount >= 0 ? "text-emerald-500" : "text-red-500")}>
-                          {line.amount >= 0 ? "" : "- "}
-                          {formatBRL(Math.abs(line.amount))}
-                        </div>
-                        <div className="text-right text-sm font-medium">{formatBRL(line.runningBalance)}</div>
-                        {line.bankTransactionId ? (
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            aria-label="Desconciliar"
-                            title="Desconciliar"
-                            onClick={() => {
-                              setUnreconcileError(null)
-                              setUnreconciling(line)
-                            }}
-                          >
-                            <UnlinkIcon />
-                          </Button>
-                        ) : (
-                          <div />
-                        )}
-                      </div>
-                    ))}
+                        </React.Fragment>
+                      )
+                    })}
                     {filteredLines.length === 0 && (
                       <p className="py-8 text-center text-sm text-muted-foreground">
                         Nenhuma movimentação neste mês.

@@ -35,6 +35,7 @@ export const allocationModeLabel: Record<AllocationMode, string> = {
 }
 
 export const chipLabel: Record<FilterChipKey, string> = {
+  client: "Cliente",
   contact: "Favorecido",
   category: "Categoria",
   paymentMethod: "Forma de pagamento",

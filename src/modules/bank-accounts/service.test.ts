@@ -131,7 +131,12 @@ describe("getBankAccountStatement", () => {
     const statement = await getBankAccountStatement(org.id, accountId)
 
     expect(statement.lines[0].entries).toEqual([
-      expect.objectContaining({ entryType: "RECEIVABLE", contactName: "Test Contact", description: "Lançamento RECEIVABLE" }),
+      expect.objectContaining({
+        entryType: "RECEIVABLE",
+        contactName: "Test Contact",
+        description: "Lançamento RECEIVABLE",
+        amount: 30_000,
+      }),
     ])
   })
 })
@@ -177,6 +182,7 @@ describe("pending transfer leg (RN-15)", () => {
         entryType: "TRANSFER",
         contactName: "Transferência",
         description: "Transferência de Conta do extrato para Conta contrária",
+        amount: 8_000,
       },
     ])
     expect(statement.currentBalance).toBe(8_000)

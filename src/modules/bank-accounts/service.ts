@@ -134,6 +134,7 @@ export async function getBankAccountStatement(organizationId: string, bankAccoun
             entryType: settlement.entry.type,
             contactName: settlement.entry.contact?.name ?? "Transferência",
             description: settlement.entry.description,
+            amount: settlement.settledAmount,
           })),
         },
       })),
@@ -145,7 +146,15 @@ export async function getBankAccountStatement(organizationId: string, bankAccoun
           date: fromDbDate(leg.dueDate),
           description: leg.description,
           amount: leg.signedAmount,
-          entries: [{ entryId: leg.id, entryType: leg.type, contactName: "Transferência", description: leg.description }],
+          entries: [
+            {
+              entryId: leg.id,
+              entryType: leg.type,
+              contactName: "Transferência",
+              description: leg.description,
+              amount: Math.abs(leg.signedAmount),
+            },
+          ],
         },
       })),
     ].sort((a, b) => a.line.date.getTime() - b.line.date.getTime() || a.createdAt.getTime() - b.createdAt.getTime());

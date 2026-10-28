@@ -86,6 +86,11 @@ const summaryStatusMap: Record<Exclude<SummaryKey, "total">, AccountStatus> = {
   paid: "PAID",
 }
 
+// Juros/multa/desconto da baixa (RN-03) mudam o que de fato entrou ou saiu.
+function adjustedTotal(entry: AccountEntry): number {
+  return entry.amount + entry.interest + entry.fine - entry.discount
+}
+
 export function AccountsView({
   kind,
   entries,
@@ -255,6 +260,7 @@ export function AccountsView({
 
   const chipOptions = React.useMemo(() => {
     const options: Record<FilterChipKey, string[]> = {
+      client: distinctChipValues(kindEntries, "client"),
       // The full universe of Favorecido contacts registered in the org —
       // not just the ones already used in a visible entry.
       contact: beneficiaries.map((beneficiary) => beneficiary.name),
@@ -267,7 +273,9 @@ export function AccountsView({
     return options
   }, [kindEntries, beneficiaries, markers])
 
-  const activeChipKeys = chipOrder.filter((key) => key in chips)
+  // Em Contas a Pagar o contato é o Fornecedor, e o chip Cliente não se aplica.
+  const availableChipKeys = kind === "rec" ? chipOrder : chipOrder.filter((key) => key !== "client")
+  const activeChipKeys = availableChipKeys.filter((key) => key in chips)
 
   const periodRangeLabel =
     period.from && period.to ? `${formatDate(period.from)} – ${formatDate(period.to)}` : "Todo o período"
@@ -322,7 +330,7 @@ export function AccountsView({
             Mais filtros
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            {chipOrder.map((key) => (
+            {availableChipKeys.map((key) => (
               <DropdownMenuItem key={key} onClick={() => addChip(key)}>
                 {chipLabel[key]}
                 {(chips[key]?.length ?? 0) > 0 && <span className="ml-auto text-xs">✓</span>}
@@ -364,7 +372,7 @@ export function AccountsView({
                 onOpenChange={(open) => setOpenChipKey(open ? key : null)}
                 onApply={(values) => applyChipValues(key, values)}
                 onRemove={() => removeChip(key)}
-                allowSelectAll={key === "contact"}
+                allowSelectAll={key === "contact" || key === "client"}
               />
             ))}
             <button
@@ -533,7 +541,9 @@ export function AccountsView({
                           </p>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right tabular-nums">{formatBRL(entry.amount)}</td>
+                      <td className="px-3 py-3 text-right tabular-nums">
+                        {formatBRL(adjustedTotal(entry))}
+                      </td>
                       <td className="px-3 py-3 text-right font-semibold tabular-nums">
                         {formatBRL(Math.max(0, entry.amount - entry.settledAmount))}
                       </td>

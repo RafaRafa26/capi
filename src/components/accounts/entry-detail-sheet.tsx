@@ -98,10 +98,10 @@ export function EntryDetailSheet({
   const [loadedSettleEntryId, setLoadedSettleEntryId] = React.useState<string | null>(null)
   if (entry && entry.id !== loadedSettleEntryId) {
     setLoadedSettleEntryId(entry.id)
-    setSettleDate(today)
-    // Left blank rather than defaulting to the full remaining amount — this
-    // may be a recebimento/pagamento parcial (RN-06).
-    setSettleAmount(0)
+    // Pre-filled with the due date and the open balance (the full amount when
+    // nothing was settled yet); still editable for a parcial (RN-06).
+    setSettleDate(entry.dueDate)
+    setSettleAmount(Math.max(0, entry.amount - entry.settledAmount))
     setSettleReference("")
     setSettleError(null)
   }

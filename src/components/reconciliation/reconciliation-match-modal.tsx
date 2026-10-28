@@ -13,12 +13,15 @@ import {
   searchCandidateEntriesAction,
 } from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { ReconciliationCategoryPicker, ReconciliationContactPicker } from "@/components/reconciliation/entry-pickers"
+import { CurrencyInput } from "@/components/sales/currency-input"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { formatBRL, formatDate, parseBRLInput } from "@/lib/format"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { formatBRL, formatDate } from "@/lib/format"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
 import { netSettledAmount } from "@/modules/settlements/domain"
@@ -43,10 +46,6 @@ const adjustmentLabels: Record<Adjustment, string> = {
   discount: "Desconto",
 }
 
-function centsFromInput(value: string): number {
-  return Math.max(0, Math.round(Number(value) * 100) || 0)
-}
-
 function MoneyInput({
   label,
   value,
@@ -59,14 +58,7 @@ function MoneyInput({
   return (
     <label className="flex min-w-0 flex-col gap-1">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <Input
-        type="number"
-        min={0}
-        step="0.01"
-        className="text-right"
-        value={value / 100}
-        onChange={(event) => onChange(centsFromInput(event.target.value))}
-      />
+      <CurrencyInput valueInCents={value} onValueChange={onChange} />
     </label>
   )
 }
@@ -84,6 +76,8 @@ function formatRange(range: DateRange | undefined): string {
 }
 
 const toIsoDay = (date: Date) => format(date, "yyyy-MM-dd")
+
+const openAmount = (entry: CandidateEntry) => entry.amount - (entry.settledAmount ?? 0)
 
 interface NewItem {
   contactId: string
@@ -120,9 +114,9 @@ export function ReconciliationMatchModal({
   const [tab, setTab] = React.useState<"buscar" | "criar">("buscar")
   const [query, setQuery] = React.useState("")
   const [dueRange, setDueRange] = React.useState<DateRange | undefined>(lastSevenDays)
-  // Text inputs ("1.234,56"); empty means no bound.
-  const [minAmount, setMinAmount] = React.useState("")
-  const [maxAmount, setMaxAmount] = React.useState("")
+  // Centavos; 0 means no bound.
+  const [minAmount, setMinAmount] = React.useState(0)
+  const [maxAmount, setMaxAmount] = React.useState(0)
   const [results, setResults] = React.useState<CandidateEntry[]>([])
   const [selected, setSelected] = React.useState<Record<string, SelectedCandidate>>({})
   const [reviewing, setReviewing] = React.useState(false)
@@ -145,8 +139,8 @@ export function ReconciliationMatchModal({
       dueFrom: dueFrom ? toIsoDay(dueFrom) : undefined,
       // A range still being picked (only `from`) filters that single day.
       dueTo: dueFrom ? toIsoDay(dueTo ?? dueFrom) : undefined,
-      minAmount: minAmount.trim() ? parseBRLInput(minAmount) : undefined,
-      maxAmount: maxAmount.trim() ? parseBRLInput(maxAmount) : undefined,
+      minAmount: minAmount > 0 ? minAmount : undefined,
+      maxAmount: maxAmount > 0 ? maxAmount : undefined,
     }).then((response) => {
       if (ignore) return
       if (response.ok) setResults(response.data)
@@ -162,7 +156,7 @@ export function ReconciliationMatchModal({
       if (next[entry.id]) {
         delete next[entry.id]
       } else {
-        next[entry.id] = { entry, amount: entry.amount - (entry.settledAmount ?? 0), interest: 0, fine: 0, discount: 0 }
+        next[entry.id] = { entry, amount: openAmount(entry), interest: 0, fine: 0, discount: 0 }
       }
       return next
     })
@@ -179,6 +173,17 @@ export function ReconciliationMatchModal({
   function removeItem(index: number) {
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
+
+  // Open balance equal to the bank transaction — the likeliest match — goes
+  // first; sort is stable, so the server's order holds within each group.
+  const sortedResults = React.useMemo(
+    () =>
+      [...results].sort(
+        (a, b) =>
+          Number(openAmount(b) === absTransactionAmount) - Number(openAmount(a) === absTransactionAmount),
+      ),
+    [results, absTransactionAmount],
+  )
 
   const selectedList = Object.values(selected)
   const sumSelected = selectedList.reduce((sum, s) => sum + netSettledAmount({ settledAmount: s.amount, ...s }), 0)
@@ -298,85 +303,90 @@ export function ReconciliationMatchModal({
                   )}
                 </PopoverContent>
               </Popover>
-              <Input
-                inputMode="decimal"
-                placeholder="Valor mín."
-                className="w-28 text-right"
-                value={minAmount}
-                onChange={(event) => setMinAmount(event.target.value)}
+              <CurrencyInput
+                placeholder="mín."
+                className="w-36"
+                valueInCents={minAmount}
+                onValueChange={setMinAmount}
               />
               <span className="text-xs text-muted-foreground">até</span>
-              <Input
-                inputMode="decimal"
-                placeholder="Valor máx."
-                className="w-28 text-right"
-                value={maxAmount}
-                onChange={(event) => setMaxAmount(event.target.value)}
+              <CurrencyInput
+                placeholder="máx."
+                className="w-36"
+                valueInCents={maxAmount}
+                onValueChange={setMaxAmount}
               />
             </div>
 
-            <div className="flex max-h-72 min-w-0 flex-col gap-2 overflow-y-auto">
-              {results.map((entry) => {
-                const candidate = selected[entry.id]
-                const open = entry.amount - (entry.settledAmount ?? 0)
-                return (
-                  <div
-                    key={entry.id}
-                    className={cn(
-                      "flex min-w-0 flex-col gap-3 rounded-lg border p-3",
-                      candidate && "border-primary bg-primary/5",
-                    )}
-                  >
-                    <div className="flex min-w-0 items-center justify-between gap-3">
-                      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => toggleCandidate(entry)}>
-                        <p className="truncate text-sm font-medium">{entry.contactName}</p>
-                        <p className="flex min-w-0 text-xs text-muted-foreground" title={entry.description}>
-                          <span className="truncate">{entry.description}</span>
-                          <span className="shrink-0 whitespace-pre"> · Venc. {formatDate(entry.dueDate)}</span>
-                        </p>
-                      </button>
-                      {candidate && !showReview ? (
-                        <Input
-                          type="number"
-                          className="w-28 shrink-0 text-right"
-                          value={candidate.amount / 100}
-                          onChange={(event) => updateCandidate(entry.id, { amount: centsFromInput(event.target.value) })}
-                        />
-                      ) : (
-                        <span className="shrink-0 text-sm font-semibold">{formatBRL(open)}</span>
-                      )}
-                    </div>
-                    {candidate && showReview && (
-                      <div className="flex flex-col gap-2 border-t pt-3">
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          <MoneyInput
-                            label="Valor original"
-                            value={candidate.amount}
-                            onChange={(amount) => updateCandidate(entry.id, { amount })}
+            <div className="min-w-0 rounded-lg border">
+              <div className="grid grid-cols-[16px_minmax(0,1fr)_76px_128px] items-center gap-3 border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+                <span />
+                <span>Contato / Descrição</span>
+                <span>Venc.</span>
+                <span className="text-right">Em aberto</span>
+              </div>
+              <ScrollArea className="min-w-0 *:data-[slot=scroll-area-viewport]:max-h-80">
+                <div className="divide-y">
+                  {sortedResults.map((entry) => {
+                    const candidate = selected[entry.id]
+                    const open = openAmount(entry)
+                    return (
+                      <div key={entry.id} className={cn("min-w-0", candidate && "bg-primary/5")}>
+                        <div className="grid grid-cols-[16px_minmax(0,1fr)_76px_128px] items-center gap-3 px-3 py-2">
+                          <Checkbox
+                            checked={Boolean(candidate)}
+                            onCheckedChange={() => toggleCandidate(entry)}
+                            aria-label={`Selecionar ${entry.contactName}`}
                           />
-                          {(Object.keys(adjustmentLabels) as Adjustment[]).map((key) => (
-                            <MoneyInput
-                              key={key}
-                              label={adjustmentLabels[key]}
-                              value={candidate[key]}
-                              onChange={(cents) => updateCandidate(entry.id, { [key]: cents })}
-                            />
-                          ))}
+                          <button type="button" className="min-w-0 text-left" onClick={() => toggleCandidate(entry)}>
+                            <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                              <span className="truncate">{entry.contactName}</span>
+                              {open === absTransactionAmount && (
+                                <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10.5px] font-medium text-emerald-600">
+                                  valor exato
+                                </span>
+                              )}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground" title={entry.description}>
+                              {entry.description}
+                            </p>
+                          </button>
+                          <span className="text-xs text-muted-foreground tabular-nums">{formatDate(entry.dueDate)}</span>
+                          <span className="text-right text-sm font-semibold tabular-nums">{formatBRL(open)}</span>
                         </div>
-                        <p className="text-right text-xs text-muted-foreground">
-                          Total conciliado:{" "}
-                          <span className="font-semibold text-foreground">
-                            {formatBRL(netSettledAmount({ settledAmount: candidate.amount, ...candidate }))}
-                          </span>
-                        </p>
+                        {candidate && showReview && (
+                          <div className="flex flex-col gap-2 px-3 pb-3 pl-10">
+                            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                              <MoneyInput
+                                label="Valor original"
+                                value={candidate.amount}
+                                onChange={(amount) => updateCandidate(entry.id, { amount })}
+                              />
+                              {(Object.keys(adjustmentLabels) as Adjustment[]).map((key) => (
+                                <MoneyInput
+                                  key={key}
+                                  label={adjustmentLabels[key]}
+                                  value={candidate[key]}
+                                  onChange={(cents) => updateCandidate(entry.id, { [key]: cents })}
+                                />
+                              ))}
+                            </div>
+                            <p className="text-right text-xs text-muted-foreground">
+                              Total conciliado:{" "}
+                              <span className="font-semibold text-foreground">
+                                {formatBRL(netSettledAmount({ settledAmount: candidate.amount, ...candidate }))}
+                              </span>
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                )
-              })}
-              {results.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>
-              )}
+                    )
+                  })}
+                  {results.length === 0 && (
+                    <p className="py-6 text-center text-sm text-muted-foreground">Nenhum lançamento encontrado.</p>
+                  )}
+                </div>
+              </ScrollArea>
             </div>
 
             {selectedList.length > 0 && (
@@ -392,12 +402,10 @@ export function ReconciliationMatchModal({
                   )}
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
-                  {/* Valor diferente do original: juros, multa ou desconto (RN-03). */}
-                  {(diffSelected !== 0 || showReview) && (
-                    <Button size="sm" variant="outline" onClick={() => setReviewing((prev) => !prev)}>
-                      {showReview ? "Ocultar revisão" : "Revisar valores"}
-                    </Button>
-                  )}
+                  {/* Único lugar para mudar o valor: parcial, juros, multa ou desconto (RN-03). */}
+                  <Button size="sm" variant="outline" onClick={() => setReviewing((prev) => !prev)}>
+                    {showReview ? "Ocultar revisão" : "Revisar valores"}
+                  </Button>
                   <Button size="sm" onClick={confirmSearch} disabled={pending}>
                     Vincular e conciliar
                   </Button>
@@ -407,68 +415,79 @@ export function ReconciliationMatchModal({
           </div>
         ) : (
           <div className="flex min-w-0 flex-col gap-3">
-            {items.map((item, index) => (
-              <div key={index} className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted p-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <ReconciliationContactPicker
-                      contacts={contacts}
-                      direction={direction}
-                      value={item.contactId}
-                      onValueChange={(contactId) => updateItem(index, { contactId })}
-                      onCreated={(contact) => {
-                        onContactCreated(contact)
-                        updateItem(index, { contactId: contact.id })
-                      }}
-                    />
+            {/* Max height on the viewport (not the root) so the list only scrolls once it outgrows it. */}
+            <ScrollArea className="min-w-0 *:data-[slot=scroll-area-viewport]:max-h-96">
+              <div className="flex min-w-0 flex-col gap-3 pr-3">
+                {items.map((item, index) => (
+                  <div key={index} className="flex min-w-0 flex-col gap-2 rounded-lg border bg-muted p-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="min-w-0 flex-1">
+                        <ReconciliationContactPicker
+                          contacts={contacts}
+                          direction={direction}
+                          value={item.contactId}
+                          onValueChange={(contactId) => updateItem(index, { contactId })}
+                          onCreated={(contact) => {
+                            onContactCreated(contact)
+                            updateItem(index, { contactId: contact.id })
+                          }}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <ReconciliationCategoryPicker
+                          categories={categories}
+                          direction={direction}
+                          value={item.categoryId}
+                          onValueChange={(categoryId) => updateItem(index, { categoryId })}
+                          onCreated={(category) => {
+                            onCategoryCreated(category)
+                            updateItem(index, { categoryId: category.id })
+                          }}
+                        />
+                      </div>
+                      {items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <XIcon className="size-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Input
+                        placeholder="Descrição"
+                        value={item.description}
+                        onChange={(event) => updateItem(index, { description: event.target.value })}
+                        className="min-w-0 flex-1"
+                      />
+                      <div className="w-40 shrink-0">
+                        <CurrencyInput
+                          valueInCents={item.amount}
+                          onValueChange={(amount) => updateItem(index, { amount })}
+                        />
+                      </div>
+                      {/* Same width as the remove button above, so the amount lines up with Categoria. */}
+                      {items.length > 1 && <span aria-hidden className="size-4 shrink-0" />}
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <ReconciliationCategoryPicker
-                      categories={categories}
-                      direction={direction}
-                      value={item.categoryId}
-                      onValueChange={(categoryId) => updateItem(index, { categoryId })}
-                      onCreated={(category) => {
-                        onCategoryCreated(category)
-                        updateItem(index, { categoryId: category.id })
-                      }}
-                    />
-                  </div>
-                  {items.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <XIcon className="size-4" />
-                    </button>
-                  )}
-                </div>
-                <div className="flex min-w-0 items-center gap-2">
-                  <Input
-                    placeholder="Descrição"
-                    value={item.description}
-                    onChange={(event) => updateItem(index, { description: event.target.value })}
-                    className="flex-1"
-                  />
-                  <Input
-                    type="number"
-                    className="w-28 shrink-0 text-right"
-                    value={item.amount / 100}
-                    onChange={(event) => updateItem(index, { amount: Math.round(Number(event.target.value) * 100) })}
-                  />
-                </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    // The new item starts with whatever is still missing to match the transaction.
+                    setItems((prev) => [
+                      ...prev,
+                      { contactId: "", categoryId: "", description: "", amount: Math.max(0, diffItems) },
+                    ])
+                  }
+                  className="rounded-lg border border-dashed p-2 text-sm text-muted-foreground hover:bg-accent"
+                >
+                  + Adicionar outro lançamento
+                </button>
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={() =>
-                setItems((prev) => [...prev, { contactId: "", categoryId: "", description: "", amount: 0 }])
-              }
-              className="rounded-lg border border-dashed p-2 text-sm text-muted-foreground hover:bg-accent"
-            >
-              + Adicionar outro lançamento
-            </button>
+            </ScrollArea>
 
             <div className="flex items-center justify-between border-t pt-3 text-sm">
               <span className="text-muted-foreground">
