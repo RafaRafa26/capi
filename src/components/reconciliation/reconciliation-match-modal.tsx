@@ -342,7 +342,7 @@ export function ReconciliationMatchModal({
                           />
                           <button type="button" className="min-w-0 text-left" onClick={() => toggleCandidate(entry)}>
                             <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
-                              <span className="truncate">{entry.contactName}</span>
+                              <span className="truncate" title={entry.contactName}>{entry.contactName}</span>
                               {open === absTransactionAmount && (
                                 <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10.5px] font-medium text-emerald-600">
                                   valor exato

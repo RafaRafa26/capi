@@ -349,7 +349,7 @@ export function EntryDetailSheet({
                         index > 0 && "border-t",
                       )}
                     >
-                      <span className="min-w-0 flex-1 truncate">{allocation.beneficiaryName}</span>
+                      <span className="min-w-0 flex-1 truncate" title={allocation.beneficiaryName}>{allocation.beneficiaryName}</span>
                       {allocation.percentage !== null && (
                         <span className="shrink-0 text-xs text-muted-foreground">{allocation.percentage}%</span>
                       )}

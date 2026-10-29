@@ -500,7 +500,7 @@ export function BankAccountsWorkspace({
           {unreconciling && unreconciling.entries.length > 0 && (
             <ul className="space-y-1 text-sm">
               {unreconciling.entries.map((entry) => (
-                <li key={entry.entryId} className="truncate">
+                <li key={entry.entryId} className="truncate" title={`${entry.contactName} — ${entry.description}`}>
                   {entry.contactName} — <span className="text-muted-foreground">{entry.description}</span>
                 </li>
               ))}

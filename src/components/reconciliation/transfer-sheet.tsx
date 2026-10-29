@@ -114,7 +114,7 @@ export function TransferSheet({
                       <div key={leg.entryId} className="px-4 py-3">
                         <div className="grid grid-cols-[110px_1fr_100px_120px_20px] items-center gap-3 text-sm">
                           <div className="text-muted-foreground">{formatDate(leg.date)}</div>
-                          <div className="truncate">{leg.bankAccountName}</div>
+                          <div className="truncate" title={leg.bankAccountName}>{leg.bankAccountName}</div>
                           <div className="flex items-center gap-1">
                             {leg.direction === "OUT" ? (
                               <ArrowDownIcon className="size-4 text-red-500" />
