@@ -164,6 +164,21 @@ describe("createSettlement", () => {
     expect(updatedTransaction.status).toBe("RECONCILED")
   })
 
+  it("dates the settlement on the bank transaction's day, not the day it was reconciled", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+    const transaction = await createBankTransaction(10_000, new Date(Date.UTC(2026, 7, 3)))
+
+    await createSettlement(org.id, {
+      entryId: entry.id,
+      bankTransactionId: transaction.id,
+      settledAmount: 10_000,
+      settledAt: new Date(Date.UTC(2026, 7, 20)),
+    })
+
+    const settlement = await prismaAdmin.settlement.findFirstOrThrow({ where: { entryId: entry.id } })
+    expect(settlement.settledAt.toISOString().slice(0, 10)).toBe("2026-08-03")
+  })
+
   it("leaves the entry PARTIAL when the settled amount is less than the total", async () => {
     const { entry } = await createReceivableEntry(10_000)
     const transaction = await createBankTransaction(4_000)

@@ -89,7 +89,7 @@ interface InsertSettlementInput {
   note?: string
   /** Já carregados por quem chama — evitam reler a mesma linha dentro da transação. */
   entry?: { id: string; amount: number }
-  bankTransaction?: { id: string; amount: number }
+  bankTransaction?: { id: string; amount: number; date: Date }
 }
 
 async function insertSettlement(tx: Tx, organizationId: string, input: InsertSettlementInput) {
@@ -103,10 +103,15 @@ async function insertSettlement(tx: Tx, organizationId: string, input: InsertSet
   })
   if (net <= 0) throw new BusinessError("O desconto não pode ser maior do que o valor liquidado.", "discount")
 
+  // Conciliada com o extrato, a liquidação aconteceu na data da transação
+  // bancária — não na data em que o usuário conciliou. Sem transação (baixa
+  // manual, RN-20), vale a data informada.
+  let settledAt = input.settledAt
   if (input.bankTransactionId) {
     // Invariante (ARQUITETURA.md §5.2): o que se concilia numa transação, já
     // com juros, multa e desconto, nunca passa do valor dela.
     const transaction = input.bankTransaction ?? (await loadBankTransaction(tx, input.bankTransactionId))
+    settledAt = transaction.date
     const existing = await tx.settlement.findMany({ where: { bankTransactionId: input.bankTransactionId } })
     const total = existing.reduce((sum, settlement) => sum + netSettledAmount(settlement), net)
     if (total > Math.abs(transaction.amount)) {
@@ -124,7 +129,7 @@ async function insertSettlement(tx: Tx, organizationId: string, input: InsertSet
       interest: input.interest ?? 0,
       fine: input.fine ?? 0,
       discount: input.discount ?? 0,
-      settledAt: input.settledAt,
+      settledAt,
       note: input.note ?? null,
     },
   })

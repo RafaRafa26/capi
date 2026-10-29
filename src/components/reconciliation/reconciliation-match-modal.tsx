@@ -93,6 +93,7 @@ export function ReconciliationMatchModal({
   bankTransactionId,
   direction,
   transactionAmount,
+  transactionDate,
   bankAccountId,
   contacts,
   categories,
@@ -105,6 +106,7 @@ export function ReconciliationMatchModal({
   bankTransactionId: string
   direction: "RECEIVABLE" | "PAYABLE"
   transactionAmount: number
+  transactionDate: Date
   bankAccountId: string
   contacts: Contact[]
   categories: Category[]
@@ -202,7 +204,7 @@ export function ReconciliationMatchModal({
         interest: s.interest,
         fine: s.fine,
         discount: s.discount,
-        settledAt: new Date(),
+        settledAt: transactionDate,
       })),
     })
     setPending(false)
@@ -229,7 +231,7 @@ export function ReconciliationMatchModal({
         description: item.description,
         bankTransactionId,
         settledAmount: item.amount,
-        settledAt: new Date(),
+        settledAt: transactionDate,
       })
       if (!response.ok) {
         setPending(false)
