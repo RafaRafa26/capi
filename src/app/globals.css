@@ -4,6 +4,14 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Capi brand green (public/brand). `brand` alone fails WCAG AA under white
+   text, so filled buttons use `brand-strong` (5.2:1) instead. */
+@theme {
+  --color-brand: #509e6c;
+  --color-brand-strong: #2f7a4b;
+  --color-brand-stronger: #276a40;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
