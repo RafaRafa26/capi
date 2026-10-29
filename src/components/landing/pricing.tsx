@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Check } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
 
@@ -95,14 +95,16 @@ export function Pricing() {
                   {billing === "yearly" ? "cobrado anualmente" : "cobrado mês a mês"} · [MOCK]
                 </span>
               </p>
-              <Button
-                nativeButton={false}
-                render={<Link href="/signup" />}
-                variant={plan.recommended ? "default" : "outline"}
-                className={cn("h-11 text-base", plan.recommended && ctaClassName)}
+              <Link
+                href="/signup"
+                className={cn(
+                  buttonVariants({ variant: plan.recommended ? "default" : "outline" }),
+                  "h-11 text-base",
+                  plan.recommended && ctaClassName
+                )}
               >
                 Testar grátis
-              </Button>
+              </Link>
               <ul className="flex flex-col gap-2.5 text-sm">
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex gap-2">

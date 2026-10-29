@@ -9,7 +9,7 @@ import { currentUser } from "@/modules/auth/session"
 import { listUserOrganizations } from "@/modules/organizations/service"
 
 export const metadata: Metadata = {
-  title: "Capi — Lorem ipsum dolor sit amet",
+  title: "Capi Gestão — Lorem ipsum dolor sit amet",
   description: "In reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt.",
 }
 

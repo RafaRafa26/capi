@@ -24,15 +24,17 @@ import {
   X,
 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 import { EmailCta } from "./email-cta"
 import { Faq } from "./faq"
 import { Pricing } from "./pricing"
 import { AvatarPlaceholder, BrowserFrame, Container, ImagePlaceholder, Logo, SectionHeading, ctaClassName } from "./primitives"
+import { DesktopNav, MobileNav } from "./site-nav"
 
 // Public landing page, shown at / to visitors without a session. One action
-// only — start the free trial — repeated down the page; no navigation menu.
+// only — start the free trial — repeated down the page.
 // All copy is lorem ipsum for now; [IMAGEM], [LOGO], [VÍDEO], [NOME COMPLETO]
 // and [MOCK] mark the remaining placeholders.
 export function LandingPage() {
@@ -67,11 +69,20 @@ export function LandingPage() {
 function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-foreground/5 bg-background/80 backdrop-blur">
-      <Container className="flex h-16 items-center justify-between">
-        <Logo />
-        <Button nativeButton={false} render={<Link href="/signup" />} className={`${ctaClassName} h-10 px-4 text-sm`}>
-          Testar grátis
-        </Button>
+      <Container className="flex h-16 items-center justify-between gap-2 sm:gap-4">
+        <Link href="/" aria-label="Capi Gestão, página inicial" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-brand/40">
+          <Logo />
+        </Link>
+        <DesktopNav />
+        <div className="flex items-center gap-1 sm:gap-2">
+          <Link href="/login" className={cn(buttonVariants({ variant: "ghost" }), "h-10 px-2 text-sm sm:px-3")}>
+            Entrar
+          </Link>
+          <Link href="/signup" className={cn(buttonVariants(), ctaClassName, "h-10 px-3 text-sm sm:px-4")}>
+            Testar grátis
+          </Link>
+          <MobileNav />
+        </div>
       </Container>
     </header>
   )
@@ -144,7 +155,7 @@ function Hero() {
 // 2. Wall of love — volume of verifiable proof right below the hero.
 function WallOfLove() {
   return (
-    <section aria-labelledby="depoimentos-title" className="bg-muted/50 py-20">
+    <section id="depoimentos" aria-labelledby="depoimentos-title" className="scroll-mt-16 bg-muted/50 py-20">
       <Container className="flex flex-col gap-12">
         <SectionHeading id="depoimentos-title" eyebrow="Exercitation" title="Ullamco laboris nisi aliquip ex ea commodo consequat" />
         <ul className="columns-1 gap-6 sm:columns-2 lg:columns-3 [&>li]:mb-6 [&>li]:break-inside-avoid">
@@ -337,7 +348,7 @@ const STEPS = [
 
 function HowItWorks() {
   return (
-    <section aria-labelledby="como-funciona-title" className="bg-muted/50 py-20">
+    <section id="como-funciona" aria-labelledby="como-funciona-title" className="scroll-mt-16 bg-muted/50 py-20">
       <Container className="flex flex-col gap-12">
         <SectionHeading id="como-funciona-title" eyebrow="Sit amet" title="Consectetur adipiscing elit sed do eiusmod tempor" />
         <ol className="grid gap-8 md:grid-cols-3">
@@ -356,10 +367,10 @@ function HowItWorks() {
           ))}
         </ol>
         <div className="flex justify-center">
-          <Button nativeButton={false} render={<Link href="/signup" />} className={ctaClassName}>
+          <Link href="/signup" className={cn(buttonVariants(), ctaClassName)}>
             Testar grátis
             <ArrowRight aria-hidden />
-          </Button>
+          </Link>
         </div>
       </Container>
     </section>
@@ -391,7 +402,7 @@ const BENEFITS = [
 
 function Benefits() {
   return (
-    <section aria-labelledby="beneficios-title" className="py-20">
+    <section id="beneficios" aria-labelledby="beneficios-title" className="scroll-mt-16 py-20">
       <Container className="flex flex-col gap-16">
         <SectionHeading id="beneficios-title" eyebrow="Aute" title="Irure in reprehenderit voluptate velit esse cillum fugiat." />
         {FEATURE_BLOCKS.map(({ title, text, image }, index) => (
@@ -452,12 +463,12 @@ function SupportCell({ value }: { value: Support }) {
 
 function Comparison() {
   return (
-    <section aria-labelledby="comparativo-title" className="bg-muted/50 py-20">
+    <section id="comparativo" aria-labelledby="comparativo-title" className="scroll-mt-16 bg-muted/50 py-20">
       <Container className="flex flex-col gap-12">
         <SectionHeading id="comparativo-title" eyebrow="Et" title="Dolore magna aliqua?" />
         <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-2xl bg-background ring-1 ring-foreground/10">
           <table className="w-full text-left text-sm sm:text-base">
-            <caption className="sr-only">Comparativo entre a Capi e a planilha</caption>
+            <caption className="sr-only">Comparativo entre a Capi Gestão e a planilha</caption>
             <thead className="bg-muted/60">
               <tr>
                 <th scope="col" className="px-4 py-3 font-semibold sm:px-6">
@@ -467,7 +478,7 @@ function Comparison() {
                   Planilha
                 </th>
                 <th scope="col" className="w-24 bg-brand/10 px-4 py-3 font-semibold text-brand-stronger sm:w-32 sm:px-6">
-                  Capi
+                  Capi Gestão
                 </th>
               </tr>
             </thead>
@@ -504,7 +515,7 @@ const AUDIENCES = [
 
 function Audience() {
   return (
-    <section aria-labelledby="para-quem-title" className="py-20">
+    <section id="para-quem" aria-labelledby="para-quem-title" className="scroll-mt-16 py-20">
       <Container className="flex flex-col gap-12">
         <SectionHeading id="para-quem-title" eyebrow="Mollit anim id" title="Est laborum lorem ipsum dolor sit amet consectetur" />
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -524,7 +535,7 @@ function Audience() {
 // 10. Plans — [MOCK] values for now.
 function Plans() {
   return (
-    <section aria-labelledby="planos-title" className="bg-muted/50 py-20">
+    <section id="planos" aria-labelledby="planos-title" className="scroll-mt-16 bg-muted/50 py-20">
       <Container className="flex flex-col gap-12">
         <SectionHeading
           id="planos-title"
@@ -541,7 +552,7 @@ function Plans() {
 // 11. FAQ — the last objections, right before the closing CTA.
 function Questions() {
   return (
-    <section aria-labelledby="faq-title" className="py-20">
+    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-16 py-20">
       <Container className="grid gap-10 lg:grid-cols-[1fr_2fr] lg:gap-16">
         <SectionHeading
           id="faq-title"
@@ -588,7 +599,7 @@ function Footer() {
         </nav>
       </Container>
       <Container className="border-t py-6 text-sm text-muted-foreground">
-        © {new Date().getFullYear()} Capi. Lorem ipsum dolor sit amet.
+        © {new Date().getFullYear()} Capi Gestão. Lorem ipsum dolor sit amet.
       </Container>
     </footer>
   )
