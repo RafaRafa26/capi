@@ -47,7 +47,7 @@ export function EmailCta({
         </Button>
       </Form>
       <p className={cn("text-sm", onBrand ? "text-white/85" : "text-muted-foreground")}>
-        [COPY] Grátis por [X] dias · Sem cartão de crédito · Cancele quando quiser
+        Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod
       </p>
     </div>
   )

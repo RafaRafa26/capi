@@ -16,31 +16,31 @@ type Billing = "monthly" | "yearly"
 // [MOCK] Placeholder plans and prices — replace with the real offer.
 const PLANS = [
   {
-    name: "[COPY] Essencial",
-    description: "[COPY] Para quem está saindo da planilha.",
+    name: "Reprehenderit",
+    description: "Voluptate velit esse cillum fugiat nulla.",
     monthly: 149,
     yearly: 119,
-    features: ["[COPY] Até [X] favorecidos", "[COPY] [X] conta bancária", "[COPY] Importação de extrato OFX", "[COPY] [X] usuário"],
+    features: ["Pariatur excepteur sint", "Occaecat cupidatat non", "Proident sunt culpa qui", "Officia deserunt"],
   },
   {
-    name: "[COPY] Profissional",
-    description: "[COPY] Para escritórios com vários clientes.",
+    name: "Mollit",
+    description: "Anim id est laborum lorem.",
     monthly: 299,
     yearly: 239,
     features: [
-      "[COPY] Até [X] favorecidos",
-      "[COPY] Contas bancárias ilimitadas",
-      "[COPY] Conferência caixa × custódia",
-      "[COPY] Até [X] usuários com permissões",
+      "Ipsum dolor sit",
+      "Amet consectetur adipiscing",
+      "Elit sed do eiusmod",
+      "Tempor incididunt ut labore et",
     ],
     recommended: true,
   },
   {
-    name: "[COPY] Escala",
-    description: "[COPY] Para operações com várias empresas.",
+    name: "Dolore",
+    description: "Magna aliqua enim ad minim.",
     monthly: 599,
     yearly: 479,
-    features: ["[COPY] Favorecidos ilimitados", "[COPY] Várias empresas na mesma conta", "[COPY] Trilha de auditoria", "[COPY] Suporte prioritário"],
+    features: ["Veniam quis", "Nostrud exercitation ullamco laboris nisi", "Aliquip ex ea", "Commodo consequat"],
   },
 ]
 
@@ -66,7 +66,7 @@ export function Pricing() {
         </ToggleGroupItem>
         <ToggleGroupItem value="yearly" className="h-10 gap-2 px-4 aria-pressed:bg-brand/10 aria-pressed:text-brand-stronger">
           Anual
-          <span className="rounded-full bg-brand-strong px-1.5 py-0.5 text-xs text-white">[COPY] -20%</span>
+          <span className="rounded-full bg-brand-strong px-1.5 py-0.5 text-xs text-white">Duis</span>
         </ToggleGroupItem>
       </ToggleGroup>
 
@@ -82,7 +82,7 @@ export function Pricing() {
               )}
             >
               {plan.recommended && (
-                <Badge className="absolute -top-2.5 left-6 bg-brand-strong text-white">[COPY] Mais escolhido</Badge>
+                <Badge className="absolute -top-2.5 left-6 bg-brand-strong text-white">Aute irure</Badge>
               )}
               <div className="flex flex-col gap-1">
                 <h3 className="text-lg font-semibold">{plan.name}</h3>

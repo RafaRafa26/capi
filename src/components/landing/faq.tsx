@@ -4,28 +4,28 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const QUESTIONS = [
   {
-    question: "[COPY] Preciso de cartão de crédito para testar?",
-    answer: "[COPY] Não. Você cria a conta só com e-mail e senha e testa por [X] dias.",
+    question: "Tempor incididunt ut labore et dolore magna?",
+    answer: "Aliqua enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo.",
   },
   {
-    question: "[COPY] Consigo usar o extrato do meu banco?",
-    answer: "[COPY] Sim. Você baixa o extrato em OFX no seu banco e importa na Capi. Se importar o mesmo arquivo de novo, nada se repete.",
+    question: "Consequat duis aute irure in reprehenderit voluptate?",
+    answer: "Velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim id est laborum lorem ipsum.",
   },
   {
-    question: "[COPY] A Capi emite boleto ou PIX?",
-    answer: "[COPY] Não. A Capi organiza o que você já recebe e repassa. Ela não emite cobrança.",
+    question: "Dolor sit amet consectetur adipiscing elit?",
+    answer: "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam.",
   },
   {
-    question: "[COPY] Meus dados e os dos meus clientes ficam seguros?",
-    answer: "[COPY] Cada empresa só enxerga os próprios dados, e toda alteração fica registrada com quem fez e quando.",
+    question: "Quis nostrud exercitation ullamco laboris nisi aliquip ex ea?",
+    answer: "Commodo consequat duis aute irure in reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat.",
   },
   {
-    question: "[COPY] Dá para usar com mais de uma empresa?",
-    answer: "[COPY] Sim. Você troca de empresa sem sair da conta e convida sua equipe com o papel certo em cada uma.",
+    question: "Cupidatat non proident sunt culpa qui officia deserunt?",
+    answer: "Mollit anim id est laborum lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore.",
   },
   {
-    question: "[COPY] Posso cancelar quando quiser?",
-    answer: "[COPY] Pode. Sem multa e sem fidelidade.",
+    question: "Et dolore magna aliqua?",
+    answer: "Enim ad minim veniam quis nostrud.",
   },
 ]
 

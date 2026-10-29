@@ -9,8 +9,8 @@ import { currentUser } from "@/modules/auth/session"
 import { listUserOrganizations } from "@/modules/organizations/service"
 
 export const metadata: Metadata = {
-  title: "Capi — Gestão de recebimentos e repasses",
-  description: "[COPY] Controle o dinheiro dos seus clientes sem planilha: concilie o extrato e repasse o valor certo.",
+  title: "Capi — Lorem ipsum dolor sit amet",
+  description: "In reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt.",
 }
 
 // Visitors get the landing page. Signed-in users go back to the company
