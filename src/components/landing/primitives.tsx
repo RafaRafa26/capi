@@ -14,9 +14,10 @@ export function Container({ className, ...props }: React.ComponentProps<"div">) 
 
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn("flex items-center gap-1.5 text-base font-semibold tracking-tight whitespace-nowrap sm:gap-2 sm:text-lg", className)}>
-      <Image src="/brand/capi-logo.svg" alt="" width={32} height={32} className="size-7 sm:size-8" />
-      Capi Gestão
+    <span className={cn("flex items-center gap-2 text-base font-semibold tracking-tight whitespace-nowrap max-[379px]:text-[15px] sm:gap-2.5 sm:text-lg", className)}>
+      <Image src="/brand/capi-logo.svg" alt="" width={40} height={40} className="size-8 sm:size-10" />
+      {/* The narrowest phones show only the mark; the header link keeps the name. */}
+      <span className="max-[349px]:sr-only">Capi Gestão</span>
     </span>
   )
 }

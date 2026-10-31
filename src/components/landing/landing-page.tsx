@@ -13,6 +13,7 @@ import {
   HardHat,
   History,
   Link2,
+  LogIn,
   Minus,
   Quote,
   Scale,
@@ -75,8 +76,10 @@ function Header() {
         </Link>
         <DesktopNav />
         <div className="flex items-center gap-1 sm:gap-2">
-          <Link href="/login" className={cn(buttonVariants({ variant: "ghost" }), "h-10 px-2 text-sm sm:px-3")}>
-            Entrar
+          {/* Below 380px there is no room for the label next to the brand. */}
+          <Link href="/login" className={cn(buttonVariants({ variant: "ghost" }), "h-10 px-2 text-sm max-[379px]:w-10 max-[379px]:px-0 sm:px-3")}>
+            <LogIn className="hidden size-5 max-[379px]:block" aria-hidden />
+            <span className="max-[379px]:sr-only">Entrar</span>
           </Link>
           <Link href="/signup" className={cn(buttonVariants(), ctaClassName, "h-10 px-3 text-sm sm:px-4")}>
             Testar grátis
