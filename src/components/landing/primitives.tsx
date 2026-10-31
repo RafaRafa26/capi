@@ -15,7 +15,7 @@ export function Container({ className, ...props }: React.ComponentProps<"div">) 
 export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn("flex items-center gap-1.5 text-base font-semibold tracking-tight whitespace-nowrap sm:gap-2 sm:text-lg", className)}>
-      <Image src="/brand/capi-logo-1024.png" alt="" width={32} height={32} className="size-7 sm:size-8" />
+      <Image src="/brand/capi-logo.svg" alt="" width={32} height={32} className="size-7 sm:size-8" />
       Capi Gestão
     </span>
   )
