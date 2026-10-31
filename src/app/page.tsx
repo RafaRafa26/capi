@@ -1,15 +1,25 @@
+import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
+import { LandingPage } from "@/components/landing/landing-page"
 import { orgPath } from "@/lib/org-path"
 import { LAST_ORGANIZATION_COOKIE } from "@/modules/auth/constants"
-import { requireUserOrRedirect } from "@/modules/auth/session"
+import { currentUser } from "@/modules/auth/session"
 import { listUserOrganizations } from "@/modules/organizations/service"
 
-// Entry point after login: back to the company opened last, straight into
-// the only one, the picker when there are several, or creating the first.
+export const metadata: Metadata = {
+  title: "Capi Gestão — Lorem ipsum dolor sit amet",
+  description: "In reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt.",
+}
+
+// Visitors get the landing page. Signed-in users go back to the company
+// opened last, straight into the only one, the picker when there are
+// several, or creating the first.
 export default async function Home() {
-  const user = await requireUserOrRedirect()
+  const user = await currentUser()
+  if (!user) return <LandingPage />
+
   const [organizations, jar] = await Promise.all([listUserOrganizations(user.userId), cookies()])
 
   if (organizations.length === 0) redirect("/orgs/new")
