@@ -4,28 +4,32 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const QUESTIONS = [
   {
-    question: "Tempor incididunt ut labore et dolore magna?",
-    answer: "Aliqua enim ad minim veniam quis nostrud exercitation ullamco laboris nisi aliquip ex ea commodo.",
+    question: "Eu não entendo nada de finanças. Vou conseguir usar?",
+    answer:
+      "O Capi foi pensado justamente para quem não é da área. Você não precisa saber termos técnicos. Precisa saber o que entrou, o que saiu e o que vai vencer, e o sistema organiza o resto.",
   },
   {
-    question: "Consequat duis aute irure in reprehenderit voluptate?",
-    answer: "Velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt culpa qui officia deserunt mollit anim id est laborum lorem ipsum.",
+    question: "Não tenho tempo para mais uma tarefa.",
+    answer:
+      "Você já gasta tempo com o financeiro hoje: procurando boleto, refazendo conta de cabeça, resolvendo o susto do fim do mês. O Capi troca esse tempo espalhado e estressante por uma rotina curta e previsível.",
   },
   {
-    question: "Dolor sit amet consectetur adipiscing elit?",
-    answer: "Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua enim ad minim veniam.",
+    question: "Meu banco funciona com o Capi?",
+    answer:
+      "Você baixa o extrato no seu banco no formato OFX, que a maioria dos bancos oferece no internet banking, e importa no Capi. Se importar o mesmo arquivo duas vezes, nada se repete.",
   },
   {
-    question: "Quis nostrud exercitation ullamco laboris nisi aliquip ex ea?",
-    answer: "Commodo consequat duis aute irure in reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat.",
+    question: "E meus dados?",
+    answer: "Os dados de cada empresa ficam separados, e só acessa quem você convidar.",
   },
   {
-    question: "Cupidatat non proident sunt culpa qui officia deserunt?",
-    answer: "Mollit anim id est laborum lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore.",
+    question: "Ainda preciso de contador?",
+    answer:
+      "Sim. O contador cuida das obrigações fiscais. O Capi cuida da sua visão do dia a dia. Os dois se complementam, e os relatórios do Capi ainda facilitam a conversa com o seu contador.",
   },
   {
-    question: "Et dolore magna aliqua?",
-    answer: "Enim ad minim veniam quis nostrud.",
+    question: "E se eu não gostar?",
+    answer: "Você tem 14 dias. Se não for para você, devolvemos o valor pago.",
   },
 ]
 

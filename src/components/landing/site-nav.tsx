@@ -17,15 +17,15 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 
 // Anchors to the landing page sections (see the `id`s in landing-page.tsx).
 const PRODUCT = [
-  { href: "#como-funciona", icon: Workflow, title: "Como funciona", text: "Lorem ipsum dolor sit amet consectetur." },
-  { href: "#beneficios", icon: Sparkles, title: "Benefícios", text: "Adipiscing elit sed do eiusmod tempor." },
-  { href: "#comparativo", icon: Columns3, title: "Comparativo", text: "Incididunt ut labore et dolore magna." },
-  { href: "#para-quem", icon: Users, title: "Para quem é", text: "Aliqua enim ad minim veniam quis." },
+  { href: "#efeito-capivara", icon: Sparkles, title: "Efeito Capivara", text: "As três mudanças que trazem a calma." },
+  { href: "#problema", icon: Workflow, title: "O problema", text: "Por que o financeiro tira o seu sono." },
+  { href: "#o-que-nao-e", icon: Columns3, title: "O que o Capi não é", text: "Sem letra miúda, sem promessa vazia." },
+  { href: "#para-quem", icon: Users, title: "Para quem é", text: "Veja se o Capi combina com você." },
 ]
 
 const LINKS = [
-  { href: "#depoimentos", title: "Depoimentos" },
-  { href: "#planos", title: "Planos" },
+  { href: "#plano", title: "Plano" },
+  { href: "#garantia", title: "Garantia" },
   { href: "#faq", title: "Dúvidas" },
 ]
 

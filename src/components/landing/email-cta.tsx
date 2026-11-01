@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils"
 
 import { ctaClassName } from "./primitives"
 
+export const GUARANTEE = "Garantia de 14 dias: se não for para você, devolvemos o valor pago, sem burocracia."
+
 // Progressive disclosure: only the e-mail here; the sign-up page picks it
 // up from ?email= and asks for the rest.
 export function EmailCta({
@@ -21,7 +23,7 @@ export function EmailCta({
   const onBrand = tone === "brand"
 
   return (
-    <div className={cn("flex w-full max-w-md flex-col gap-3", className)}>
+    <div className={cn("flex w-full max-w-xl flex-col gap-3", className)}>
       <Form action="/signup" className="flex flex-col gap-2 sm:flex-row">
         <label htmlFor={id} className="sr-only">
           Seu e-mail de trabalho
@@ -33,7 +35,7 @@ export function EmailCta({
           required
           autoComplete="email"
           placeholder="seu@empresa.com.br"
-          className={cn("h-11 bg-background px-3.5 text-base md:text-base", onBrand && "border-transparent")}
+          className={cn("h-11 bg-background px-3.5 text-base sm:min-w-56 sm:flex-1 md:text-base", onBrand && "border-transparent")}
         />
         <Button
           type="submit"
@@ -42,12 +44,12 @@ export function EmailCta({
             onBrand && "bg-white text-brand-stronger hover:bg-white/90 focus-visible:ring-white/60"
           )}
         >
-          Testar grátis
+          Quero meus números no lugar
           <ArrowRight aria-hidden />
         </Button>
       </Form>
       <p className={cn("text-sm", onBrand ? "text-white/85" : "text-muted-foreground")}>
-        Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod
+        {GUARANTEE}
       </p>
     </div>
   )

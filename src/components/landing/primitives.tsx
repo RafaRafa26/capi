@@ -87,18 +87,3 @@ export function BrowserFrame({ children, className }: { children: React.ReactNod
     </div>
   )
 }
-
-// Round photo slot for testimonials and the hero's face pile.
-export function AvatarPlaceholder({ className, showLabel = true }: { className?: string; showLabel?: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-brand/40 bg-brand/5 text-[0.6rem] font-medium text-muted-foreground",
-        className
-      )}
-    >
-      {showLabel && "FOTO"}
-    </span>
-  )
-}

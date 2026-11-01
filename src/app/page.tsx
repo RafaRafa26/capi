@@ -9,8 +9,9 @@ import { currentUser } from "@/modules/auth/session"
 import { listUserOrganizations } from "@/modules/organizations/service"
 
 export const metadata: Metadata = {
-  title: "Capi Gestão — Lorem ipsum dolor sit amet",
-  description: "In reprehenderit voluptate velit esse cillum fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt.",
+  title: "Capi Gestão — A calma de uma capivara para o financeiro do seu negócio",
+  description:
+    "Gestão financeira para pequenos negócios: veja o que vai entrar e sair, confira seus números com o banco e decida sabendo onde está. Garantia de 14 dias.",
 }
 
 // Visitors get the landing page. Signed-in users go back to the company
