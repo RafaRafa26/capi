@@ -4,19 +4,16 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const QUESTIONS = [
   {
-    question: "Eu não entendo nada de finanças. Vou conseguir usar?",
-    answer:
-      "O Capi foi pensado justamente para quem não é da área. Você não precisa saber termos técnicos. Precisa saber o que entrou, o que saiu e o que vai vencer, e o sistema organiza o resto.",
+    question: "Não entendo de finanças. Vou conseguir usar?",
+    answer: "Sim. Você só precisa saber o que entrou, o que saiu e o que vai vencer. O Capi organiza o resto.",
   },
   {
     question: "Não tenho tempo para mais uma tarefa.",
-    answer:
-      "Você já gasta tempo com o financeiro hoje: procurando boleto, refazendo conta de cabeça, resolvendo o susto do fim do mês. O Capi troca esse tempo espalhado e estressante por uma rotina curta e previsível.",
+    answer: "São alguns minutos por semana, no lugar das horas que o susto do fim do mês já toma.",
   },
   {
     question: "Meu banco funciona com o Capi?",
-    answer:
-      "Você baixa o extrato no seu banco no formato OFX, que a maioria dos bancos oferece no internet banking, e importa no Capi. Se importar o mesmo arquivo duas vezes, nada se repete.",
+    answer: "Se ele exporta o extrato em OFX, sim, e a maioria dos bancos exporta.",
   },
   {
     question: "E meus dados?",
@@ -24,12 +21,11 @@ const QUESTIONS = [
   },
   {
     question: "Ainda preciso de contador?",
-    answer:
-      "Sim. O contador cuida das obrigações fiscais. O Capi cuida da sua visão do dia a dia. Os dois se complementam, e os relatórios do Capi ainda facilitam a conversa com o seu contador.",
+    answer: "Sim. Ele cuida do fiscal; o Capi cuida da sua visão do dia a dia.",
   },
   {
     question: "E se eu não gostar?",
-    answer: "Você tem 14 dias. Se não for para você, devolvemos o valor pago.",
+    answer: "Você tem 14 dias para pedir o dinheiro de volta.",
   },
 ]
 

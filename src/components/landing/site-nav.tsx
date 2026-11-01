@@ -1,30 +1,23 @@
 "use client"
 
 import { useState } from "react"
-import { Columns3, Menu, Sparkles, Users, Workflow } from "lucide-react"
+import { Menu } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
   NavigationMenu,
-  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
 // Anchors to the landing page sections (see the `id`s in landing-page.tsx).
-const PRODUCT = [
-  { href: "#efeito-capivara", icon: Sparkles, title: "Efeito Capivara", text: "As três mudanças que trazem a calma." },
-  { href: "#problema", icon: Workflow, title: "O problema", text: "Por que o financeiro tira o seu sono." },
-  { href: "#o-que-nao-e", icon: Columns3, title: "O que o Capi não é", text: "Sem letra miúda, sem promessa vazia." },
-  { href: "#para-quem", icon: Users, title: "Para quem é", text: "Veja se o Capi combina com você." },
-]
-
 const LINKS = [
-  { href: "#plano", title: "Plano" },
+  { href: "#problema", title: "O problema" },
+  { href: "#efeito-capivara", title: "Efeito Capivara" },
+  { href: "#planos", title: "Planos" },
   { href: "#garantia", title: "Garantia" },
   { href: "#faq", title: "Dúvidas" },
 ]
@@ -33,24 +26,6 @@ export function DesktopNav() {
   return (
     <NavigationMenu className="hidden lg:flex">
       <NavigationMenuList>
-        <NavigationMenuItem>
-          <NavigationMenuTrigger>Produto</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid w-[30rem] grid-cols-2 gap-1 p-1">
-              {PRODUCT.map(({ href, icon: Icon, title, text }) => (
-                <li key={href}>
-                  <NavigationMenuLink href={href} className="items-start gap-3 p-3">
-                    <Icon className="mt-0.5 size-4 text-brand-strong" aria-hidden />
-                    <span className="flex flex-col gap-0.5">
-                      <span className="font-medium">{title}</span>
-                      <span className="text-muted-foreground">{text}</span>
-                    </span>
-                  </NavigationMenuLink>
-                </li>
-              ))}
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
         {LINKS.map(({ href, title }) => (
           <NavigationMenuItem key={href}>
             <NavigationMenuLink href={href} className={navigationMenuTriggerStyle()}>
@@ -76,7 +51,7 @@ export function MobileNav() {
           <SheetTitle>Menu</SheetTitle>
         </SheetHeader>
         <nav aria-label="Principal" className="flex flex-col gap-1 px-4 pb-6">
-          {[...PRODUCT, ...LINKS].map(({ href, title }) => (
+          {LINKS.map(({ href, title }) => (
             <a
               key={href}
               href={href}

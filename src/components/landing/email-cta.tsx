@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 
 import { ctaClassName } from "./primitives"
 
-export const GUARANTEE = "Garantia de 14 dias: se não for para você, devolvemos o valor pago, sem burocracia."
+export const GUARANTEE = "Garantia de 14 dias. Se não for para você, devolvemos o valor."
 
 // Progressive disclosure: only the e-mail here; the sign-up page picks it
 // up from ?email= and asks for the rest.
