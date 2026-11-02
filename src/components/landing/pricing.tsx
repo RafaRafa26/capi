@@ -17,7 +17,7 @@ type Billing = "monthly" | "yearly"
 const PLANS = [
   {
     name: "Essencial",
-    description: "Para começar a colocar os números no lugar.",
+    description: "Para começar a enxergar o seu financeiro.",
     monthly: 89,
     yearly: 71,
     features: [
@@ -111,7 +111,7 @@ export function Pricing() {
                   plan.recommended && ctaClassName
                 )}
               >
-                Quero meus números no lugar
+                Quero saber onde estou
               </Link>
               <ul className="flex flex-col gap-2.5 text-sm">
                 {plan.features.map((feature) => (

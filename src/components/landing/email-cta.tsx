@@ -44,7 +44,7 @@ export function EmailCta({
             onBrand && "bg-white text-brand-stronger hover:bg-white/90 focus-visible:ring-white/60"
           )}
         >
-          Quero meus números no lugar
+          Quero saber onde estou
           <ArrowRight aria-hidden />
         </Button>
       </Form>

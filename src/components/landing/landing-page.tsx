@@ -111,10 +111,26 @@ function Hero() {
 }
 
 const PAINS = [
-  { title: "A conta esquecida", text: "Vence sem você ver e chega com juros e multa.", icon: "boleto amassado com um relógio" },
-  { title: "O saldo que engana", text: "Parece sobrar, mas parte dele já tem dono.", icon: "pilha de moedas com etiquetas de “já tem dono”" },
-  { title: "A decisão no escuro", text: "Contratar, comprar, investir. Tudo vira aposta.", icon: "lanterna apagada sobre um gráfico" },
-  { title: "O domingo apertado", text: "Trabalhar cada vez mais e controlar cada vez menos.", icon: "calendário com o domingo marcado" },
+  {
+    title: "Dia 28, 23h.",
+    text: "Você refaz a conta pela terceira vez para ver se a folha fecha.",
+    icon: "relógio marcando 23h sobre uma calculadora",
+  },
+  {
+    title: "“Venceu ontem.”",
+    text: "O boleto esquecido volta com multa, e você liga pedindo prazo de novo.",
+    icon: "boleto com carimbo de vencido",
+  },
+  {
+    title: "O saldo parecia folgado.",
+    text: "Você comprou estoque. Na quinta, o imposto levou o resto.",
+    icon: "caixa de estoque com moedas saindo dela",
+  },
+  {
+    title: "“E aí, está dando?”",
+    text: "Alguém em casa pergunta. Você diz “está indo” e muda de assunto.",
+    icon: "balão de conversa com reticências",
+  },
 ]
 
 // First color band: the pain, kept to one line per card.
@@ -124,11 +140,9 @@ function Pain() {
       <Container className="flex flex-col gap-12">
         <div className="mx-auto flex max-w-2xl flex-col gap-4 text-center">
           <h2 id="problema-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-            Aquele segundo antes de abrir o app do banco.
+            Você sabe quanto vendeu. <span className="text-brand">Não sabe quanto sobrou.</span>
           </h2>
-          <p className="text-lg text-pretty text-background/70">
-            Você faz a conta de cabeça e pensa &ldquo;acho que dá&rdquo;. Esse &ldquo;acho&rdquo; sai caro.
-          </p>
+          <p className="text-lg text-pretty text-background/70">E é nessa diferença que mora a ansiedade.</p>
         </div>
         <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           {PAINS.map(({ title, text, icon }) => (
@@ -144,7 +158,7 @@ function Pain() {
           ))}
         </ul>
         <p className="text-center text-xl font-semibold text-balance sm:text-2xl">
-          Não é falta de esforço. <span className="text-brand">É falta de mapa.</span>
+          Você não está fazendo nada errado. <span className="text-brand">Está trabalhando sem enxergar.</span>
         </p>
       </Container>
     </section>
@@ -163,11 +177,11 @@ function Capybara() {
         <div className="flex flex-col gap-5">
           <p className="text-sm font-semibold text-brand-strong">Por que uma capivara?</p>
           <h2 id="capivara-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-            Calma não é sorte. <span className="text-brand-strong">É número no lugar.</span>
+            Calma não é sorte. <span className="text-brand-strong">É não ser pego de surpresa.</span>
           </h2>
           <p className="max-w-lg text-lg text-pretty text-muted-foreground">
-            A capivara fica tranquila cercada de jacaré porque conhece o rio. Nada a pega de surpresa. O Capi faz o mesmo
-            pelo seu financeiro.
+            A capivara vive cercada de jacaré e continua tranquila. Não porque ignora o perigo, mas porque vê ele chegando.
+            O Capi faz isso pelo seu financeiro: mostra o problema enquanto ainda dá tempo de agir.
           </p>
         </div>
       </Container>
@@ -200,7 +214,8 @@ function CapybaraEffect() {
         <SectionHeading
           id="efeito-capivara-title"
           eyebrow="O Efeito Capivara"
-          title="Três mudanças que tiram você do modo incêndio"
+          title="Do “acho que dá” ao “eu sei que dá”."
+          description="Três mudanças que o Capi faz no seu financeiro."
         />
         <ol className="grid gap-6 lg:grid-cols-3">
           {SHIFTS.map(({ title, text, image }, index) => (
@@ -280,7 +295,7 @@ function FinalCta() {
       <div className="mx-auto grid max-w-6xl items-center gap-10 overflow-hidden rounded-3xl bg-brand/10 p-8 ring-1 ring-brand/20 sm:p-12 lg:grid-cols-[3fr_2fr]">
         <div className="flex flex-col gap-5">
           <h2 id="cta-final-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-            Número no lugar. <span className="text-brand-strong">Calma no lugar.</span>
+            A calma começa <span className="text-brand-strong">quando você enxerga.</span>
           </h2>
           <p className="max-w-lg text-lg text-pretty text-muted-foreground">
             Comece hoje e veja o próximo mês chegar, em vez de levar susto com ele.
