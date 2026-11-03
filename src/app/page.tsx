@@ -9,7 +9,7 @@ import { currentUser } from "@/modules/auth/session"
 import { listUserOrganizations } from "@/modules/organizations/service"
 
 export const metadata: Metadata = {
-  title: "Capi Gestão — A calma de uma capivara para o financeiro do seu negócio",
+  title: "Capi Gestão - A calma de uma capivara para o financeiro do seu negócio",
   description:
     "Gestão financeira para pequenos negócios: veja o que vai entrar e sair, confira seus números com o banco e decida sabendo onde está. Garantia de 14 dias.",
 }

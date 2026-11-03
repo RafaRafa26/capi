@@ -13,13 +13,14 @@ import {
 } from "@/components/ui/navigation-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
-// Anchors to the landing page sections (see the `id`s in landing-page.tsx).
+// Anchors to the landing page sections (see the `id`s in landing-page.tsx),
+// then the content pages. /blog and /ferramentas do not exist yet.
 const LINKS = [
   { href: "#problema", title: "O problema" },
   { href: "#efeito-capivara", title: "Efeito Capivara" },
   { href: "#planos", title: "Planos" },
-  { href: "#garantia", title: "Garantia" },
-  { href: "#faq", title: "Dúvidas" },
+  { href: "/blog", title: "Blog" },
+  { href: "/ferramentas", title: "Ferramentas" },
 ]
 
 export function DesktopNav() {
