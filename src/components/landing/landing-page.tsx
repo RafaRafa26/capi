@@ -1,16 +1,18 @@
 import Link from "next/link"
-import { CircleCheck, LogIn } from "lucide-react"
+import { ArrowRight, Check, CircleCheck, LogIn, X } from "lucide-react"
 
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-import { EmailCta } from "./email-cta"
+import { EmailCta, GUARANTEE } from "./email-cta"
 import { Faq } from "./faq"
 import { Pricing } from "./pricing"
 import { BrowserFrame, Container, ImagePlaceholder, Logo, SectionHeading, ctaClassName } from "./primitives"
 import { DesktopNav, MobileNav } from "./site-nav"
 
-// Public landing page, shown at / to visitors without a session. Short on
+// Public landing page, shown at / to visitors without a session, laid out as
+// AIDA: attention (hero), interest (pain, Capybara Effect), desire (before ×
+// after) and action (plans, FAQ, final CTA). Short on
 // text on purpose: each block is a title, one line and a visual. [PRINT],
 // [ILUSTRAÇÃO] and [ÍCONE 3D] mark the visuals still to come, at their final
 // aspect ratio; prices are [MOCK]. No testimonials or client numbers.
@@ -27,8 +29,8 @@ export function LandingPage() {
       <main id="conteudo" className="flex-1">
         <Hero />
         <Pain />
-        <Capybara />
         <CapybaraEffect />
+        <BeforeAfter />
         <Plans />
         <Questions />
         <FinalCta />
@@ -113,7 +115,7 @@ function Hero() {
 const PAINS = [
   {
     title: "Dia 28, 23h.",
-    text: "Você refaz a conta pela terceira vez para ver se a folha fecha.",
+    text: "Você refaz a conta pela terceira vez e pensa: “acho que dá”.",
     icon: "relógio marcando 23h sobre uma calculadora",
   },
   {
@@ -165,30 +167,6 @@ function Pain() {
   )
 }
 
-function Capybara() {
-  return (
-    <section aria-labelledby="capivara-title" className="py-20 lg:py-28">
-      <Container className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        <ImagePlaceholder
-          label="ILUSTRAÇÃO"
-          description="capivara tranquila na beira do rio, cercada de jacarés, com um passarinho na cabeça"
-          className="aspect-[4/3] rounded-3xl"
-        />
-        <div className="flex flex-col gap-5">
-          <p className="text-sm font-semibold text-brand-strong">Por que uma capivara?</p>
-          <h2 id="capivara-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-            Calma não é sorte. <span className="text-brand-strong">É não ser pego de surpresa.</span>
-          </h2>
-          <p className="max-w-lg text-lg text-pretty text-muted-foreground">
-            A capivara vive cercada de jacaré e continua tranquila. Não porque ignora o perigo, mas porque vê ele chegando.
-            O Capi faz isso pelo seu financeiro: mostra o problema enquanto ainda dá tempo de agir.
-          </p>
-        </div>
-      </Container>
-    </section>
-  )
-}
-
 const SHIFTS = [
   {
     title: "Do susto à previsibilidade",
@@ -211,12 +189,23 @@ function CapybaraEffect() {
   return (
     <section id="efeito-capivara" aria-labelledby="efeito-capivara-title" className="scroll-mt-16 bg-muted/50 py-20 lg:py-28">
       <Container className="flex flex-col gap-12">
-        <SectionHeading
-          id="efeito-capivara-title"
-          eyebrow="O Efeito Capivara"
-          title="Do “acho que dá” ao “eu sei que dá”."
-          description="Três mudanças que o Capi faz no seu financeiro."
-        />
+        <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-16">
+          <div className="flex flex-col gap-5">
+            <p className="text-sm font-semibold text-brand-strong">O Efeito Capivara</p>
+            <h2 id="efeito-capivara-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
+              Calma não é sorte. <span className="text-brand-strong">É não ser pego de surpresa.</span>
+            </h2>
+            <p className="max-w-xl text-lg text-pretty text-muted-foreground">
+              A capivara vive cercada de jacaré e continua tranquila porque vê o perigo chegando. O Capi faz isso pelo seu
+              financeiro, em três mudanças:
+            </p>
+          </div>
+          <ImagePlaceholder
+            label="ILUSTRAÇÃO"
+            description="capivara tranquila na beira do rio, cercada de jacarés, com um passarinho na cabeça"
+            className="aspect-[4/3] rounded-3xl bg-background"
+          />
+        </div>
         <ol className="grid gap-6 lg:grid-cols-3">
           {SHIFTS.map(({ title, text, image }, index) => (
             <li key={title} className="flex flex-col gap-6 overflow-hidden rounded-3xl bg-background p-6 pb-0 ring-1 ring-foreground/10 sm:p-8 sm:pb-0">
@@ -235,6 +224,80 @@ function CapybaraEffect() {
             </li>
           ))}
         </ol>
+      </Container>
+    </section>
+  )
+}
+
+// Desire: what the week looks like before and after. Every "after" line is a
+// feature the product has today.
+const BEFORE_AFTER = [
+  { before: "Descobre a conta atrasada quando chega a multa.", after: "Vê toda segunda o que vence na semana." },
+  { before: "Olha o saldo e torce para sobrar.", after: "Sabe quanto do saldo já tem dono." },
+  { before: "Confia no que digitou na planilha.", after: "Confere cada lançamento com o extrato do banco." },
+  { before: "Contrata e compra no feeling.", after: "Decide olhando os próprios números." },
+  { before: "Arruma tudo numa madrugada por mês.", after: "Cuida do financeiro numa rotina curta toda semana." },
+  { before: "Manda uma pasta bagunçada para o contador.", after: "Manda um relatório em PDF ou Excel." },
+]
+
+function BeforeAfter() {
+  return (
+    <section id="antes-depois" aria-labelledby="antes-depois-title" className="scroll-mt-16 py-20 lg:py-28">
+      <Container className="flex flex-col gap-12">
+        <SectionHeading
+          id="antes-depois-title"
+          title="Do “acho que dá” ao “eu sei que dá”."
+          description="O que muda na sua semana com o Capi."
+        />
+        <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-12">
+          <div className="overflow-hidden rounded-3xl ring-1 ring-foreground/10">
+            <table className="w-full table-fixed text-left text-sm sm:text-base">
+              <caption className="sr-only">Antes e depois do Capi</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="bg-muted/60 px-4 py-4 font-semibold text-muted-foreground sm:px-6">
+                    &ldquo;Acho que dá&rdquo;
+                  </th>
+                  <th scope="col" className="bg-brand/10 px-4 py-4 font-semibold text-brand-stronger sm:px-6">
+                    &ldquo;Eu sei que dá&rdquo;
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {BEFORE_AFTER.map(({ before, after }) => (
+                  <tr key={before} className="align-top">
+                    <td className="px-4 py-4 text-muted-foreground sm:px-6">
+                      <span className="flex gap-2.5">
+                        <X className="mt-0.5 size-4 shrink-0 text-muted-foreground/70" role="img" aria-label="Antes:" />
+                        {before}
+                      </span>
+                    </td>
+                    <td className="bg-brand/5 px-4 py-4 font-medium sm:px-6">
+                      <span className="flex gap-2.5">
+                        <Check className="mt-0.5 size-4 shrink-0 text-brand-strong" role="img" aria-label="Depois:" />
+                        {after}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <BrowserFrame>
+            <ImagePlaceholder
+              label="PRINT"
+              description="painel do Capi com o que vence na semana e o saldo conferido com o banco"
+              className="aspect-[4/3] rounded-none border-0 bg-brand/5 lg:aspect-[4/5]"
+            />
+          </BrowserFrame>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <Link href="/signup" className={cn(buttonVariants(), ctaClassName)}>
+            Quero saber onde estou
+            <ArrowRight aria-hidden />
+          </Link>
+          <p className="text-center text-sm text-muted-foreground">{GUARANTEE}</p>
+        </div>
       </Container>
     </section>
   )

@@ -4,28 +4,40 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const QUESTIONS = [
   {
-    question: "Não entendo de finanças. Vou conseguir usar?",
-    answer: "Sim. Você só precisa saber o que entrou, o que saiu e o que vai vencer. O Capi organiza o resto.",
+    question: "Já tentei planilha e larguei. Por que com o Capi seria diferente?",
+    answer:
+      "A planilha depende de você digitar tudo e lembrar de atualizar. No Capi, o extrato do banco entra pronto e você só confere. É menos trabalho, e por isso fica mais fácil manter. Se mesmo assim não virar hábito, você tem 14 dias para pedir o dinheiro de volta.",
   },
   {
-    question: "Não tenho tempo para mais uma tarefa.",
-    answer: "São alguns minutos por semana, no lugar das horas que o susto do fim do mês já toma.",
+    question: "Preciso entender de contabilidade?",
+    answer:
+      "Não. Se você sabe o que vendeu e o que pagou, sabe usar o Capi. Você vê o que entrou, o que saiu e o que vai vencer, organizado em categorias que você mesmo define.",
   },
   {
-    question: "Meu banco funciona com o Capi?",
-    answer: "Se ele exporta o extrato em OFX, sim, e a maioria dos bancos exporta.",
+    question: "Vou ter que organizar todo o meu passado antes de começar?",
+    answer: "Não. Você cadastra suas contas, importa o extrato do mês e lança o que vai vencer. O resto pode entrar aos poucos.",
   },
   {
-    question: "E meus dados?",
-    answer: "Os dados de cada empresa ficam separados, e só acessa quem você convidar.",
+    question: "Vou ter que digitar o extrato do banco?",
+    answer:
+      "Não. Você baixa o extrato em OFX no internet banking e importa no Capi. Se importar o mesmo arquivo duas vezes, nada se repete.",
   },
   {
-    question: "Ainda preciso de contador?",
-    answer: "Sim. Ele cuida do fiscal; o Capi cuida da sua visão do dia a dia.",
+    question: "Meus dados financeiros ficam seguros?",
+    answer: "Os dados de cada empresa ficam separados, e só acessa quem você convidar, com a permissão que você escolher.",
   },
   {
-    question: "E se eu não gostar?",
-    answer: "Você tem 14 dias para pedir o dinheiro de volta.",
+    question: "O Capi substitui o meu contador?",
+    answer:
+      "Não, e nem tenta. O contador cuida dos impostos e das obrigações. O Capi dá a você a visão do dia a dia, e os relatórios em PDF e Excel facilitam a conversa com ele.",
+  },
+  {
+    question: "Consigo dividir o acesso com meu sócio ou funcionário?",
+    answer: "Sim. Você convida quem quiser e define o que cada pessoa pode ver e fazer.",
+  },
+  {
+    question: "E se eu assinar e não gostar?",
+    answer: "Você tem 14 dias. Se não for para você, devolvemos o valor pago, sem burocracia e sem precisar justificar.",
   },
 ]
 
