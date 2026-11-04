@@ -112,55 +112,16 @@ function Hero() {
   )
 }
 
-const PAINS = [
-  {
-    title: "Dia 28, 23h.",
-    text: "Você refaz a conta pela terceira vez e pensa: “acho que dá”.",
-    icon: "relógio marcando 23h sobre uma calculadora",
-  },
-  {
-    title: "“Venceu ontem.”",
-    text: "O boleto esquecido volta com multa, e você liga pedindo prazo de novo.",
-    icon: "boleto com carimbo de vencido",
-  },
-  {
-    title: "O saldo parecia folgado.",
-    text: "Você comprou estoque. Na quinta, o imposto levou o resto.",
-    icon: "caixa de estoque com moedas saindo dela",
-  },
-  {
-    title: "“E aí, está dando?”",
-    text: "Alguém em casa pergunta. Você diz “está indo” e muda de assunto.",
-    icon: "balão de conversa com reticências",
-  },
-]
-
-// First color band: the pain, kept to one line per card.
+// First color band: the pain in one blow, big type and nothing else.
 function Pain() {
   return (
-    <section id="problema" aria-labelledby="problema-title" className="scroll-mt-16 bg-foreground py-20 text-background lg:py-28">
-      <Container className="flex flex-col gap-12">
-        <div className="mx-auto flex max-w-2xl flex-col gap-4 text-center">
-          <h2 id="problema-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-            Você sabe quanto vendeu. <span className="text-brand">Não sabe quanto sobrou.</span>
-          </h2>
-          <p className="text-lg text-pretty text-background/70">E é nessa diferença que mora a ansiedade.</p>
-        </div>
-        <ul className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          {PAINS.map(({ title, text, icon }) => (
-            <li key={title} className="flex flex-col gap-3 rounded-3xl bg-background/[0.06] p-4 ring-1 ring-background/10 sm:gap-4 sm:p-6">
-              <ImagePlaceholder
-                label="ÍCONE 3D"
-                description={icon}
-                className="aspect-[4/3] w-full rounded-2xl border-brand/50 bg-brand/10 p-2 text-[0.6rem] text-background/60 sm:text-xs"
-              />
-              <h3 className="font-semibold sm:text-lg">{title}</h3>
-              <p className="text-sm text-background/70 sm:text-base">{text}</p>
-            </li>
-          ))}
-        </ul>
-        <p className="text-center text-xl font-semibold text-balance sm:text-2xl">
-          Você não está fazendo nada errado. <span className="text-brand">Está trabalhando sem enxergar.</span>
+    <section id="problema" aria-labelledby="problema-title" className="scroll-mt-16 bg-foreground py-28 text-background lg:py-40">
+      <Container className="flex max-w-4xl flex-col items-center gap-8 text-center">
+        <h2 id="problema-title" className="text-[clamp(2rem,10vw,4.5rem)] leading-tight font-bold tracking-tight">
+          Seu saldo <span className="block text-brand">não é seu dinheiro.</span>
+        </h2>
+        <p className="max-w-2xl text-xl text-pretty text-background/70 sm:text-2xl">
+          Parte dele já tem dono: o fornecedor, o imposto, a folha. E você só descobre quando a conta chega.
         </p>
       </Container>
     </section>
