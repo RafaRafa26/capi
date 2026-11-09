@@ -116,8 +116,8 @@ export function statusLabel(status: AccountStatus, kind: LedgerKind): string {
 }
 
 export const statusBadgeStyle: Record<AccountStatus, { backgroundColor?: string; color?: string }> = {
-  OVERDUE: { backgroundColor: "oklch(0.63 0.24 25 / 14%)", color: "oklch(0.55 0.22 25)" },
-  DUE_TODAY: { backgroundColor: "oklch(0.77 0.16 70 / 20%)", color: "oklch(0.5 0.12 60)" },
+  OVERDUE: { backgroundColor: "color-mix(in oklch, var(--negative) 14%, transparent)", color: "var(--negative)" },
+  DUE_TODAY: { backgroundColor: "color-mix(in oklch, var(--warning) 20%, transparent)", color: "var(--warning)" },
   UPCOMING: {},
-  PAID: { backgroundColor: "oklch(0.72 0.19 149 / 15%)", color: "oklch(0.5 0.15 149)" },
+  PAID: { backgroundColor: "color-mix(in oklch, var(--positive) 15%, transparent)", color: "var(--positive)" },
 }

@@ -44,7 +44,7 @@ function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-foreground/5 bg-background/80 backdrop-blur">
       <Container className="flex h-16 items-center justify-between gap-2 sm:gap-4">
-        <Link href="/" aria-label="Capi Gestão, página inicial" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-brand/40">
+        <Link href="/" aria-label="Capi Gestão, página inicial" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
           <Logo />
         </Link>
         <DesktopNav />
@@ -71,15 +71,15 @@ function Hero() {
     <section aria-labelledby="hero-title" className="relative overflow-hidden">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_75%_35%,color-mix(in_oklch,var(--color-brand)_18%,transparent),transparent_70%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_75%_35%,color-mix(in_oklch,var(--color-capi-lilac)_18%,transparent),transparent_70%)]"
       />
       <Container className="grid items-center gap-14 pt-12 pb-20 lg:grid-cols-12 lg:gap-10 lg:pt-20 lg:pb-28">
         <div className="flex flex-col gap-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 lg:col-span-6">
-          <p className="w-fit rounded-full bg-brand/10 px-3 py-1 text-sm font-medium text-brand-stronger">
+          <p className="w-fit rounded-full bg-capi-lilac/10 px-3 py-1 text-sm font-medium text-primary">
             Gestão financeira para pequenos negócios
           </p>
           <h1 id="hero-title" className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-            A <span className="text-brand-strong">calma</span> de uma capivara para o financeiro do seu negócio.
+            A <span className="text-primary">calma</span> de uma capivara para o financeiro do seu negócio.
           </h1>
           <p className="max-w-lg text-lg text-pretty text-muted-foreground">
             Veja o que vai entrar e sair, confira seus números com o banco e decida sabendo onde está.
@@ -95,13 +95,13 @@ function Hero() {
           <BrowserFrame>
             <ImagePlaceholder
               label="PRINT"
-              className="aspect-[16/10] rounded-none border-0 bg-brand/5"
+              className="aspect-[16/10] rounded-none border-0 bg-capi-lilac/5"
               description="painel do Capi com as contas a pagar e a receber por vencimento e o saldo conferido com o banco"
             />
           </BrowserFrame>
           <div className="absolute -bottom-6 -left-4 hidden w-64 rounded-xl bg-background p-4 shadow-xl ring-1 ring-foreground/10 sm:block">
             <p className="flex items-center gap-2 text-sm font-semibold">
-              <CircleCheck className="size-4 text-brand-strong" aria-hidden />
+              <CircleCheck className="size-4 text-primary" aria-hidden />
               Conferido com o banco
             </p>
             <p className="mt-1 text-sm text-muted-foreground">Extrato conciliado linha por linha</p>
@@ -118,7 +118,7 @@ function Pain() {
     <section id="problema" aria-labelledby="problema-title" className="scroll-mt-16 bg-foreground py-28 text-background lg:py-40">
       <Container className="flex max-w-4xl flex-col items-center gap-8 text-center">
         <h2 id="problema-title" className="text-[clamp(2rem,10vw,4.5rem)] leading-tight font-bold tracking-tight">
-          Seu saldo <span className="block text-brand">não é seu dinheiro.</span>
+          Seu saldo <span className="block text-capi-lilac">não é seu dinheiro.</span>
         </h2>
         <p className="max-w-2xl text-xl text-pretty text-background/70 sm:text-2xl">
           Parte dele já tem dono: o fornecedor, o imposto, a folha. E você só descobre quando a conta chega.
@@ -152,9 +152,9 @@ function CapybaraEffect() {
       <Container className="flex flex-col gap-12">
         <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-16">
           <div className="flex flex-col gap-5">
-            <p className="text-sm font-semibold text-brand-strong">O Efeito Capivara</p>
+            <p className="text-sm font-semibold text-primary">O Efeito Capivara</p>
             <h2 id="efeito-capivara-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-              Calma não é sorte. <span className="text-brand-strong">É não ser pego de surpresa.</span>
+              Calma não é sorte. <span className="text-primary">É não ser pego de surpresa.</span>
             </h2>
             <p className="max-w-xl text-lg text-pretty text-muted-foreground">
               A capivara vive cercada de jacaré e continua tranquila porque vê o perigo chegando. O Capi faz isso pelo seu
@@ -170,7 +170,7 @@ function CapybaraEffect() {
         <ol className="grid gap-6 lg:grid-cols-3">
           {SHIFTS.map(({ title, text, image }, index) => (
             <li key={title} className="flex flex-col gap-6 overflow-hidden rounded-3xl bg-background p-6 pb-0 ring-1 ring-foreground/10 sm:p-8 sm:pb-0">
-              <span className="flex size-9 items-center justify-center rounded-full bg-brand-strong text-sm font-semibold text-white">
+              <span className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
                 {index + 1}
               </span>
               <div className="flex flex-col gap-2">
@@ -219,7 +219,7 @@ function BeforeAfter() {
                   <th scope="col" className="bg-muted/60 px-4 py-4 font-semibold text-muted-foreground sm:px-6">
                     &ldquo;Acho que dá&rdquo;
                   </th>
-                  <th scope="col" className="bg-brand/10 px-4 py-4 font-semibold text-brand-stronger sm:px-6">
+                  <th scope="col" className="bg-capi-lilac/10 px-4 py-4 font-semibold text-primary sm:px-6">
                     &ldquo;Eu sei que dá&rdquo;
                   </th>
                 </tr>
@@ -233,9 +233,9 @@ function BeforeAfter() {
                         {before}
                       </span>
                     </td>
-                    <td className="bg-brand/5 px-4 py-4 font-medium sm:px-6">
+                    <td className="bg-capi-lilac/5 px-4 py-4 font-medium sm:px-6">
                       <span className="flex gap-2.5">
-                        <Check className="mt-0.5 size-4 shrink-0 text-brand-strong" role="img" aria-label="Depois:" />
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" role="img" aria-label="Depois:" />
                         {after}
                       </span>
                     </td>
@@ -248,7 +248,7 @@ function BeforeAfter() {
             <ImagePlaceholder
               label="PRINT"
               description="painel do Capi com o que vence na semana e o saldo conferido com o banco"
-              className="aspect-[4/3] rounded-none border-0 bg-brand/5 lg:aspect-[4/5]"
+              className="aspect-[4/3] rounded-none border-0 bg-capi-lilac/5 lg:aspect-[4/5]"
             />
           </BrowserFrame>
         </div>
@@ -270,7 +270,7 @@ function Plans() {
     <section
       id="planos"
       aria-labelledby="planos-title"
-      className="scroll-mt-16 bg-[radial-gradient(120%_80%_at_50%_0%,var(--color-brand-strong),var(--color-brand-stronger))] py-20 text-white lg:py-28"
+      className="scroll-mt-16 bg-[radial-gradient(120%_80%_at_50%_0%,var(--color-capi-purple),var(--color-capi-purple-dark))] py-20 text-white lg:py-28"
     >
       <Container className="flex flex-col gap-12">
         <div className="mx-auto flex max-w-2xl flex-col gap-3 text-center">
@@ -316,10 +316,10 @@ function Questions() {
 function FinalCta() {
   return (
     <section aria-labelledby="cta-final-title" className="px-4 pb-20 sm:px-6">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 overflow-hidden rounded-3xl bg-brand/10 p-8 ring-1 ring-brand/20 sm:p-12 lg:grid-cols-[3fr_2fr]">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 overflow-hidden rounded-3xl bg-capi-lilac/10 p-8 ring-1 ring-capi-lilac/20 sm:p-12 lg:grid-cols-[3fr_2fr]">
         <div className="flex flex-col gap-5">
           <h2 id="cta-final-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
-            A calma começa <span className="text-brand-strong">quando você enxerga.</span>
+            A calma começa <span className="text-primary">quando você enxerga.</span>
           </h2>
           <p className="max-w-lg text-lg text-pretty text-muted-foreground">
             Comece hoje e veja o próximo mês chegar, em vez de levar susto com ele.

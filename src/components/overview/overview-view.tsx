@@ -12,11 +12,11 @@ import type { LancamentoBucketKey, ResumoLancamentos } from "@/modules/dashboard
 import type { OverviewData } from "@/modules/dashboard/service"
 import { useOrgPath } from "@/hooks/use-org-path"
 
-const RED = "oklch(0.63 0.24 25)"
-const AMBER = "oklch(0.77 0.16 70)"
-const BLUE = "oklch(0.6 0.15 255)"
-const GREEN = "oklch(0.62 0.17 149)"
-const GRAY = "oklch(0.7 0 0)"
+const RED = "var(--negative)"
+const AMBER = "var(--warning)"
+const BLUE = "var(--info)"
+const GREEN = "var(--positive)"
+const GRAY = "var(--muted-foreground)"
 
 // Each link spells out its whole query, so the accounts screen opens clean:
 // no search, no chips, page 1.
@@ -117,7 +117,7 @@ function AttentionCard({ data }: { data: OverviewData }) {
 }
 
 const bands: { key: LancamentoBucketKey; label: string; dot: string; valueColor?: string; query: string }[] = [
-  { key: "vencido", label: "Vencidas", dot: RED, valueColor: "oklch(0.55 0.22 25)", query: OVERDUE_QUERY },
+  { key: "vencido", label: "Vencidas", dot: RED, valueColor: RED, query: OVERDUE_QUERY },
   { key: "venceHoje", label: "Vencem hoje", dot: AMBER, query: DUE_TODAY_QUERY },
   { key: "aVencer", label: "A vencer", dot: GRAY, query: UPCOMING_QUERY },
 ]

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 
 // The one primary action, styled the same wherever it repeats.
 export const ctaClassName =
-  "h-11 gap-2 rounded-lg bg-brand-strong px-5 text-base text-white hover:bg-brand-stronger focus-visible:ring-brand/40"
+  "h-11 gap-2 rounded-lg bg-primary px-5 text-base text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring/40"
 
 export function Container({ className, ...props }: React.ComponentProps<"div">) {
   return <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)} {...props} />
@@ -14,11 +14,13 @@ export function Container({ className, ...props }: React.ComponentProps<"div">) 
 
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn("flex items-center gap-2 text-base font-semibold tracking-tight whitespace-nowrap max-[379px]:text-[15px] sm:gap-2.5 sm:text-lg", className)}>
-      <Image src="/brand/capi-logo.svg" alt="" width={40} height={40} className="size-8 sm:size-10" />
-      {/* The narrowest phones show only the mark; the header link keeps the name. */}
-      <span className="max-[349px]:sr-only">Capi Gestão</span>
-    </span>
+    <Image
+      src="/brand/capi-gestao-baixo.svg"
+      alt="Capi Gestão"
+      width={1173}
+      height={368}
+      className={cn("h-8 w-auto sm:h-10", className)}
+    />
   )
 }
 
@@ -37,7 +39,7 @@ export function SectionHeading({
 }) {
   return (
     <div className={cn("flex max-w-2xl flex-col gap-3", align === "center" && "mx-auto text-center")}>
-      {eyebrow && <p className="text-sm font-semibold text-brand-strong">{eyebrow}</p>}
+      {eyebrow && <p className="text-sm font-semibold text-primary">{eyebrow}</p>}
       <h2 id={id} className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">
         {title}
       </h2>
@@ -62,7 +64,7 @@ export function ImagePlaceholder({
       role="img"
       aria-label={`[${label}: ${description}]`}
       className={cn(
-        "flex items-center justify-center rounded-xl border-2 border-dashed border-brand/40 bg-brand/5 p-4 text-center text-sm text-balance text-muted-foreground",
+        "flex items-center justify-center rounded-xl border-2 border-dashed border-capi-lilac/40 bg-capi-lilac/5 p-4 text-center text-sm text-balance text-muted-foreground",
         className
       )}
     >
@@ -76,7 +78,7 @@ export function ImagePlaceholder({
 // Browser window chrome around a product screenshot.
 export function BrowserFrame({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("overflow-hidden rounded-xl bg-background shadow-2xl ring-1 shadow-brand/10 ring-foreground/10", className)}>
+    <div className={cn("overflow-hidden rounded-xl bg-background shadow-2xl ring-1 shadow-capi-purple/10 ring-foreground/10", className)}>
       <div className="flex items-center gap-1.5 border-b bg-muted/60 px-3 py-2" aria-hidden>
         <span className="size-2.5 rounded-full bg-foreground/15" />
         <span className="size-2.5 rounded-full bg-foreground/15" />

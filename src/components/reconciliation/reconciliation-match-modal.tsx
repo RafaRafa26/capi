@@ -342,7 +342,7 @@ export function ReconciliationMatchModal({
                             <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
                               <span className="truncate">{entry.contactName}</span>
                               {open === absTransactionAmount && (
-                                <span className="shrink-0 rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10.5px] font-medium text-emerald-600">
+                                <span className="shrink-0 rounded-full bg-positive/15 px-1.5 py-0.5 text-[10.5px] font-medium text-positive">
                                   valor exato
                                 </span>
                               )}
@@ -394,9 +394,9 @@ export function ReconciliationMatchModal({
                 <span className="text-muted-foreground">
                   Soma: <span className="font-semibold text-foreground">{formatBRL(sumSelected)}</span>
                   {diffSelected === 0 ? (
-                    <span className="ml-2 text-emerald-600">✓ confere com a transação</span>
+                    <span className="ml-2 text-positive">✓ confere com a transação</span>
                   ) : (
-                    <span className="ml-2 text-amber-600">
+                    <span className="ml-2 text-warning">
                       {diffSelected > 0 ? "faltam" : "sobram"} {formatBRL(Math.abs(diffSelected))}
                     </span>
                   )}
@@ -493,9 +493,9 @@ export function ReconciliationMatchModal({
               <span className="text-muted-foreground">
                 Soma: <span className="font-semibold text-foreground">{formatBRL(sumItems)}</span>
                 {diffItems === 0 ? (
-                  <span className="ml-2 text-emerald-600">✓ confere com a transação</span>
+                  <span className="ml-2 text-positive">✓ confere com a transação</span>
                 ) : (
-                  <span className="ml-2 text-amber-600">diferença de {formatBRL(Math.abs(diffItems))}</span>
+                  <span className="ml-2 text-warning">diferença de {formatBRL(Math.abs(diffItems))}</span>
                 )}
               </span>
               <Button

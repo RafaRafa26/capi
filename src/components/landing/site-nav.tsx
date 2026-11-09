@@ -57,7 +57,7 @@ export function MobileNav() {
               key={href}
               href={href}
               onClick={() => setOpen(false)}
-              className="flex min-h-11 items-center rounded-lg px-3 text-base font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-brand/40"
+              className="flex min-h-11 items-center rounded-lg px-3 text-base font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/40"
             >
               {title}
             </a>

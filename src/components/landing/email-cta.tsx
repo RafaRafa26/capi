@@ -41,7 +41,7 @@ export function EmailCta({
           type="submit"
           className={cn(
             ctaClassName,
-            onBrand && "bg-white text-brand-stronger hover:bg-white/90 focus-visible:ring-white/60"
+            onBrand && "bg-white text-capi-purple-dark hover:bg-white/90 focus-visible:ring-white/60"
           )}
         >
           Quero saber onde estou

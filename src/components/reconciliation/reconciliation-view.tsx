@@ -358,7 +358,7 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
           <span
             className={cn(
               "flex size-8 shrink-0 items-center justify-center rounded-full",
-              isEntrada ? "bg-emerald-500/15 text-emerald-500" : "bg-red-500/15 text-red-500",
+              isEntrada ? "bg-positive/15 text-positive" : "bg-negative/15 text-negative",
             )}
           >
             {isEntrada ? <ArrowDownLeftIcon className="size-4" /> : <ArrowUpRightIcon className="size-4" />}
@@ -368,7 +368,7 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
             <p className="text-xs text-muted-foreground">
               {formatDate(transacao.date)} · {isEntrada ? "Entrada" : "Saída"}
             </p>
-            <p className={cn("text-sm font-semibold", isEntrada ? "text-emerald-500" : "text-red-500")}>
+            <p className={cn("text-sm font-semibold", isEntrada ? "text-positive" : "text-negative")}>
               {isEntrada ? "" : "- "}
               {formatBRL(Math.abs(transacao.amount))}
             </p>
@@ -522,7 +522,7 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
           aria-busy={isPending}
           aria-label={isPending ? "Conciliando" : "Conciliar"}
           className={cn(
-            "flex size-7 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500 transition-colors hover:bg-emerald-500/25 disabled:opacity-40",
+            "flex size-7 items-center justify-center rounded-full bg-positive/15 text-positive transition-colors hover:bg-positive/25 disabled:opacity-40",
             // Enquanto concilia o botão fica desabilitado, mas o spinner não deve sumir no opacity-40.
             isPending && "disabled:opacity-100",
           )}

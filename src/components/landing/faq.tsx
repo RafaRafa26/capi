@@ -47,7 +47,7 @@ export function Faq() {
       {QUESTIONS.map(({ question, answer }) => (
         <li key={question}>
           <Collapsible>
-            <CollapsibleTrigger className="group flex min-h-14 w-full items-center justify-between gap-4 px-5 py-4 text-left font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-brand/40">
+            <CollapsibleTrigger className="group flex min-h-14 w-full items-center justify-between gap-4 px-5 py-4 text-left font-medium outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/40">
               {question}
               <ChevronDown
                 aria-hidden
