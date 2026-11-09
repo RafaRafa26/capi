@@ -1,0 +1,360 @@
+import Link from "next/link"
+import { ArrowRight, Check, CircleCheck, LogIn, X } from "lucide-react"
+
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+import { EmailCta, GUARANTEE } from "./email-cta"
+import { Faq } from "./faq"
+import { Pricing } from "./pricing"
+import { BrowserFrame, Container, ImagePlaceholder, Logo, SectionHeading, ctaClassName } from "./primitives"
+import { DesktopNav, MobileNav } from "./site-nav"
+
+// Public landing page, shown at / to visitors without a session, laid out as
+// AIDA: attention (hero), interest (pain, Capybara Effect), desire (before ×
+// after) and action (plans, FAQ, final CTA). Short on
+// text on purpose: each block is a title, one line and a visual. [PRINT],
+// [ILUSTRAÇÃO] and [ÍCONE 3D] mark the visuals still to come, at their final
+// aspect ratio; prices are [MOCK]. No testimonials or client numbers.
+export function LandingPage() {
+  return (
+    <div className="flex min-h-svh flex-col bg-background text-foreground">
+      <a
+        href="#conteudo"
+        className="sr-only z-50 rounded-md bg-background px-3 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+      >
+        Pular para o conteúdo
+      </a>
+      <Header />
+      <main id="conteudo" className="flex-1">
+        <Hero />
+        <Pain />
+        <CapybaraEffect />
+        <BeforeAfter />
+        <Plans />
+        <Questions />
+        <FinalCta />
+      </main>
+      <Footer />
+    </div>
+  )
+}
+
+function Header() {
+  return (
+    <header className="sticky top-0 z-40 border-b border-foreground/5 bg-background/80 backdrop-blur">
+      <Container className="flex h-16 items-center justify-between gap-2 sm:gap-4">
+        <Link href="/" aria-label="Capi Gestão, página inicial" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
+          <Logo />
+        </Link>
+        <DesktopNav />
+        <div className="flex items-center gap-1 sm:gap-2">
+          {/* Below 380px there is no room for the label next to the brand. */}
+          <Link href="/login" className={cn(buttonVariants({ variant: "ghost" }), "h-10 px-2 text-sm max-[379px]:w-10 max-[379px]:px-0 sm:px-3")}>
+            <LogIn className="hidden size-5 max-[379px]:block" aria-hidden />
+            <span className="max-[379px]:sr-only">Entrar</span>
+          </Link>
+          <Link href="/signup" className={cn(buttonVariants(), ctaClassName, "h-10 px-3 text-sm sm:px-4")}>
+            <span>
+              Começar<span className="max-sm:hidden"> agora</span>
+            </span>
+          </Link>
+          <MobileNav />
+        </div>
+      </Container>
+    </header>
+  )
+}
+
+function Hero() {
+  return (
+    <section aria-labelledby="hero-title" className="relative overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(60%_60%_at_75%_35%,color-mix(in_oklch,var(--color-capi-lilac)_18%,transparent),transparent_70%)]"
+      />
+      <Container className="grid items-center gap-14 pt-12 pb-20 lg:grid-cols-12 lg:gap-10 lg:pt-20 lg:pb-28">
+        <div className="flex flex-col gap-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500 lg:col-span-6">
+          <p className="w-fit rounded-full bg-capi-lilac/10 px-3 py-1 text-sm font-medium text-primary">
+            Gestão financeira para pequenos negócios
+          </p>
+          <h1 id="hero-title" className="text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
+            A <span className="text-primary">calma</span> de uma capivara para o financeiro do seu negócio.
+          </h1>
+          <p className="max-w-lg text-lg text-pretty text-muted-foreground">
+            Veja o que vai entrar e sair, confira seus números com o banco e decida sabendo onde está.
+          </p>
+          <EmailCta id="hero-email" />
+        </div>
+        <div className="relative lg:col-span-6">
+          <ImagePlaceholder
+            label="ILUSTRAÇÃO"
+            description="capivara espiando pela borda do painel"
+            className="absolute -top-14 -right-2 z-10 size-28 rounded-full bg-background p-2 text-[0.65rem] sm:size-32"
+          />
+          <BrowserFrame>
+            <ImagePlaceholder
+              label="PRINT"
+              className="aspect-[16/10] rounded-none border-0 bg-capi-lilac/5"
+              description="painel do Capi com as contas a pagar e a receber por vencimento e o saldo conferido com o banco"
+            />
+          </BrowserFrame>
+          <div className="absolute -bottom-6 -left-4 hidden w-64 rounded-xl bg-background p-4 shadow-xl ring-1 ring-foreground/10 sm:block">
+            <p className="flex items-center gap-2 text-sm font-semibold">
+              <CircleCheck className="size-4 text-primary" aria-hidden />
+              Conferido com o banco
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Extrato conciliado linha por linha</p>
+          </div>
+        </div>
+      </Container>
+    </section>
+  )
+}
+
+// First color band: the pain in one blow, big type and nothing else.
+function Pain() {
+  return (
+    <section id="problema" aria-labelledby="problema-title" className="scroll-mt-16 bg-foreground py-28 text-background lg:py-40">
+      <Container className="flex max-w-4xl flex-col items-center gap-8 text-center">
+        <h2 id="problema-title" className="text-[clamp(2rem,10vw,4.5rem)] leading-tight font-bold tracking-tight">
+          Seu saldo <span className="block text-capi-lilac">não é seu dinheiro.</span>
+        </h2>
+        <p className="max-w-2xl text-xl text-pretty text-background/70 sm:text-2xl">
+          Parte dele já tem dono: o fornecedor, o imposto, a folha. E você só descobre quando a conta chega.
+        </p>
+      </Container>
+    </section>
+  )
+}
+
+const SHIFTS = [
+  {
+    title: "Do susto à previsibilidade",
+    text: "Contas a pagar e a receber por vencimento, num lugar só. Você vê o aperto no dia 5, não no dia 28.",
+    image: "contas a pagar e a receber por vencimento, com as atrasadas em destaque",
+  },
+  {
+    title: "Do achismo à certeza",
+    text: "Importe o extrato e confira cada lançamento com o banco. Você sabe quanto do saldo é seu de verdade.",
+    image: "conciliação ligando o extrato do banco aos lançamentos",
+  },
+  {
+    title: "Do caos à rotina leve",
+    text: "Alguns minutos por semana, com tudo categorizado. Leve o bastante para você não largar.",
+    image: "receitas e despesas por categoria",
+  },
+]
+
+function CapybaraEffect() {
+  return (
+    <section id="efeito-capivara" aria-labelledby="efeito-capivara-title" className="scroll-mt-16 bg-muted/50 py-20 lg:py-28">
+      <Container className="flex flex-col gap-12">
+        <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-16">
+          <div className="flex flex-col gap-5">
+            <p className="text-sm font-semibold text-primary">O Efeito Capivara</p>
+            <h2 id="efeito-capivara-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
+              Calma não é sorte. <span className="text-primary">É não ser pego de surpresa.</span>
+            </h2>
+            <p className="max-w-xl text-lg text-pretty text-muted-foreground">
+              A capivara vive cercada de jacaré e continua tranquila porque vê o perigo chegando. O Capi faz isso pelo seu
+              financeiro, em três mudanças:
+            </p>
+          </div>
+          <ImagePlaceholder
+            label="ILUSTRAÇÃO"
+            description="capivara tranquila na beira do rio, cercada de jacarés, com um passarinho na cabeça"
+            className="aspect-[4/3] rounded-3xl bg-background"
+          />
+        </div>
+        <ol className="grid gap-6 lg:grid-cols-3">
+          {SHIFTS.map(({ title, text, image }, index) => (
+            <li key={title} className="flex flex-col gap-6 overflow-hidden rounded-3xl bg-background p-6 pb-0 ring-1 ring-foreground/10 sm:p-8 sm:pb-0">
+              <span className="flex size-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                {index + 1}
+              </span>
+              <div className="flex flex-col gap-2">
+                <h3 className="text-xl font-bold tracking-tight">{title}</h3>
+                <p className="text-pretty text-muted-foreground">{text}</p>
+              </div>
+              <ImagePlaceholder
+                label="PRINT"
+                description={image}
+                className="mt-auto aspect-[4/3] translate-y-2 rounded-b-none text-xs"
+              />
+            </li>
+          ))}
+        </ol>
+      </Container>
+    </section>
+  )
+}
+
+// Desire: what the week looks like before and after. Every "after" line is a
+// feature the product has today.
+const BEFORE_AFTER = [
+  { before: "Descobre a conta atrasada quando chega a multa.", after: "Vê toda segunda o que vence na semana." },
+  { before: "Olha o saldo e torce para sobrar.", after: "Sabe quanto do saldo já tem dono." },
+  { before: "Confia no que digitou na planilha.", after: "Confere cada lançamento com o extrato do banco." },
+  { before: "Contrata e compra no feeling.", after: "Decide olhando os próprios números." },
+  { before: "Arruma tudo numa madrugada por mês.", after: "Cuida do financeiro numa rotina curta toda semana." },
+  { before: "Manda uma pasta bagunçada para o contador.", after: "Manda um relatório em PDF ou Excel." },
+]
+
+function BeforeAfter() {
+  return (
+    <section id="antes-depois" aria-labelledby="antes-depois-title" className="scroll-mt-16 py-20 lg:py-28">
+      <Container className="flex flex-col gap-12">
+        <SectionHeading
+          id="antes-depois-title"
+          title="Do “acho que dá” ao “eu sei que dá”."
+          description="O que muda na sua semana com o Capi."
+        />
+        <div className="grid items-center gap-10 lg:grid-cols-[3fr_2fr] lg:gap-12">
+          <div className="overflow-hidden rounded-3xl ring-1 ring-foreground/10">
+            <table className="w-full table-fixed text-left text-sm sm:text-base">
+              <caption className="sr-only">Antes e depois do Capi</caption>
+              <thead>
+                <tr>
+                  <th scope="col" className="bg-muted/60 px-4 py-4 font-semibold text-muted-foreground sm:px-6">
+                    &ldquo;Acho que dá&rdquo;
+                  </th>
+                  <th scope="col" className="bg-capi-lilac/10 px-4 py-4 font-semibold text-primary sm:px-6">
+                    &ldquo;Eu sei que dá&rdquo;
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {BEFORE_AFTER.map(({ before, after }) => (
+                  <tr key={before} className="align-top">
+                    <td className="px-4 py-4 text-muted-foreground sm:px-6">
+                      <span className="flex gap-2.5">
+                        <X className="mt-0.5 size-4 shrink-0 text-muted-foreground/70" role="img" aria-label="Antes:" />
+                        {before}
+                      </span>
+                    </td>
+                    <td className="bg-capi-lilac/5 px-4 py-4 font-medium sm:px-6">
+                      <span className="flex gap-2.5">
+                        <Check className="mt-0.5 size-4 shrink-0 text-primary" role="img" aria-label="Depois:" />
+                        {after}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <BrowserFrame>
+            <ImagePlaceholder
+              label="PRINT"
+              description="painel do Capi com o que vence na semana e o saldo conferido com o banco"
+              className="aspect-[4/3] rounded-none border-0 bg-capi-lilac/5 lg:aspect-[4/5]"
+            />
+          </BrowserFrame>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <Link href="/signup" className={cn(buttonVariants(), ctaClassName)}>
+            Quero saber onde estou
+            <ArrowRight aria-hidden />
+          </Link>
+          <p className="text-center text-sm text-muted-foreground">{GUARANTEE}</p>
+        </div>
+      </Container>
+    </section>
+  )
+}
+
+// Second color band: plans and the guarantee.
+function Plans() {
+  return (
+    <section
+      id="planos"
+      aria-labelledby="planos-title"
+      className="scroll-mt-16 bg-[radial-gradient(120%_80%_at_50%_0%,var(--color-capi-purple),var(--color-capi-purple-dark))] py-20 text-white lg:py-28"
+    >
+      <Container className="flex flex-col gap-12">
+        <div className="mx-auto flex max-w-2xl flex-col gap-3 text-center">
+          <h2 id="planos-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
+            Escolha o plano do seu tamanho.
+          </h2>
+          <p className="text-lg text-white/85">Todos com garantia de 14 dias.</p>
+        </div>
+        <Pricing />
+        <div
+          id="garantia"
+          className="mx-auto grid w-full max-w-4xl scroll-mt-24 items-center gap-6 rounded-3xl bg-background p-6 text-foreground sm:grid-cols-[auto_1fr] sm:gap-8 sm:p-8"
+        >
+          <ImagePlaceholder
+            label="ILUSTRAÇÃO"
+            description="capivara segurando um escudo"
+            className="mx-auto size-36 rounded-2xl text-xs sm:size-40"
+          />
+          <div className="flex flex-col gap-2 text-center sm:text-left">
+            <h3 className="text-2xl font-bold tracking-tight">Garantia de 14 dias</h3>
+            <p className="text-pretty text-muted-foreground">
+              Use o Capi por 14 dias. Se não for para você, devolvemos o valor pago, sem burocracia e sem precisar justificar.
+            </p>
+            <p className="font-semibold">Ou o Capi traz clareza, ou você não paga.</p>
+          </div>
+        </div>
+      </Container>
+    </section>
+  )
+}
+
+function Questions() {
+  return (
+    <section id="faq" aria-labelledby="faq-title" className="scroll-mt-16 py-20 lg:py-28">
+      <Container className="grid gap-10 lg:grid-cols-[1fr_2fr] lg:gap-16">
+        <SectionHeading id="faq-title" align="left" eyebrow="Dúvidas" title="Perguntas frequentes" />
+        <Faq />
+      </Container>
+    </section>
+  )
+}
+
+function FinalCta() {
+  return (
+    <section aria-labelledby="cta-final-title" className="px-4 pb-20 sm:px-6">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 overflow-hidden rounded-3xl bg-capi-lilac/10 p-8 ring-1 ring-capi-lilac/20 sm:p-12 lg:grid-cols-[3fr_2fr]">
+        <div className="flex flex-col gap-5">
+          <h2 id="cta-final-title" className="text-3xl font-bold tracking-tight text-balance sm:text-5xl">
+            A calma começa <span className="text-primary">quando você enxerga.</span>
+          </h2>
+          <p className="max-w-lg text-lg text-pretty text-muted-foreground">
+            Comece hoje e veja o próximo mês chegar, em vez de levar susto com ele.
+          </p>
+          <EmailCta id="final-email" />
+        </div>
+        <ImagePlaceholder
+          label="ILUSTRAÇÃO"
+          description="capivara relaxando, de olhos fechados"
+          className="aspect-square w-full max-w-xs justify-self-center rounded-3xl bg-background"
+        />
+      </div>
+    </section>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="border-t">
+      <Container className="flex flex-col gap-8 py-10 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex max-w-xs flex-col gap-3">
+          <Logo />
+          <p className="text-sm text-muted-foreground">A calma de uma capivara para o financeiro do seu negócio.</p>
+        </div>
+        <nav aria-label="Rodapé" className="flex flex-col gap-2 text-sm">
+          <Link href="/login" className="text-foreground underline-offset-4 hover:underline">
+            Já tem conta? Entrar
+          </Link>
+          <span className="text-muted-foreground">[LINK: Termos de uso]</span>
+          <span className="text-muted-foreground">[LINK: Política de privacidade]</span>
+        </nav>
+      </Container>
+      <Container className="border-t py-6 text-sm text-muted-foreground">
+        © {new Date().getFullYear()} Capi Gestão. [razão social e CNPJ]
+      </Container>
+    </footer>
+  )
+}

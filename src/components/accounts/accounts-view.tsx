@@ -62,18 +62,18 @@ import { useOrgPath } from "@/hooks/use-org-path"
 const PAGE_SIZE_OPTIONS = [10, 25, 50] as const
 
 const summaryDotColor: Record<"overdue" | "dueToday" | "upcoming" | "paid" | "total", string> = {
-  overdue: "oklch(0.55 0.22 25)",
-  dueToday: "oklch(0.5 0.12 60)",
-  upcoming: "oklch(0.556 0 0)",
-  paid: "oklch(0.5 0.15 149)",
-  total: "oklch(0.145 0 0)",
+  overdue: "var(--negative)",
+  dueToday: "var(--warning)",
+  upcoming: "var(--muted-foreground)",
+  paid: "var(--positive)",
+  total: "var(--foreground)",
 }
 
 const summaryValueClass: Record<"overdue" | "dueToday" | "upcoming" | "paid" | "total", string> = {
-  overdue: "text-[oklch(0.55_0.22_25)]",
+  overdue: "text-negative",
   dueToday: "",
   upcoming: "",
-  paid: "text-[oklch(0.5_0.15_149)]",
+  paid: "text-positive",
   total: "",
 }
 

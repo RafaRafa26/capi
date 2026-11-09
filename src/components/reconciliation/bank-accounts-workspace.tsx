@@ -40,8 +40,8 @@ import { useOrgPath } from "@/hooks/use-org-path"
 
 const chartConfig = {
   saldo: { label: "Saldo", color: "var(--chart-1)" },
-  entradas: { label: "Entradas", color: "var(--color-emerald-500)" },
-  saidas: { label: "Saídas", color: "var(--color-red-500)" },
+  entradas: { label: "Entradas", color: "var(--positive)" },
+  saidas: { label: "Saídas", color: "var(--negative)" },
 } satisfies ChartConfig
 
 type ChartSeries = keyof typeof chartConfig
@@ -249,7 +249,7 @@ export function BankAccountsWorkspace({
               <span className="truncate text-sm font-medium">{account.name}</span>
               <span className="text-sm font-semibold">{formatBRL(account.currentBalance)}</span>
               {account.pendingCount > 0 && (
-                <span className="text-xs text-amber-600">
+                <span className="text-xs text-warning">
                   {account.pendingCount} {account.pendingCount === 1 ? "conciliação pendente" : "conciliações pendentes"}
                 </span>
               )}
@@ -378,7 +378,7 @@ export function BankAccountsWorkspace({
                             {/* Sem ✓: perna de transferência esperando o extrato desta conta. */}
                             <div>
                               {line.bankTransactionId && (
-                                <CircleCheckIcon className="size-4 text-sky-600" aria-label="Conciliada">
+                                <CircleCheckIcon className="size-4 text-info" aria-label="Conciliada">
                                   <title>Conciliada</title>
                                 </CircleCheckIcon>
                               )}
@@ -390,7 +390,7 @@ export function BankAccountsWorkspace({
                                 <button
                                   type="button"
                                   aria-expanded={expanded}
-                                  className="flex items-center gap-1 text-left text-sm font-medium text-sky-700 hover:underline dark:text-sky-400"
+                                  className="flex items-center gap-1 text-left text-sm font-medium text-info hover:underline"
                                   onClick={() => toggleLineExpanded(line.id)}
                                 >
                                   {line.entries.length} lançamentos
@@ -402,7 +402,7 @@ export function BankAccountsWorkspace({
                                     <button
                                       key={entry.entryId}
                                       type="button"
-                                      className="text-left text-sky-700 hover:underline dark:text-sky-400"
+                                      className="text-left text-info hover:underline"
                                       onClick={() => openEntry(entry)}
                                     >
                                       {entry.description}
@@ -414,7 +414,7 @@ export function BankAccountsWorkspace({
                                 {[...new Set(line.entries.map((entry) => entry.contactName))].join(", ")}
                               </p>
                             </div>
-                            <div className={cn("text-right text-sm font-semibold", line.amount >= 0 ? "text-emerald-500" : "text-red-500")}>
+                            <div className={cn("text-right text-sm font-semibold", line.amount >= 0 ? "text-positive" : "text-negative")}>
                               {line.amount >= 0 ? "" : "- "}
                               {formatBRL(Math.abs(line.amount))}
                             </div>
@@ -445,7 +445,7 @@ export function BankAccountsWorkspace({
                                 <div />
                                 <div />
                                 <button type="button" className="min-w-0 text-left" onClick={() => openEntry(entry)}>
-                                  <p className="truncate text-sm text-sky-700 hover:underline dark:text-sky-400">
+                                  <p className="truncate text-sm text-info hover:underline">
                                     {entry.description}
                                   </p>
                                   <p className="truncate text-xs text-muted-foreground">{entry.contactName}</p>

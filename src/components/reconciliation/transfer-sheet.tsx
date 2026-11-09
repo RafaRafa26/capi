@@ -117,19 +117,19 @@ export function TransferSheet({
                           <div className="truncate" title={leg.bankAccountName}>{leg.bankAccountName}</div>
                           <div className="flex items-center gap-1">
                             {leg.direction === "OUT" ? (
-                              <ArrowDownIcon className="size-4 text-red-500" />
+                              <ArrowDownIcon className="size-4 text-negative" />
                             ) : (
-                              <ArrowUpIcon className="size-4 text-emerald-500" />
+                              <ArrowUpIcon className="size-4 text-positive" />
                             )}
                             {leg.direction === "OUT" ? "Origem" : "Destino"}
                           </div>
-                          <div className={cn("text-right font-medium", leg.amount < 0 && "text-red-500")}>
+                          <div className={cn("text-right font-medium", leg.amount < 0 && "text-negative")}>
                             {leg.amount < 0 ? "- " : ""}
                             {formatBRL(Math.abs(leg.amount))}
                           </div>
                           <div>
                             {leg.reconciled && (
-                              <CircleCheckIcon className="size-4 text-sky-600" aria-label="Conciliada">
+                              <CircleCheckIcon className="size-4 text-info" aria-label="Conciliada">
                                 <title>Conciliada</title>
                               </CircleCheckIcon>
                             )}
@@ -147,7 +147,7 @@ export function TransferSheet({
                               <p className="wrap-break-word text-foreground">{bankTransaction.description}</p>
                             </div>
                             <span className="shrink-0">{formatDate(bankTransaction.date)}</span>
-                            <span className={cn("shrink-0 font-medium", bankTransaction.amount < 0 ? "text-red-500" : "text-foreground")}>
+                            <span className={cn("shrink-0 font-medium", bankTransaction.amount < 0 ? "text-negative" : "text-foreground")}>
                               {bankTransaction.amount < 0 ? "- " : ""}
                               {formatBRL(Math.abs(bankTransaction.amount))}
                             </span>

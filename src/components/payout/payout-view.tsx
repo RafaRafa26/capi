@@ -194,7 +194,7 @@ function RepasseConcluidoDialog({
         {repasse && (
           <>
             <div className="flex flex-col items-center gap-2 text-center">
-              <span className="flex size-11 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-500">
+              <span className="flex size-11 items-center justify-center rounded-full bg-positive/15 text-positive">
                 <CheckIcon className="size-5" />
               </span>
               <div className="space-y-0.5">
@@ -317,7 +317,7 @@ function ExtratoSheet({
                   <span
                     className={cn(
                       "shrink-0 text-sm font-semibold",
-                      line.amount >= 0 ? "text-emerald-500" : "text-red-500",
+                      line.amount >= 0 ? "text-positive" : "text-negative",
                     )}
                   >
                     {line.amount >= 0 ? "" : "- "}

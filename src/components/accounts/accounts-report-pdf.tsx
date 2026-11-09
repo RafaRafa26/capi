@@ -9,11 +9,10 @@ import { kindConfig } from "@/lib/accounts/labels"
 import { NO_BENEFICIARY_LABEL, type AccountsReport, type ReportEntry } from "@/lib/accounts/report"
 import { formatBRL, formatDate } from "@/lib/format"
 import { markerPrintColor } from "@/lib/marker-colors"
+import { capiHex, printNeutral } from "@/lib/print-palette"
 
-const ink = "#111827"
-const soft = "#4b5563"
-const line = "#d1d5db"
-const zebra = "#f6f7f9"
+const ink = capiHex.black
+const { soft, line, zebra } = printNeutral
 
 const styles = StyleSheet.create({
   page: { paddingTop: 28, paddingBottom: 40, paddingHorizontal: 32, fontFamily: "Helvetica", fontSize: 9, color: ink },
@@ -40,8 +39,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: ink,
-    color: "#ffffff",
+    backgroundColor: capiHex.purpleDark,
+    color: capiHex.white,
     paddingVertical: 5,
     paddingHorizontal: 6,
   },
@@ -99,7 +98,7 @@ function EntryBlock({ item, index, report }: { item: ReportEntry; index: number;
         <Text style={col.amount}>{formatBRL(entry.amount)}</Text>
         <Text style={[col.open, styles.bold]}>{formatBRL(item.openAmount)}</Text>
         <View style={col.status}>
-          <Text style={item.status === "OVERDUE" ? [styles.bold, { color: "#b91c1c" }] : {}}>{item.statusLabel}</Text>
+          <Text style={item.status === "OVERDUE" ? [styles.bold, { color: capiHex.red }] : {}}>{item.statusLabel}</Text>
           {entry.marker && marker && (
             <Text style={[styles.marker, { color: marker.text, backgroundColor: marker.background, borderColor: marker.text }]}>
               {entry.marker.name}
