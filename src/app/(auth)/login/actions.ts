@@ -51,11 +51,15 @@ export async function signUpAction(form: FormData): Promise<Result> {
   }
 }
 
-/** A form may send `next` so that signing back in returns there (e.g. an invitation link). */
+/**
+ * Signing out lands on the landing page. A form may send `next` so that
+ * signing back in returns there (e.g. an invitation link) — then it goes
+ * straight to the login screen instead.
+ */
 export async function signOutAction(form?: FormData) {
   await endSession(await requestToken());
   await clearSessionCookie();
 
   const next = safeNextPath(form instanceof FormData ? String(form.get("next") ?? "") : null);
-  redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
+  redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/");
 }

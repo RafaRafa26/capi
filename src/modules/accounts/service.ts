@@ -18,6 +18,7 @@ const ENTRY_INCLUDE = {
   category: true,
   bankAccount: true,
   marker: { select: { id: true, name: true, color: true } },
+  payout: { select: { id: true } },
   sale: {
     select: {
       id: true,
@@ -74,6 +75,7 @@ function toAccountEntry(entry: EntryWithRelations, kind: LedgerKind): AccountEnt
           ? `${entry.installmentNumber}/${entry.sale.installmentsCount}`
           : undefined,
       installmentNumber: entry.installmentNumber ?? undefined,
+      isPayout: entry.payout !== null,
       settlements: entry.settlements.map((settlement) => ({
         id: settlement.id,
         settledAt: fromDbDate(settlement.settledAt),
@@ -260,6 +262,9 @@ export async function deleteAccountEntry(organizationId: string, entryId: string
     const bankTransactionIds = [...new Set(settlements.map((s) => s.bankTransactionId).filter((id): id is string => id !== null))]
 
     await tx.settlement.deleteMany({ where: { entryId } })
+    // Excluir a conta a pagar de um repasse desfaz o repasse: os recebimentos
+    // ligados a ele (PayoutItem, em cascata) voltam ao disponível do favorecido.
+    await tx.payout.deleteMany({ where: { entryId } })
     await tx.entry.delete({ where: { id: entryId } })
 
     for (const bankTransactionId of bankTransactionIds) {

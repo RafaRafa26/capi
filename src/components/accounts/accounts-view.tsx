@@ -47,7 +47,13 @@ import {
   type SortField,
 } from "@/lib/accounts/filter"
 import { chipLabel, kindConfig, statusBadgeStyle, statusLabel } from "@/lib/accounts/labels"
-import { chipOrder, encodeChipValues, parseChipsFromParams, parsePeriodFromParams } from "@/lib/accounts/params"
+import {
+  chipOrder,
+  encodeChipValues,
+  parseChipsFromParams,
+  parsePeriodFromParams,
+  periodToParams,
+} from "@/lib/accounts/params"
 import { categoryColor } from "@/lib/category-color"
 import { formatBRL, formatDate } from "@/lib/format"
 import { markerBadgeStyle } from "@/lib/marker-colors"
@@ -164,15 +170,7 @@ export function AccountsView({
   }
 
   function handlePeriodChange(range: PeriodRange) {
-    if (range.preset === "custom" && range.from && range.to) {
-      updateParams({
-        period: "custom",
-        from: range.from.toISOString().slice(0, 10),
-        to: range.to.toISOString().slice(0, 10),
-      })
-    } else {
-      updateParams({ period: range.preset, from: null, to: null })
-    }
+    updateParams(periodToParams(range, today))
   }
 
   function handleSearchChange(value: string) {

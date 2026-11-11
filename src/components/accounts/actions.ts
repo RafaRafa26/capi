@@ -56,6 +56,8 @@ export async function deleteAccountEntryAction(entryId: string): Promise<Result>
     await deleteAccountEntry(session.organizationId, entryId)
     revalidatePath(orgPath(session.organizationId, "/payables"))
     revalidatePath(orgPath(session.organizationId, "/receivables"))
+    // A conta a pagar pode ser um repasse, e o recebimento pode ter creditado um favorecido.
+    revalidatePath(orgPath(session.organizationId, "/payout"))
     return { ok: true, data: undefined }
   } catch (error) {
     return failure(error)
@@ -69,6 +71,8 @@ export async function undoSettlementAction(settlementId: string): Promise<Result
     await undoSettlement(session.organizationId, settlementId)
     revalidatePath(orgPath(session.organizationId, "/payables"))
     revalidatePath(orgPath(session.organizationId, "/receivables"))
+    // A conta a pagar pode ser um repasse, e o recebimento pode ter creditado um favorecido.
+    revalidatePath(orgPath(session.organizationId, "/payout"))
     return { ok: true, data: undefined }
   } catch (error) {
     return failure(error)
