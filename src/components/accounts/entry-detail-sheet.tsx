@@ -3,11 +3,12 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { CalendarIcon, FileTextIcon, Trash2Icon } from "lucide-react"
+import { CalendarIcon, ChevronRightIcon, FileTextIcon, Trash2Icon } from "lucide-react"
 import { ptBR } from "date-fns/locale"
 import { toast } from "sonner"
 
 import { deleteAccountEntryAction, settleAccountEntryAction, undoSettlementAction } from "@/components/accounts/actions"
+import { PayoutCreditsPanel } from "@/components/payout/payout-credits-list"
 import { CurrencyInput } from "@/components/sales/currency-input"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -75,6 +76,8 @@ export function EntryDetailSheet({
   const router = useRouter()
   const toOrg = useOrgPath()
   const [pending, setPending] = React.useState(false)
+  // Id do repasse com o painel de recebimentos aberto — por id, para não abrir já aberto em outro lançamento.
+  const [payoutCreditsFor, setPayoutCreditsFor] = React.useState<string | null>(null)
   const today = React.useMemo(() => new Date(), [])
   const config = kindConfig[kind]
 
@@ -112,7 +115,14 @@ export function EntryDetailSheet({
 
   const accountStatus: AccountStatus = deriveStatus(entry, today)
   const isSettled = accountStatus === "PAID"
-  const originLabel = entry.installment ? `Contrato · Parcela ${entry.installment}` : "Avulsa"
+  const originLabel = entry.isPayout
+    ? "Repasse"
+    : entry.installment
+      ? `Contrato · Parcela ${entry.installment}`
+      : "Avulsa"
+  // O repasse é uma conta a pagar ao favorecido, não uma compra de fornecedor.
+  const originSectionTitle = entry.isPayout ? "Dados do repasse" : config.contractOriginLabel
+  const contactLabel = entry.isPayout ? "Favorecido" : config.contactLabel
   const remaining = isSettled ? 0 : Math.max(0, entry.amount - entry.settledAmount)
   // Allocation.amount is the favorecido's share of the whole contract — scale
   // it down to this parcela's amount, same formula the settlements module
@@ -271,11 +281,22 @@ export function EntryDetailSheet({
           </div>
 
           <div className="flex flex-col gap-3">
-            <SectionTitle>{config.contractOriginLabel}</SectionTitle>
+            <SectionTitle>{originSectionTitle}</SectionTitle>
             <div className="grid grid-cols-2 gap-3">
-              <Field label={config.contactLabel} value={entry.contactName} />
+              <Field label={contactLabel} value={entry.contactName} />
               <Field label="Categoria" value={<CategoryValue categoryId={entry.categoryId} categoryName={entry.categoryName} />} />
               <Field label="Descrição" value={entry.description} full />
+              {entry.isPayout && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="col-span-2 justify-self-start"
+                  onClick={() => setPayoutCreditsFor(entry.id)}
+                >
+                  Ver recebimentos
+                  <ChevronRightIcon />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -441,6 +462,10 @@ export function EntryDetailSheet({
               </Button>
             )}
           </SheetFooter>
+        )}
+
+        {payoutCreditsFor === entry.id && (
+          <PayoutCreditsPanel entryId={entry.id} onClose={() => setPayoutCreditsFor(null)} />
         )}
       </SheetContent>
     </Sheet>

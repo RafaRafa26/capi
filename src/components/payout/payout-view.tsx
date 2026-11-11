@@ -3,9 +3,11 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { ptBR } from "date-fns/locale"
-import { CalendarIcon, CheckIcon, CopyIcon } from "lucide-react"
+import { CalendarIcon, CheckIcon, CopyIcon, FileDownIcon } from "lucide-react"
 
 import { EntryDetailSheet } from "@/components/accounts/entry-detail-sheet"
+import { PeriodFilter } from "@/components/accounts/period-filter"
+import { CreditSummary } from "@/components/payout/credit-summary"
 import {
   generatePayoutAction,
   getAccountEntryAction,
@@ -16,6 +18,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import { Card, CardContent } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -23,9 +26,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useOrgPath } from "@/hooks/use-org-path"
+import { getPeriodRange, type PeriodRange } from "@/lib/accounts/filter"
+import { toParamDate } from "@/lib/accounts/params"
 import { formatBRL, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { AccountEntry } from "@/modules/accounts/types"
+import { sliceStatement } from "@/modules/payouts/statement"
 import type { BeneficiaryCredit, BeneficiaryPosition, BeneficiaryStatement, PayoutSummary } from "@/modules/payouts/types"
 
 export type FiltroSaldo = "todos" | "com-saldo" | "sem-saldo"
@@ -69,37 +76,66 @@ function GerarRepasseDialog({
 }) {
   // Montado com `key` por favorecido (ver PayoutView), então o estado inicial
   // já nasce certo — nada de sincronizar formulário dentro de efeito.
-  const [credits, setCredits] = React.useState<BeneficiaryCredit[]>([])
+  const [credits, setCredits] = React.useState<BeneficiaryCredit[] | null>(null)
+  // Tudo marcado ao abrir: o caso comum continua sendo repassar o saldo inteiro.
+  const [selecionados, setSelecionados] = React.useState<Set<string>>(new Set())
   const [dueDate, setDueDate] = React.useState<Date>(() => new Date())
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
 
   const beneficiarioId = beneficiario?.beneficiaryId
-  const disponivel = beneficiario?.available ?? 0
+  const lista = credits ?? []
+  const total = lista.reduce((sum, credit) => (selecionados.has(credit.id) ? sum + credit.amount : sum), 0)
+  const todosMarcados = lista.length > 0 && selecionados.size === lista.length
+  const algunsMarcados = selecionados.size > 0 && !todosMarcados
 
   React.useEffect(() => {
     if (!beneficiarioId) return
     let ignore = false
     listAvailableCreditsAction(beneficiarioId).then((response) => {
       if (ignore) return
-      if (response.ok) setCredits(response.data)
+      if (!response.ok) {
+        setError(response.error)
+        return
+      }
+      setCredits(response.data)
+      setSelecionados(new Set(response.data.map((credit) => credit.id)))
     })
     return () => {
       ignore = true
     }
   }, [beneficiarioId])
 
+  function alternar(id: string) {
+    setSelecionados((atual) => {
+      const proximo = new Set(atual)
+      if (proximo.has(id)) proximo.delete(id)
+      else proximo.add(id)
+      return proximo
+    })
+  }
+
+  function alternarTodos() {
+    setSelecionados(todosMarcados ? new Set() : new Set(lista.map((credit) => credit.id)))
+  }
+
   async function confirmar() {
     if (!beneficiario) return
     setPending(true)
     setError(null)
-    const response = await generatePayoutAction({ beneficiaryId: beneficiario.beneficiaryId, dueDate })
+    const response = await generatePayoutAction({
+      beneficiaryId: beneficiario.beneficiaryId,
+      dueDate,
+      credits: lista
+        .filter((credit) => selecionados.has(credit.id))
+        .map(({ settlementId, allocationId }) => ({ settlementId, allocationId })),
+    })
     setPending(false)
     if (!response.ok) {
       setError(response.error)
       return
     }
-    onDone({ beneficiario, amount: disponivel })
+    onDone({ beneficiario, amount: total })
   }
 
   return (
@@ -117,22 +153,41 @@ function GerarRepasseDialog({
             </p>
 
             <div className="flex min-w-0 flex-col gap-1">
-              <span className="text-xs text-muted-foreground">Recebimentos que compõem o saldo disponível</span>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-xs text-muted-foreground">
+                  Escolha os recebimentos que entram neste repasse
+                </span>
+                {lista.length > 0 && (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {selecionados.size} de {lista.length} selecionado{lista.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+              {lista.length > 0 && (
+                <label className="flex cursor-pointer items-center gap-3 border-b py-2 text-sm font-medium">
+                  <Checkbox checked={todosMarcados} indeterminate={algunsMarcados} onCheckedChange={alternarTodos} />
+                  Selecionar todos
+                </label>
+              )}
               <ScrollArea className="h-56 pr-4">
                 <div className="divide-y">
-                  {credits.map((credit) => (
-                    <div key={credit.settlementId} className="flex min-w-0 items-center justify-between gap-4 py-3 text-sm">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium" title={credit.payerName}>{credit.payerName}</p>
-                        <p className="flex min-w-0 text-muted-foreground" title={credit.description}>
-                          <span className="truncate">{credit.description}</span>
-                          <span className="shrink-0 whitespace-pre"> · Recebido em {formatDate(credit.settledAt)}</span>
-                        </p>
-                      </div>
+                  {lista.map((credit) => (
+                    <label
+                      key={credit.id}
+                      className={cn(
+                        "flex min-w-0 cursor-pointer items-center gap-3 py-3 text-sm",
+                        !selecionados.has(credit.id) && "text-muted-foreground",
+                      )}
+                    >
+                      <Checkbox checked={selecionados.has(credit.id)} onCheckedChange={() => alternar(credit.id)} />
+                      <CreditSummary credit={credit} />
                       <span className="shrink-0 font-medium">{formatBRL(credit.amount)}</span>
-                    </div>
+                    </label>
                   ))}
-                  {credits.length === 0 && (
+                  {credits === null && !error && (
+                    <p className="py-8 text-center text-sm text-muted-foreground">Carregando...</p>
+                  )}
+                  {credits !== null && credits.length === 0 && (
                     <p className="py-8 text-center text-sm text-muted-foreground">
                       Nenhum recebimento conciliado para este favorecido.
                     </p>
@@ -144,7 +199,12 @@ function GerarRepasseDialog({
             <div className="flex items-end justify-between gap-4 border-t pt-3">
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-muted-foreground">Total do repasse</span>
-                <span className="text-2xl font-semibold">{formatBRL(disponivel)}</span>
+                <span className="text-2xl font-semibold">{formatBRL(total)}</span>
+                {beneficiario.available > total && (
+                  <span className="text-xs text-muted-foreground">
+                    {formatBRL(beneficiario.available - total)} continuam disponíveis
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -172,7 +232,7 @@ function GerarRepasseDialog({
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-          <Button onClick={confirmar} disabled={pending || disponivel <= 0}>
+          <Button onClick={confirmar} disabled={pending || total <= 0}>
             Confirmar repasse
           </Button>
         </DialogFooter>
@@ -254,6 +314,8 @@ function RepasseConcluidoDialog({
   )
 }
 
+const extratoColunas = "grid-cols-[72px_1fr_auto_auto] sm:grid-cols-[84px_1fr_88px_120px_120px]"
+
 function ExtratoSheet({
   statement,
   loading,
@@ -267,14 +329,34 @@ function ExtratoSheet({
   onOpenChange: (open: boolean) => void
   onOpenEntry: (entryId: string) => void
 }) {
+  const toOrg = useOrgPath()
+  const today = React.useMemo(() => new Date(), [])
+  const [period, setPeriod] = React.useState<PeriodRange>(() => getPeriodRange("all", today))
+
+  const slice = React.useMemo(
+    () => (statement ? sliceStatement(statement.lines, period) : null),
+    [statement, period],
+  )
+
+  const pdfHref = statement
+    ? toOrg(
+        `/reports/beneficiary-statement/pdf?${new URLSearchParams({
+          beneficiaryId: statement.beneficiaryId,
+          ...(period.from ? { from: toParamDate(period.from) } : {}),
+          ...(period.to ? { to: toParamDate(period.to) } : {}),
+        }).toString()}`,
+      )
+    : undefined
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg">
+      {/* Prefixo data-[side=right] para vencer o sm:max-w-sm padrão do SheetContent. */}
+      <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-3xl">
         <SheetHeader className="border-b p-4">
-          <SheetTitle>Extrato — {statement?.name ?? ""}</SheetTitle>
+          <SheetTitle>Extrato - {statement?.name ?? ""}</SheetTitle>
         </SheetHeader>
 
-        {loading || !statement ? (
+        {loading || !statement || !slice ? (
           <p className="p-6 text-center text-sm text-muted-foreground">Carregando...</p>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -293,41 +375,114 @@ function ExtratoSheet({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 divide-y overflow-y-auto">
-              {statement.lines.map((line) => (
-                <button
-                  key={line.id}
-                  type="button"
-                  onClick={() => onOpenEntry(line.entryId)}
-                  className="flex w-full min-w-0 items-center justify-between gap-3 p-4 text-left transition-colors hover:bg-muted/50"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium">{line.title}</p>
-                      {line.status && (
-                        <Badge variant={line.status === "REALIZED" ? "secondary" : "outline"}>
-                          {line.status === "REALIZED" ? "Realizado" : "Pendente"}
-                        </Badge>
-                      )}
+            <div className="flex flex-wrap items-end justify-between gap-3 border-b p-4">
+              <PeriodFilter
+                value={period}
+                onChange={setPeriod}
+                today={today}
+                label="Período"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                nativeButton={false}
+                render={<a href={pdfHref} target="_blank" rel="noopener noreferrer" />}
+              >
+                <FileDownIcon />
+                Exportar PDF
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 border-b bg-muted/30 px-4 py-3 text-xs sm:grid-cols-4">
+              <div>
+                <p className="text-muted-foreground">Saldo anterior</p>
+                <p className="text-sm font-medium">{formatBRL(slice.openingBalance)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Recebimentos</p>
+                <p className="text-sm font-medium text-positive">{formatBRL(slice.credits)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Repasses</p>
+                <p className="text-sm font-medium text-negative">
+                  {slice.debits > 0 ? "- " : ""}
+                  {formatBRL(slice.debits)}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Saldo final</p>
+                <p className="text-sm font-semibold">{formatBRL(slice.closingBalance)}</p>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {/* Mesmas colunas do PDF; no celular o vencimento desce para baixo da descrição. */}
+              <div
+                className={`sticky top-0 z-10 grid ${extratoColunas} gap-3 border-b bg-popover px-4 py-2 text-xs font-medium text-muted-foreground`}
+              >
+                <div>Data</div>
+                <div>Descrição</div>
+                <div className="hidden sm:block">Vencimento</div>
+                <div className="text-right">Valor</div>
+                <div className="text-right">Saldo</div>
+              </div>
+              <div className="divide-y border-b">
+                {slice.lines.length > 0 && (
+                  // Saldo de partida abre a lista, como a primeira linha do PDF.
+                  <div className={`grid ${extratoColunas} gap-3 px-4 py-3 text-sm text-muted-foreground`}>
+                    <div className="tabular-nums">{period.from ? formatDate(period.from) : ""}</div>
+                    <div>Saldo anterior</div>
+                    <div className="hidden sm:block" />
+                    <div />
+                    <div className="text-right font-semibold tabular-nums text-foreground">
+                      {formatBRL(slice.openingBalance)}
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {line.description} · {formatDate(line.date)}
-                    </p>
                   </div>
-                  <span
-                    className={cn(
-                      "shrink-0 text-sm font-semibold",
-                      line.amount >= 0 ? "text-positive" : "text-negative",
-                    )}
+                )}
+                {slice.lines.map((line) => (
+                  <button
+                    key={line.id}
+                    type="button"
+                    onClick={() => onOpenEntry(line.entryId)}
+                    className={`grid w-full ${extratoColunas} items-start gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/50`}
                   >
-                    {line.amount >= 0 ? "" : "- "}
-                    {formatBRL(Math.abs(line.amount))}
-                  </span>
-                </button>
-              ))}
-              {statement.lines.length === 0 && (
+                    <div className="tabular-nums">{formatDate(line.date)}</div>
+                    <div className="min-w-0 space-y-0.5">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate font-medium" title={line.title}>{line.title}</p>
+                        {line.installmentLabel && (
+                          <Badge variant="outline" className="shrink-0 font-normal">{line.installmentLabel}</Badge>
+                        )}
+                        {line.status && (
+                          <Badge variant={line.status === "REALIZED" ? "secondary" : "outline"} className="shrink-0">
+                            {line.status === "REALIZED" ? "Realizado" : "Pendente"}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground" title={line.description}>
+                        {line.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground sm:hidden">Vencimento {formatDate(line.dueDate)}</p>
+                    </div>
+                    <div className="hidden tabular-nums text-muted-foreground sm:block">{formatDate(line.dueDate)}</div>
+                    <div
+                      className={cn(
+                        "text-right font-semibold tabular-nums",
+                        line.amount >= 0 ? "text-positive" : "text-negative",
+                      )}
+                    >
+                      {line.amount >= 0 ? "" : "- "}
+                      {formatBRL(Math.abs(line.amount))}
+                    </div>
+                    <div className="text-right tabular-nums">{formatBRL(line.balance)}</div>
+                  </button>
+                ))}
+              </div>
+              {slice.lines.length === 0 && (
                 <p className="p-8 text-center text-sm text-muted-foreground">
-                  Nenhum movimento ainda — o saldo aparece aqui quando um recebimento com repasse for conciliado.
+                  {statement.lines.length === 0
+                    ? "Nenhum movimento ainda — o saldo aparece aqui quando um recebimento com repasse for conciliado."
+                    : "Nenhum movimento neste período."}
                 </p>
               )}
             </div>
@@ -373,6 +528,12 @@ export function PayoutView({
     getBeneficiaryStatementAction(beneficiario.beneficiaryId).then((response) => {
       if (response.ok) setStatement(response.data)
       setStatementLoading(false)
+    })
+  }
+
+  function recarregarExtrato(beneficiaryId: string) {
+    getBeneficiaryStatementAction(beneficiaryId).then((response) => {
+      if (response.ok) setStatement(response.data)
     })
   }
 
@@ -486,7 +647,12 @@ export function PayoutView({
         entry={detailEntry}
         kind={detailEntry?.kind ?? "rec"}
         open={detailEntry !== null}
-        onOpenChange={(next) => !next && setDetailEntry(null)}
+        onOpenChange={(next) => {
+          if (next) return
+          setDetailEntry(null)
+          // O lançamento pode ter sido excluído ou estornado — o extrato ao lado precisa refletir isso.
+          if (statement) recarregarExtrato(statement.beneficiaryId)
+        }}
       />
 
       <GerarRepasseDialog

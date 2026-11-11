@@ -26,11 +26,16 @@ export interface PayoutSummary {
  * cheio que entrou no banco.
  */
 export interface BeneficiaryCredit {
+  /** `settlementId:allocationId` — a mesma liquidação pode creditar o favorecido por mais de uma alocação. */
+  id: string
   settlementId: string
+  allocationId: string
   entryId: string
   /** Quem pagou — o cliente da venda que gerou esse recebimento. */
   payerName: string
   description: string
+  /** "Parcela 2/5", "Avulso" ou "Recorrente nº 3" — ver installmentLabel. */
+  installmentLabel: string
   dueDate: Date
   settledAt: Date
   amount: number
@@ -54,6 +59,12 @@ export interface BeneficiaryStatementLine {
   entryId: string
   /** Só preenchido no débito. */
   status: PayoutStatus | null
+  /** Vencimento do lançamento de origem: da parcela no crédito, da conta a pagar no débito. */
+  dueDate: Date
+  /** Só no crédito: "Parcela 2/5", "Avulso" ou "Recorrente nº 3". */
+  installmentLabel: string | null
+  /** Saldo disponível logo após esta linha, em ordem cronológica — como num extrato bancário. */
+  balance: number
 }
 
 export interface BeneficiaryStatement extends BeneficiaryPosition {

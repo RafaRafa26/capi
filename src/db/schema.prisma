@@ -157,6 +157,7 @@ model Organization {
   bankTransactions BankTransaction[]
   settlements      Settlement[]
   payouts          Payout[]
+  payoutItems      PayoutItem[]
   markers          Marker[]
 
   @@map("organizations")
@@ -448,6 +449,7 @@ model Allocation {
   organization Organization @relation(fields: [organizationId], references: [id])
   sale         Sale         @relation(fields: [saleId], references: [id])
   beneficiary  Contact      @relation("AllocationBeneficiary", fields: [beneficiaryId], references: [id])
+  payoutItems  PayoutItem[]
 
   @@index([organizationId])
   @@index([saleId])
@@ -469,10 +471,36 @@ model Payout {
   organization Organization @relation(fields: [organizationId], references: [id])
   beneficiary  Contact      @relation("PayoutBeneficiary", fields: [beneficiaryId], references: [id])
   entry        Entry        @relation(fields: [entryId], references: [id])
+  items        PayoutItem[]
 
   @@index([organizationId])
   @@index([beneficiaryId])
   @@map("payouts")
+}
+
+// Which receipt (one Settlement × Allocation credit) a payout covered, and how
+// much of it. Lets the user choose what goes into each payout. Payouts created
+// before this table existed — or whose settlement was later undone (cascade) —
+// have amount left unlinked, which is consumed oldest-receipt-first.
+model PayoutItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  payoutId       String   @map("payout_id") @db.Uuid
+  settlementId   String   @map("settlement_id") @db.Uuid
+  allocationId   String   @map("allocation_id") @db.Uuid
+  amount         Int
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  payout       Payout       @relation(fields: [payoutId], references: [id], onDelete: Cascade)
+  settlement   Settlement   @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  allocation   Allocation   @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([payoutId])
+  @@index([settlementId])
+  @@index([allocationId])
+  @@map("payout_items")
 }
 
 // One uploaded OFX file. Its transactions land in BankTransaction, deduped
@@ -548,6 +576,7 @@ model Settlement {
   organization    Organization     @relation(fields: [organizationId], references: [id])
   entry           Entry            @relation(fields: [entryId], references: [id])
   bankTransaction BankTransaction? @relation(fields: [bankTransactionId], references: [id])
+  payoutItems     PayoutItem[]
 
   @@index([organizationId])
   @@index([entryId])

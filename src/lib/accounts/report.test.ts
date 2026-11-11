@@ -36,6 +36,7 @@ function entry(overrides: Partial<AccountEntry>): AccountEntry {
     marker: null,
     notes: null,
     notesUpdatedAt: null,
+    isPayout: false,
     ...overrides,
   }
 }

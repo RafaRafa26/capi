@@ -7,7 +7,12 @@ import type { AccountEntry } from "@/modules/accounts/types"
 import { orgPath } from "@/lib/org-path"
 import { requireSession } from "@/modules/auth/session"
 import { generatePayoutInputSchema } from "@/modules/payouts/schema"
-import { generatePayout, getBeneficiaryStatement, listAvailableCredits } from "@/modules/payouts/service"
+import {
+  generatePayout,
+  getBeneficiaryStatement,
+  listAvailableCredits,
+  listPayoutCredits,
+} from "@/modules/payouts/service"
 import type { BeneficiaryCredit, BeneficiaryStatement } from "@/modules/payouts/types"
 import { failure, type Result } from "@/shared/errors"
 
@@ -25,6 +30,17 @@ export async function listAvailableCreditsAction(beneficiaryId: string): Promise
   try {
     const session = await requireSession()
     const credits = await listAvailableCredits(session.organizationId, beneficiaryId)
+    return { ok: true, data: credits }
+  } catch (error) {
+    return failure(error)
+  }
+}
+
+/** Os recebimentos que compõem um repasse, a partir da conta a pagar dele. */
+export async function listPayoutCreditsAction(entryId: string): Promise<Result<BeneficiaryCredit[]>> {
+  try {
+    const session = await requireSession()
+    const credits = await listPayoutCredits(session.organizationId, entryId)
     return { ok: true, data: credits }
   } catch (error) {
     return failure(error)
