@@ -30,7 +30,7 @@ import {
 const navFinanceiro = [
   { title: "Contas a pagar", url: "/payables", icon: <ArrowDownRightIcon /> },
   { title: "Contas a receber", url: "/receivables", icon: <ArrowUpRightIcon /> },
-  { title: "Contas", url: "/accounts", icon: <WalletIcon /> },
+  { title: "Contas e Extratos", url: "/accounts", icon: <WalletIcon /> },
   { title: "Repasses", url: "/payout", icon: <BanknoteIcon /> },
 ]
 

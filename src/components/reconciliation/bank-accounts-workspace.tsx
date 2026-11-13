@@ -3,7 +3,15 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, CircleCheckIcon, UnlinkIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DownloadIcon,
+  FileSpreadsheetIcon,
+  FileTextIcon,
+  UnlinkIcon,
+} from "lucide-react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import { toast } from "sonner"
 
@@ -25,7 +33,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
+import { statementMonth, toParamMonth } from "@/lib/bank-accounts/statement"
 import { balanceAxisScale } from "@/lib/chart-scale"
 import { cn } from "@/lib/utils"
 import { formatBankAccountNumbers, formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
@@ -52,10 +62,6 @@ function startOfMonth(date: Date): Date {
 
 function daysInMonth(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate()
-}
-
-function isSameMonth(date: Date, month: Date): boolean {
-  return date.getFullYear() === month.getFullYear() && date.getMonth() === month.getMonth()
 }
 
 /** Referência compacta pro eixo Y do gráfico (10k, 1,2M) — o valor exato já aparece no tooltip. */
@@ -160,20 +166,19 @@ export function BankAccountsWorkspace({
     setSelectedMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + delta, 1))
   }
 
-  const filteredLines = React.useMemo(() => {
-    const lines = statement?.lines ?? []
-    return lines.filter((line) => isSameMonth(line.date, selectedMonth))
-  }, [statement, selectedMonth])
+  // O mês na ordem do extrato bancário (mais antiga em cima). Saldo mostra
+  // todas as linhas; Entradas e Saídas filtram a tabela — o gráfico e os
+  // totais dos seletores continuam sobre o mês inteiro.
+  const view = React.useMemo(
+    () => statementMonth(statement?.lines ?? [], selectedAccount?.initialBalance ?? 0, selectedMonth, activeSeries),
+    [statement, selectedAccount, selectedMonth, activeSeries],
+  )
 
-  const periodTotals = React.useMemo(() => {
-    let entradas = 0
-    let saidas = 0
-    for (const line of filteredLines) {
-      if (line.amount > 0) entradas += line.amount
-      else saidas += -line.amount
-    }
-    return { entradas, saidas }
-  }, [filteredLines])
+  // O mesmo recorte da tela: conta, mês e Saldo/Entradas/Saídas.
+  const exportHref = (format: "pdf" | "xlsx") =>
+    toOrg(
+      `/reports/bank-statement/${format}?bankAccountId=${selectedId}&month=${toParamMonth(selectedMonth)}&series=${activeSeries}`,
+    )
 
   // Um ponto por dia do mês selecionado — não só nos dias com transação — com
   // o saldo já refletindo as movimentações daquele dia. Dias sem transação
@@ -181,16 +186,9 @@ export function BankAccountsWorkspace({
   // acumulado até a véspera do mês (não só o que aconteceu dentro dele).
   const chartData = React.useMemo(() => {
     if (!selectedAccount) return []
-    const allLines = statement?.lines ?? []
-
-    let carry = selectedAccount.initialBalance
-    for (const line of allLines) {
-      if (line.date >= selectedMonth) break
-      carry = line.runningBalance
-    }
 
     const byDay = new Map<number, { entradas: number; saidas: number; delta: number }>()
-    for (const line of filteredLines) {
+    for (const line of view.monthLines) {
       const day = line.date.getDate()
       const info = byDay.get(day) ?? { entradas: 0, saidas: 0, delta: 0 }
       info.delta += line.amount
@@ -200,7 +198,7 @@ export function BankAccountsWorkspace({
     }
 
     const points = []
-    let running = carry
+    let running = view.openingBalance
     for (let day = 1; day <= daysInMonth(selectedMonth); day++) {
       const info = byDay.get(day)
       if (info) running += info.delta
@@ -212,12 +210,12 @@ export function BankAccountsWorkspace({
       })
     }
     return points
-  }, [statement, filteredLines, selectedAccount, selectedMonth])
+  }, [view, selectedAccount, selectedMonth])
 
   const seriesTotals: Record<ChartSeries, number> = {
-    saldo: chartData[chartData.length - 1]?.saldo ?? selectedAccount?.currentBalance ?? 0,
-    entradas: periodTotals.entradas,
-    saidas: periodTotals.saidas,
+    saldo: view.closingBalance,
+    entradas: view.entradas,
+    saidas: view.saidas,
   }
 
   // Ticks redondos (5k, 10k, 20k...) e a linha perto do meio do gráfico,
@@ -356,7 +354,23 @@ export function BankAccountsWorkspace({
                   <Button nativeButton={false} render={<Link href={toOrg(`/reconciliation/${selectedAccount.id}`)} />}>
                     Conciliar
                   </Button>
-                  <Button variant="outline">Novo registro</Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button variant="outline" />}>
+                      <DownloadIcon />
+                      Exportar
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {/* <a>, não <Link>: são arquivos de uma rota, não páginas. */}
+                      <DropdownMenuItem render={<a href={exportHref("pdf")} target="_blank" rel="noopener" />}>
+                        <FileTextIcon />
+                        PDF
+                      </DropdownMenuItem>
+                      <DropdownMenuItem render={<a href={exportHref("xlsx")} download />}>
+                        <FileSpreadsheetIcon />
+                        Excel (.xlsx)
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 <div className="rounded-lg border">
@@ -369,33 +383,41 @@ export function BankAccountsWorkspace({
                     <div />
                   </div>
                   <div className="divide-y">
-                    {[...filteredLines].reverse().map((line) => {
+                    {/* Ponto de partida do mês: o saldo no último dia do mês anterior. */}
+                    <div className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 px-4 py-3 text-muted-foreground">
+                      <div className="text-sm">{formatDate(view.openingDate)}</div>
+                      <div />
+                      <div className="text-sm">Saldo anterior</div>
+                      <div />
+                      <div className="text-right text-sm font-medium text-foreground">{formatBRL(view.openingBalance)}</div>
+                      <div />
+                    </div>
+                    {view.lines.map((line) => {
                       const expanded = expandedLineIds.has(line.id)
                       return (
                         <React.Fragment key={line.id}>
                           <div className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 px-4 py-3">
                             <div className="text-sm text-muted-foreground">{formatDate(line.date)}</div>
-                            {/* Sem ✓: perna de transferência esperando o extrato desta conta. */}
+                            {/* Sem seta: perna de transferência esperando o extrato desta conta. */}
                             <div>
                               {line.bankTransactionId && (
-                                <CircleCheckIcon className="size-4 text-info" aria-label="Conciliada">
-                                  <title>Conciliada</title>
-                                </CircleCheckIcon>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  aria-expanded={expanded}
+                                  aria-label={expanded ? "Ocultar transação bancária" : "Ver transação bancária"}
+                                  title={expanded ? "Ocultar transação bancária" : "Ver transação bancária"}
+                                  onClick={() => toggleLineExpanded(line.id)}
+                                >
+                                  <ChevronDownIcon className={cn("transition-transform", expanded && "rotate-180")} />
+                                </Button>
                               )}
                             </div>
                             <div className="min-w-0">
                               {/* O lançamento, não a descrição importada do banco — cada um abre a sua Sheet. */}
                               {line.entries.length > 1 ? (
-                                // Vários lançamentos não cabem lado a lado na linha — cada um vira uma sub-linha.
-                                <button
-                                  type="button"
-                                  aria-expanded={expanded}
-                                  className="flex items-center gap-1 text-left text-sm font-medium text-info hover:underline"
-                                  onClick={() => toggleLineExpanded(line.id)}
-                                >
-                                  {line.entries.length} lançamentos
-                                  <ChevronDownIcon className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
-                                </button>
+                                // Vários lançamentos não cabem lado a lado: a lista sai na linha expandida.
+                                <p className="text-sm font-medium">{line.entries.length} lançamentos</p>
                               ) : (
                                 <p className="truncate text-sm font-medium">
                                   {line.entries.map((entry) => (
@@ -436,33 +458,56 @@ export function BankAccountsWorkspace({
                               <div />
                             )}
                           </div>
-                          {expanded &&
-                            line.entries.map((entry) => (
-                              <div
-                                key={entry.entryId}
-                                className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 bg-muted/40 px-4 py-2"
-                              >
+                          {expanded && (
+                            <div className="bg-muted/40">
+                              {/* A transação como veio do banco. */}
+                              <div className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 px-4 py-2">
+                                <div className="text-xs text-muted-foreground">{formatDate(line.date)}</div>
                                 <div />
-                                <div />
-                                <button type="button" className="min-w-0 text-left" onClick={() => openEntry(entry)}>
-                                  <p className="truncate text-sm text-info hover:underline">
-                                    {entry.description}
+                                <div className="min-w-0">
+                                  <p className="text-xs font-medium text-muted-foreground">Transação bancária</p>
+                                  <p className="truncate text-sm" title={line.description}>
+                                    {line.description}
                                   </p>
-                                  <p className="truncate text-xs text-muted-foreground">{entry.contactName}</p>
-                                </button>
-                                <div className="text-right text-sm text-muted-foreground tabular-nums">
-                                  {formatBRL(entry.amount)}
+                                </div>
+                                <div className="text-right text-sm tabular-nums">
+                                  {line.amount >= 0 ? "" : "- "}
+                                  {formatBRL(Math.abs(line.amount))}
                                 </div>
                                 <div />
                                 <div />
                               </div>
-                            ))}
+                              {line.entries.length > 1 &&
+                                line.entries.map((entry) => (
+                                  <div
+                                    key={entry.entryId}
+                                    className="grid grid-cols-[120px_20px_1fr_140px_140px_28px] items-center gap-4 border-t border-dashed px-4 py-2"
+                                  >
+                                    <div />
+                                    <div />
+                                    <button type="button" className="min-w-0 text-left" onClick={() => openEntry(entry)}>
+                                      <p className="truncate text-sm text-info hover:underline">{entry.description}</p>
+                                      <p className="truncate text-xs text-muted-foreground">{entry.contactName}</p>
+                                    </button>
+                                    <div className="text-right text-sm text-muted-foreground tabular-nums">
+                                      {formatBRL(entry.amount)}
+                                    </div>
+                                    <div />
+                                    <div />
+                                  </div>
+                                ))}
+                            </div>
+                          )}
                         </React.Fragment>
                       )
                     })}
-                    {filteredLines.length === 0 && (
+                    {view.lines.length === 0 && (
                       <p className="py-8 text-center text-sm text-muted-foreground">
-                        Nenhuma movimentação neste mês.
+                        {activeSeries === "entradas"
+                          ? "Nenhuma entrada neste mês."
+                          : activeSeries === "saidas"
+                            ? "Nenhuma saída neste mês."
+                            : "Nenhuma movimentação neste mês."}
                       </p>
                     )}
                   </div>
