@@ -2,7 +2,14 @@ import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { BusinessError, NotFound } from "@/shared/errors"
-import { directionForTransactionAmount, netSettledAmount, recomputeEntryAggregate, suggestMatches } from "./domain"
+import { businessToday } from "@/lib/today"
+import {
+  directionForTransactionAmount,
+  formatReceiptNumber,
+  netSettledAmount,
+  recomputeEntryAggregate,
+  suggestMatches,
+} from "./domain"
 import type {
   CreateAndSettlePayableInput,
   CreateAndSettleTransferInput,
@@ -618,39 +625,75 @@ export async function deleteTransfer(organizationId: string, entryId: string): P
   })
 }
 
-/** The "Emitir recibo" printable view's data, for one Settlement row of the accounts detail Sheet's history tab. */
-export async function getSettlementReceipt(organizationId: string, settlementId: string): Promise<SettlementReceipt> {
-  return withOrganization(organizationId, async (tx) => {
-    const settlement = await tx.settlement.findUnique({
-      where: { id: settlementId },
-      include: {
-        entry: {
-          include: {
-            contact: true,
-            category: true,
-            sale: { select: { installmentsCount: true, billingType: true } },
-          },
+async function loadReceipt(tx: Tx, settlementId: string): Promise<SettlementReceipt> {
+  const settlement = await tx.settlement.findUnique({
+    where: { id: settlementId },
+    include: {
+      receipt: { select: { year: true, number: true } },
+      entry: {
+        include: {
+          contact: true,
+          category: true,
+          sale: { select: { installmentsCount: true, billingType: true } },
         },
       },
-    })
-    if (!settlement) throw new NotFound("Liquidação")
+    },
+  })
+  if (!settlement) throw new NotFound("Liquidação")
 
-    return {
-      id: settlement.id,
-      settledAt: fromDbDate(settlement.settledAt),
-      settledAmount: settlement.settledAmount,
-      interest: settlement.interest,
-      fine: settlement.fine,
-      discount: settlement.discount,
-      note: settlement.note,
-      entryType: settlement.entry.type,
-      entryDescription: settlement.entry.description,
-      contactName: settlement.entry.contact?.name ?? TRANSFER_LABEL,
-      categoryName: settlement.entry.category?.name ?? TRANSFER_LABEL,
-      installment:
-        settlement.entry.sale && settlement.entry.sale.billingType === "INSTALLMENTS" && settlement.entry.installmentNumber
-          ? `${settlement.entry.installmentNumber}/${settlement.entry.sale.installmentsCount}`
-          : null,
-    }
+  return {
+    id: settlement.id,
+    number: settlement.receipt ? formatReceiptNumber(settlement.receipt) : null,
+    settledAt: fromDbDate(settlement.settledAt),
+    settledAmount: settlement.settledAmount,
+    interest: settlement.interest,
+    fine: settlement.fine,
+    discount: settlement.discount,
+    note: settlement.note,
+    entryType: settlement.entry.type,
+    entryDescription: settlement.entry.description,
+    entryDueDate: fromDbDate(settlement.entry.dueDate),
+    contactName: settlement.entry.contact?.name ?? TRANSFER_LABEL,
+    contactDocument: settlement.entry.contact?.document || null,
+    categoryName: settlement.entry.category?.name ?? TRANSFER_LABEL,
+    installment:
+      settlement.entry.sale && settlement.entry.sale.billingType === "INSTALLMENTS" && settlement.entry.installmentNumber
+        ? `${settlement.entry.installmentNumber}/${settlement.entry.sale.installmentsCount}`
+        : null,
+  }
+}
+
+/** A recibo's data for one Settlement row — `number` is null until it is first issued. */
+export async function getSettlementReceipt(organizationId: string, settlementId: string): Promise<SettlementReceipt> {
+  return withOrganization(organizationId, (tx) => loadReceipt(tx, settlementId))
+}
+
+/**
+ * "Emitir recibo": numera o recibo na primeira emissão — sequencial por
+ * organização e ano da emissão (2026/0001) — e devolve sempre o mesmo número
+ * nas reemissões. O lock serializa emissões simultâneas da mesma organização
+ * para que duas não peguem o mesmo próximo número.
+ */
+export async function issueSettlementReceipt(
+  organizationId: string,
+  settlementId: string,
+  today: Date = businessToday(),
+): Promise<SettlementReceipt> {
+  return withOrganization(organizationId, async (tx) => {
+    const receipt = await loadReceipt(tx, settlementId)
+    if (receipt.number) return receipt
+
+    const year = today.getFullYear()
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`receipts:${organizationId}:${year}`}))`
+    // Reconsulta depois do lock: outra emissão do mesmo recebimento pode ter
+    // numerado enquanto esperávamos.
+    const existing = await tx.receipt.findUnique({ where: { settlementId } })
+    if (existing) return { ...receipt, number: formatReceiptNumber(existing) }
+
+    const last = await tx.receipt.aggregate({ where: { year }, _max: { number: true } })
+    const created = await tx.receipt.create({
+      data: { organizationId, settlementId, year, number: (last._max.number ?? 0) + 1 },
+    })
+    return { ...receipt, number: formatReceiptNumber(created) }
   })
 }

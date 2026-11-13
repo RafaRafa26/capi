@@ -14,6 +14,7 @@ import {
   createSettlementBatch,
   getMatchInfoForTransactions,
   getSettlementReceipt,
+  issueSettlementReceipt,
   listCandidateEntries,
   manualSettleEntry,
   suggestMatchesForTransaction,
@@ -602,5 +603,39 @@ describe("getSettlementReceipt", () => {
     await expect(getSettlementReceipt(org.id, "00000000-0000-0000-0000-000000000000")).rejects.toBeInstanceOf(
       NotFound,
     )
+  })
+})
+
+describe("issueSettlementReceipt", () => {
+  async function settledReceivable() {
+    const { entry } = await createReceivableEntry(10_000)
+    await manualSettleEntry(org.id, { entryId: entry.id, settledAt: new Date(2026, 7, 12), settledAmount: 10_000 })
+    return prismaAdmin.settlement.findFirstOrThrow({ where: { entryId: entry.id } })
+  }
+
+  it("numbers receipts per year on first issue and keeps the number on reissue", async () => {
+    const first = await settledReceivable()
+    const second = await settledReceivable()
+    const today = new Date(2031, 2, 10)
+
+    expect((await getSettlementReceipt(org.id, first.id)).number).toBeNull()
+    expect((await issueSettlementReceipt(org.id, first.id, today)).number).toBe("2031/0001")
+    expect((await issueSettlementReceipt(org.id, second.id, today)).number).toBe("2031/0002")
+    expect((await issueSettlementReceipt(org.id, first.id, today)).number).toBe("2031/0001")
+    expect((await getSettlementReceipt(org.id, first.id)).number).toBe("2031/0001")
+
+    // Ano novo, sequência nova.
+    const third = await settledReceivable()
+    expect((await issueSettlementReceipt(org.id, third.id, new Date(2032, 0, 2))).number).toBe("2032/0001")
+  })
+
+  it("never reuses the number of a receipt whose settlement was undone", async () => {
+    const today = new Date(2033, 5, 1)
+    const undone = await settledReceivable()
+    expect((await issueSettlementReceipt(org.id, undone.id, today)).number).toBe("2033/0001")
+    await undoSettlement(org.id, undone.id)
+
+    const next = await settledReceivable()
+    expect((await issueSettlementReceipt(org.id, next.id, today)).number).toBe("2033/0002")
   })
 })

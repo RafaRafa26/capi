@@ -23,6 +23,10 @@ interface FakeEntry {
   dueDate: Date
   paidAt: Date | null
   amount: number
+  settledAmount: number
+  interest: number
+  fine: number
+  discount: number
   contactName: string
   description: string
   categoryName: string
@@ -38,6 +42,10 @@ function entry(overrides: Partial<FakeEntry>): FakeEntry {
     dueDate: today,
     paidAt: null,
     amount: 1_000,
+    settledAmount: 0,
+    interest: 0,
+    fine: 0,
+    discount: 0,
     contactName: "Contato",
     description: "Descrição",
     categoryName: "Categoria",
@@ -262,7 +270,7 @@ describe("computeSummary", () => {
       entry({ dueDate: new Date(2026, 8, 20), amount: 100 }), // overdue
       entry({ dueDate: today, amount: 200 }), // due today
       entry({ dueDate: new Date(2026, 8, 30), amount: 300 }), // upcoming
-      entry({ dueDate: new Date(2026, 8, 1), paidAt: new Date(2026, 8, 2), amount: 400 }), // paid
+      entry({ dueDate: new Date(2026, 8, 1), paidAt: new Date(2026, 8, 2), amount: 400, settledAmount: 400 }), // paid
     ]
     const summary = computeSummary(entries, today)
     expect(summary.overdue).toEqual({ count: 1, total: 100 })
@@ -270,6 +278,20 @@ describe("computeSummary", () => {
     expect(summary.upcoming).toEqual({ count: 1, total: 300 })
     expect(summary.paid).toEqual({ count: 1, total: 400 })
     expect(summary.total).toEqual({ count: 4, total: 1000 })
+  })
+
+  it("sums what was actually received for paid entries — interest and fine add, discount subtracts", () => {
+    const paid = { dueDate: new Date(2026, 8, 1), paidAt: new Date(2026, 8, 2), amount: 69_000, settledAmount: 69_000 }
+    const entries = [
+      entry({ ...paid, interest: 5_079 }),
+      entry({ ...paid, fine: 1_380, interest: 2_000 }),
+      entry({ ...paid, discount: 500 }),
+      entry({ dueDate: new Date(2026, 8, 30), amount: 10_000 }), // upcoming, face value
+    ]
+    const summary = computeSummary(entries, today)
+    expect(summary.paid).toEqual({ count: 3, total: 69_000 * 3 + 5_079 + 1_380 + 2_000 - 500 })
+    expect(summary.upcoming).toEqual({ count: 1, total: 10_000 })
+    expect(summary.total.total).toBe(summary.paid.total + 10_000)
   })
 })
 

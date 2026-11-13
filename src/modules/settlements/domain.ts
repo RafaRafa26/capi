@@ -101,3 +101,8 @@ export function suggestMatches(
         Math.abs(b.dueDate.getTime() - transactionDate.getTime()),
     )
 }
+
+/** Número do recibo como sai impresso: ano/sequencial com 4 dígitos (2026/0001). */
+export function formatReceiptNumber(receipt: { year: number; number: number }): string {
+  return `${receipt.year}/${String(receipt.number).padStart(4, "0")}`
+}

@@ -84,7 +84,15 @@ function toAccountEntry(entry: EntryWithRelations, kind: LedgerKind): AccountEnt
         fine: settlement.fine,
         discount: settlement.discount,
         note: settlement.note,
+        origin: settlement.origin,
         bankAccountName: settlement.bankTransaction?.bankAccount.name ?? null,
+        bankTransaction: settlement.bankTransaction
+          ? {
+              date: fromDbDate(settlement.bankTransaction.date),
+              description: settlement.bankTransaction.description,
+              amount: settlement.bankTransaction.amount,
+            }
+          : null,
       })),
       contract: entry.sale
         ? {
