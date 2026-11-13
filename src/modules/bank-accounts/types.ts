@@ -27,8 +27,9 @@ export interface BankAccountStatementEntry {
   // "Transferência" quando é perna de transferência (sem contato).
   contactName: string
   description: string
-  // Quanto deste lançamento esta linha quitou, em centavos — uma transação
-  // conciliada com vários lançamentos se divide entre eles.
+  // Quanto esta linha quitou do lançamento, em centavos, já com juros, multa
+  // e desconto — uma transação conciliada com vários lançamentos se divide
+  // entre eles, e a soma bate com o valor dela.
   amount: number
 }
 

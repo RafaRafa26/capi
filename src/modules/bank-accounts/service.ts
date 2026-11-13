@@ -2,6 +2,7 @@ import "server-only";
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client";
 import { NotFound } from "@/shared/errors";
+import { netSettledAmount } from "@/modules/settlements/domain";
 import type { BankAccountInput } from "./schema";
 import type { BankAccount, BankAccountOverview, BankAccountStatement } from "./types";
 
@@ -134,7 +135,8 @@ export async function getBankAccountStatement(organizationId: string, bankAccoun
             entryType: settlement.entry.type,
             contactName: settlement.entry.contact?.name ?? "Transferência",
             description: settlement.entry.description,
-            amount: settlement.settledAmount,
+            // Com juros, multa e desconto — a soma bate com o valor da transação.
+            amount: netSettledAmount(settlement),
           })),
         },
       })),
@@ -168,9 +170,8 @@ export async function getBankAccountStatement(organizationId: string, bankAccoun
     return {
       bankAccount,
       currentBalance: runningBalance,
-      // Ordem cronológica (mais antiga primeiro) — é o que o gráfico precisa
-      // pro eixo X fazer sentido. Quem quiser mostrar mais recente primeiro
-      // (a tabela do extrato) inverte na hora de renderizar.
+      // Ordem cronológica (mais antiga primeiro), como num extrato bancário —
+      // o gráfico, a tabela e o Exportar usam assim.
       lines,
     };
   });
