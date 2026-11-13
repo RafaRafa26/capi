@@ -276,10 +276,31 @@ export interface AccountsSummary {
   total: StatusSummary
 }
 
-export function computeSummary<T extends { dueDate: Date; paidAt: Date | null; amount: number }>(
-  entries: T[],
-  today: Date,
-): AccountsSummary {
+export interface SummarizableEntry {
+  dueDate: Date
+  paidAt: Date | null
+  amount: number
+  settledAmount: number
+  interest: number
+  fine: number
+  discount: number
+}
+
+/**
+ * O que de fato entrou/saiu num lançamento já liquidado: a parte do valor
+ * original quitada mais juros e multa, menos desconto (RN-02/RN-03) — mesma
+ * conta de settlements/domain.ts#netSettledAmount, sobre o agregado da Entry.
+ */
+export function receivedTotal(entry: Pick<SummarizableEntry, "settledAmount" | "interest" | "fine" | "discount">): number {
+  return entry.settledAmount + entry.interest + entry.fine - entry.discount
+}
+
+/**
+ * Recebidos/Pagos somam o valor efetivamente movimentado (com juros, multa e
+ * desconto); os abertos seguem pelo valor original, que é o que se espera
+ * receber/pagar.
+ */
+export function computeSummary<T extends SummarizableEntry>(entries: T[], today: Date): AccountsSummary {
   const summary: AccountsSummary = {
     overdue: { count: 0, total: 0 },
     dueToday: { count: 0, total: 0 },
@@ -291,9 +312,10 @@ export function computeSummary<T extends { dueDate: Date; paidAt: Date | null; a
     const status = deriveStatus(entry, today)
     const key =
       status === "OVERDUE" ? "overdue" : status === "DUE_TODAY" ? "dueToday" : status === "UPCOMING" ? "upcoming" : "paid"
+    const value = key === "paid" ? receivedTotal(entry) : entry.amount
     summary[key].count += 1
-    summary[key].total += entry.amount
-    summary.total.total += entry.amount
+    summary[key].total += value
+    summary.total.total += value
   }
   return summary
 }
@@ -331,10 +353,8 @@ export interface ApplyAccountsFiltersParams {
 }
 
 export function applyAccountsFilters<
-  T extends ChippableEntry & {
-    dueDate: Date
-    paidAt: Date | null
-    amount: number
+  T extends ChippableEntry &
+    SummarizableEntry & {
     description: string
     contactName: string
   },

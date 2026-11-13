@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { deriveStatus, type AccountStatus } from "@/lib/accounts/filter"
+import { deriveStatus, receivedTotal, type AccountStatus } from "@/lib/accounts/filter"
 import {
   allocationModeLabel,
   billingFrequencyLabel,
@@ -30,7 +30,7 @@ import { categoryColor } from "@/lib/category-color"
 import { formatBRL, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { AccountEntry, LedgerKind } from "@/modules/accounts/types"
-import { computeBeneficiaryShare } from "@/modules/settlements/domain"
+import { computeBeneficiaryShare, netSettledAmount } from "@/modules/settlements/domain"
 import { useOrgPath } from "@/hooks/use-org-path"
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
@@ -95,6 +95,17 @@ export function EntryDetailSheet({
   const [settleError, setSettleError] = React.useState<string | null>(null)
   const [settlePending, setSettlePending] = React.useState(false)
   const [reversingSettlementId, setReversingSettlementId] = React.useState<string | null>(null)
+  // Recebimentos com o lançamento bancário conciliado aberto — fechados por padrão.
+  const [expandedSettlementIds, setExpandedSettlementIds] = React.useState<Set<string>>(() => new Set())
+
+  function toggleSettlementDetails(settlementId: string) {
+    setExpandedSettlementIds((current) => {
+      const next = new Set(current)
+      if (next.has(settlementId)) next.delete(settlementId)
+      else next.add(settlementId)
+      return next
+    })
+  }
 
   // Reset the baixa form fields whenever a different entry is opened — same
   // "adjust state during render" pattern as account-entry-dialog.tsx.
@@ -127,14 +138,27 @@ export function EntryDetailSheet({
   // Allocation.amount is the favorecido's share of the whole contract — scale
   // it down to this parcela's amount, same formula the settlements module
   // uses to credit a favorecido on a partial recebimento (RN-05).
+  // Depois de conciliado, o repasse mostra o que de fato foi creditado ao
+  // favorecido — com juros e multa, menos desconto — calculado como o extrato
+  // dele calcula (payouts/service.ts#loadCredits): só liquidação de extrato
+  // credita (RN-01/RN-01a), e a cota é arredondada por recebimento.
+  const creditingSettlements = entry.settlements.filter((settlement) => settlement.origin === "STATEMENT")
+  const showsCredited = entry.contract !== undefined && creditingSettlements.length > 0
   const installmentAllocations = entry.contract
     ? entry.allocations.map((allocation) => ({
         ...allocation,
-        amount: computeBeneficiaryShare(entry.amount, entry.contract!.totalAmount, allocation.amount),
+        amount: showsCredited
+          ? creditingSettlements.reduce(
+              (sum, settlement) =>
+                sum +
+                computeBeneficiaryShare(netSettledAmount(settlement), entry.contract!.totalAmount, allocation.amount),
+              0,
+            )
+          : computeBeneficiaryShare(entry.amount, entry.contract!.totalAmount, allocation.amount),
       }))
     : entry.allocations
   const allocationTotal = installmentAllocations.reduce((sum, allocation) => sum + allocation.amount, 0)
-  const settlementsTotal = entry.settlements.reduce((sum, settlement) => sum + settlement.settledAmount, 0)
+  const settlementsTotal = entry.settlements.reduce((sum, settlement) => sum + netSettledAmount(settlement), 0)
 
   async function handleDelete() {
     if (!entry) return
@@ -346,11 +370,16 @@ export function EntryDetailSheet({
             <div className="flex flex-col gap-3">
               <SectionTitle>{config.settlementSectionTitle}</SectionTitle>
               <div className="grid grid-cols-2 gap-3">
-                <Field label={config.settlementDateLabel} value={entry.paidAt ? formatDate(entry.paidAt) : "—"} />
-                <Field label={config.settledAmountLabel} value={formatBRL(entry.settledAmount)} />
-                {entry.interest > 0 && <Field label="Juros" value={formatBRL(entry.interest)} />}
-                {entry.fine > 0 && <Field label="Multa" value={formatBRL(entry.fine)} />}
+                <Field label={config.settlementDateLabel} value={entry.paidAt ? formatDate(entry.paidAt) : "—"} full />
+                <Field label="Valor original" value={formatBRL(entry.settledAmount)} />
+                {entry.interest + entry.fine > 0 && (
+                  <Field label="Juros e Multa" value={`+ ${formatBRL(entry.interest + entry.fine)}`} />
+                )}
                 {entry.discount > 0 && <Field label="Desconto" value={`− ${formatBRL(entry.discount)}`} />}
+              </div>
+              <div className="flex items-center justify-between border-t pt-2 text-[13px] font-semibold">
+                <span>{config.settledAmountLabel}</span>
+                <span>{formatBRL(receivedTotal(entry))}</span>
               </div>
             </div>
           )}
@@ -380,7 +409,7 @@ export function EntryDetailSheet({
                 </div>
               </div>
               <div className="flex items-center justify-between border-t pt-2 text-[13px] font-semibold">
-                <span>Total do repasse</span>
+                <span>{showsCredited ? "Total creditado ao favorecido" : "Total do repasse"}</span>
                 <span>{formatBRL(allocationTotal)}</span>
               </div>
             </div>
@@ -395,7 +424,7 @@ export function EntryDetailSheet({
                 <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="h-9 border-b text-xs text-muted-foreground">
-                      <th className="px-3 text-left font-medium">Conta</th>
+                      <th className="pr-3 pl-7.5 text-left font-medium">Origem</th>
                       <th className="px-3 text-left font-medium">Data</th>
                       <th className="px-3 text-left font-medium">Identificador</th>
                       <th className="px-3 text-right font-medium">Valor</th>
@@ -403,36 +432,112 @@ export function EntryDetailSheet({
                     </tr>
                   </thead>
                   <tbody>
-                    {entry.settlements.map((settlement) => (
-                      <tr key={settlement.id} className="border-b text-[13px] last:border-b-0">
-                        <td className="px-3 py-2.5">{settlement.bankAccountName ?? "—"}</td>
-                        <td className="px-3 py-2.5 tabular-nums">{formatDate(settlement.settledAt)}</td>
-                        <td className="px-3 py-2.5 text-muted-foreground">{settlement.note ?? "—"}</td>
-                        <td className="px-3 py-2.5 text-right tabular-nums">{formatBRL(settlement.settledAmount)}</td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              nativeButton={false}
-                              render={<Link href={toOrg(`/receipts/${settlement.id}`)} target="_blank" />}
-                              aria-label="Emitir recibo"
-                            >
-                              <FileTextIcon className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Estornar"
-                              onClick={() => handleReverseSettlement(settlement.id)}
-                              disabled={reversingSettlementId === settlement.id}
-                            >
-                              <Trash2Icon className="size-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {entry.settlements.map((settlement) => {
+                      const hasAdjustments = settlement.interest > 0 || settlement.fine > 0 || settlement.discount > 0
+                      const showsBankTransaction =
+                        settlement.bankTransaction !== null && expandedSettlementIds.has(settlement.id)
+                      return (
+                        <React.Fragment key={settlement.id}>
+                          <tr
+                            // A linha toda abre/fecha o lançamento bancário conciliado.
+                            onClick={settlement.bankTransaction ? () => toggleSettlementDetails(settlement.id) : undefined}
+                            className={cn(
+                              "text-[13px]",
+                              !showsBankTransaction && "border-b last:border-b-0",
+                              settlement.bankTransaction && "cursor-pointer hover:bg-muted/40",
+                            )}
+                          >
+                            <td className="py-2.5 pr-3 pl-1.5">
+                              <div className="flex items-center gap-1">
+                                {settlement.bankTransaction ? (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation()
+                                      toggleSettlementDetails(settlement.id)
+                                    }}
+                                    aria-expanded={showsBankTransaction}
+                                    aria-label={
+                                      showsBankTransaction ? "Ocultar lançamento bancário" : "Ver lançamento bancário"
+                                    }
+                                    className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                                  >
+                                    <ChevronRightIcon
+                                      className={cn("size-3.5 transition-transform", showsBankTransaction && "rotate-90")}
+                                    />
+                                  </button>
+                                ) : (
+                                  <span className="size-5 shrink-0" />
+                                )}
+                                <span className="whitespace-nowrap">
+                                  {settlement.origin === "STATEMENT" ? (settlement.bankAccountName ?? "—") : "Baixa manual"}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-3 py-2.5 tabular-nums">{formatDate(settlement.settledAt)}</td>
+                            <td className="px-3 py-2.5 wrap-break-word text-muted-foreground">{settlement.note ?? "—"}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums">
+                              <p>{formatBRL(netSettledAmount(settlement))}</p>
+                              {hasAdjustments && (
+                                // Cada parcela do detalhamento fica inteira, mas elas quebram
+                                // de linha entre si — numa linha só, juros + multa estouravam
+                                // a largura da Sheet e criavam rolagem lateral.
+                                <p className="flex flex-wrap justify-end gap-x-1 text-xs text-muted-foreground">
+                                  <span className="whitespace-nowrap">{formatBRL(settlement.settledAmount)}</span>
+                                  {settlement.interest + settlement.fine > 0 && (
+                                    <span className="whitespace-nowrap">
+                                      + {formatBRL(settlement.interest + settlement.fine)} juros e multa
+                                    </span>
+                                  )}
+                                  {settlement.discount > 0 && (
+                                    <span className="whitespace-nowrap">− {formatBRL(settlement.discount)} desc.</span>
+                                  )}
+                                </p>
+                              )}
+                            </td>
+                            <td className="px-3 py-2.5" onClick={(event) => event.stopPropagation()}>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  nativeButton={false}
+                                  render={<Link href={toOrg(`/receipts/${settlement.id}`)} target="_blank" />}
+                                  aria-label="Emitir recibo"
+                                >
+                                  <FileTextIcon className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Estornar"
+                                  onClick={() => handleReverseSettlement(settlement.id)}
+                                  disabled={reversingSettlementId === settlement.id}
+                                >
+                                  <Trash2Icon className="size-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                          {showsBankTransaction && settlement.bankTransaction && (
+                            <tr className="border-b text-xs last:border-b-0">
+                              <td colSpan={5} className="max-w-0 pr-3 pb-2.5 pl-7.5">
+                                <div className="flex flex-col gap-1 rounded-md bg-muted/60 px-2.5 py-2">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">
+                                      Lançamento bancário · {formatDate(settlement.bankTransaction.date)}
+                                    </span>
+                                    <span className="font-medium tabular-nums">
+                                      {formatBRL(settlement.bankTransaction.amount)}
+                                    </span>
+                                  </div>
+                                  <p className="wrap-break-word">{settlement.bankTransaction.description}</p>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
                 <div className="flex items-center justify-between border-t bg-muted/50 px-3 py-2.5 text-[13px] font-semibold">

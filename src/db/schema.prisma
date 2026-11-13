@@ -159,6 +159,7 @@ model Organization {
   payouts          Payout[]
   payoutItems      PayoutItem[]
   markers          Marker[]
+  receipts         Receipt[]
 
   @@map("organizations")
 }
@@ -577,9 +578,29 @@ model Settlement {
   entry           Entry            @relation(fields: [entryId], references: [id])
   bankTransaction BankTransaction? @relation(fields: [bankTransactionId], references: [id])
   payoutItems     PayoutItem[]
+  receipt         Receipt?
 
   @@index([organizationId])
   @@index([entryId])
   @@index([bankTransactionId])
   @@map("settlements")
+}
+
+// O número de um recibo emitido (2026/0001), atribuído na primeira emissão e
+// sequencial por organização e ano. Sobrevive ao estorno do recebimento
+// (settlementId vira nulo) para que o número nunca seja reaproveitado num
+// recibo diferente.
+model Receipt {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  settlementId   String?  @unique @map("settlement_id") @db.Uuid
+  year           Int
+  number         Int
+  issuedAt       DateTime @default(now()) @map("issued_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  settlement   Settlement?  @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, year, number])
+  @@map("receipts")
 }

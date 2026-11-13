@@ -4,6 +4,8 @@
 
 export const capiHex = {
   purpleDark: "#300766",
+  purple: "#5207ae",
+  lilacLight: "#f4f2ff",
   red: "#dc2626",
   white: "#ffffff",
   black: "#0a0a0a",

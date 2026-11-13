@@ -41,6 +41,8 @@ export interface TransactionMatchInfo {
 // enough of its Entry to describe what was paid/recebido.
 export interface SettlementReceipt {
   id: string
+  // 2026/0001 — null até o recibo ser emitido pela primeira vez.
+  number: string | null
   settledAt: Date
   settledAmount: number
   interest: number
@@ -49,7 +51,10 @@ export interface SettlementReceipt {
   note: string | null
   entryType: EntryType
   entryDescription: string
+  entryDueDate: Date
   contactName: string
+  // CPF/CNPJ do cliente/fornecedor, só dígitos — null quando não cadastrado.
+  contactDocument: string | null
   categoryName: string
   installment: string | null
 }

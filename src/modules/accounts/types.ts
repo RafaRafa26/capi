@@ -24,12 +24,18 @@ export interface AccountAllocation {
 export interface AccountSettlement {
   id: string
   settledAt: Date
+  // Parte do valor original quitada — juros/multa/desconto vêm à parte; o
+  // valor movimentado é settlements/domain.ts#netSettledAmount.
   settledAmount: number
   interest: number
   fine: number
   discount: number
   note: string | null
+  origin: "STATEMENT" | "MANUAL"
   bankAccountName: string | null
+  // O lançamento do extrato com que foi conciliado — só na origem STATEMENT.
+  // O valor é o da transação inteira, que pode quitar mais de um lançamento (RN-07).
+  bankTransaction: { date: Date; description: string; amount: number } | null
 }
 
 // Present only when the entry comes from a Sale (a parcela) — undefined for
