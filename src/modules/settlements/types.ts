@@ -12,7 +12,15 @@ export interface EntryAggregate {
 
 export interface CandidateEntry {
   id: string
+  // Nulos na perna de transferência, que não tem contato nem categoria.
+  contactId: string | null
   contactName: string
+  categoryId: string | null
+  categoryName: string
+  // Conta prevista de recebimento/pagamento.
+  bankAccountName: string | null
+  // "2/4" numa parcela de venda parcelada.
+  installment: string | null
   description: string
   dueDate: Date
   amount: number

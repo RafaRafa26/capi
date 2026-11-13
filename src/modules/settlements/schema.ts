@@ -1,18 +1,11 @@
 import { z } from "zod"
 
-const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.")
-
-export const searchCandidateEntriesInputSchema = z.object({
+export const listCandidateEntriesInputSchema = z.object({
   type: z.enum(["RECEIVABLE", "PAYABLE"]),
-  query: z.string().trim().optional(),
-  // Calendar days ("YYYY-MM-DD"), both inclusive, matched against dueDate.
-  dueFrom: isoDay.optional(),
-  dueTo: isoDay.optional(),
-  // Cents, both inclusive, matched against the entry's original amount.
-  minAmount: z.number().int().min(0).optional(),
-  maxAmount: z.number().int().min(0).optional(),
+  // A conta da transação — só as transferências dela entram na lista.
+  bankAccountId: z.string().uuid(),
 })
-export type SearchCandidateEntriesInput = z.infer<typeof searchCandidateEntriesInputSchema>
+export type ListCandidateEntriesInput = z.infer<typeof listCandidateEntriesInputSchema>
 
 // Optional rather than `.default()` — the service already treats a missing
 // adjustment as 0 (see settlements/service.ts#insertSettlement), so the

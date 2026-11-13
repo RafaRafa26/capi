@@ -242,6 +242,7 @@ export function ReconciliationView({
           direction={directionForTransactionAmount(modalTransaction.amount)}
           transactionAmount={modalTransaction.amount}
           transactionDate={modalTransaction.date}
+          transactionDescription={modalTransaction.description}
           bankAccountId={bankAccountId}
           contacts={contacts}
           categories={categories}

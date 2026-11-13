@@ -12,7 +12,7 @@ import {
   createSettlementBatchInputSchema,
   createSettlementInputSchema,
   manualSettleInputSchema,
-  searchCandidateEntriesInputSchema,
+  listCandidateEntriesInputSchema,
 } from "@/modules/settlements/schema";
 import {
   createAndSettlePayable,
@@ -90,10 +90,10 @@ export async function deleteBankTransactionAction(id: string): Promise<Result> {
   }
 }
 
-export async function searchCandidateEntriesAction(input: unknown): Promise<Result<CandidateEntry[]>> {
+export async function listCandidateEntriesAction(input: unknown): Promise<Result<CandidateEntry[]>> {
   try {
     const session = await requireSession();
-    const parsed = searchCandidateEntriesInputSchema.safeParse(input);
+    const parsed = listCandidateEntriesInputSchema.safeParse(input);
     if (!parsed.success) {
       const issue = parsed.error.issues[0];
       return { ok: false, error: issue.message, field: String(issue.path[0]) };

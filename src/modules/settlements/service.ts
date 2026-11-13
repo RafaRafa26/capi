@@ -16,7 +16,7 @@ import type {
   CreateSettlementBatchInput,
   CreateSettlementInput,
   ManualSettleInput,
-  SearchCandidateEntriesInput,
+  ListCandidateEntriesInput,
 } from "./schema"
 import type { CandidateEntry, MatchedSettlement, SettlementReceipt, TransactionMatchInfo, TransferDetail } from "./types"
 
@@ -152,10 +152,40 @@ async function insertSettlement(tx: Tx, organizationId: string, input: InsertSet
 // deles, mostra isto no lugar.
 const TRANSFER_LABEL = "Transferência"
 
-function toCandidateEntry(entry: { id: string; contact: { name: string } | null; description: string; dueDate: Date; amount: number; settledAmount: number | null; type: CandidateEntry["type"] }): CandidateEntry {
+/** O que cada linha de candidato precisa — usado na busca e nas sugestões. */
+const CANDIDATE_INCLUDE = {
+  contact: { select: { name: true } },
+  category: { select: { name: true } },
+  bankAccount: { select: { name: true } },
+  sale: { select: { installmentsCount: true, billingType: true } },
+} as const
+
+function toCandidateEntry(entry: {
+  id: string
+  contactId: string | null
+  contact: { name: string } | null
+  categoryId: string | null
+  category: { name: string } | null
+  bankAccount: { name: string } | null
+  sale: { installmentsCount: number; billingType: string } | null
+  installmentNumber: number | null
+  description: string
+  dueDate: Date
+  amount: number
+  settledAmount: number | null
+  type: CandidateEntry["type"]
+}): CandidateEntry {
   return {
     id: entry.id,
+    contactId: entry.contactId,
     contactName: entry.contact?.name ?? TRANSFER_LABEL,
+    categoryId: entry.categoryId,
+    categoryName: entry.category?.name ?? TRANSFER_LABEL,
+    bankAccountName: entry.bankAccount?.name ?? null,
+    installment:
+      entry.sale && entry.sale.billingType === "INSTALLMENTS" && entry.installmentNumber
+        ? `${entry.installmentNumber}/${entry.sale.installmentsCount}`
+        : null,
     description: entry.description,
     dueDate: fromDbDate(entry.dueDate),
     amount: entry.amount,
@@ -169,44 +199,29 @@ function transferDirectionFor(direction: "RECEIVABLE" | "PAYABLE"): "IN" | "OUT"
   return direction === "RECEIVABLE" ? "IN" : "OUT"
 }
 
-/** For the "Buscar existente" tab — open entries of the given direction, optionally filtered by text, due date and amount. */
+/**
+ * Aba "Buscar existente": todos os lançamentos em aberto que podem conciliar
+ * uma transação da conta — do lado dela (a receber/a pagar) e as pernas de
+ * transferência da própria conta, como nas sugestões. Sem filtro nem limite:
+ * a tela carrega uma vez e filtra no navegador, sem ida ao servidor a cada
+ * tecla.
+ */
 export async function listCandidateEntries(
   organizationId: string,
-  input: SearchCandidateEntriesInput,
+  input: ListCandidateEntriesInput,
 ): Promise<CandidateEntry[]> {
   return withOrganization(organizationId, async (tx) => {
     const entries = await tx.entry.findMany({
+      relationLoadStrategy: "join",
       where: {
-        type: input.type,
         status: { in: ["FORECAST", "PARTIAL"] },
-        ...(input.query
-          ? {
-              OR: [
-                { description: { contains: input.query, mode: "insensitive" } },
-                { contact: { name: { contains: input.query, mode: "insensitive" } } },
-              ],
-            }
-          : {}),
-        ...(input.dueFrom || input.dueTo
-          ? {
-              dueDate: {
-                ...(input.dueFrom ? { gte: new Date(`${input.dueFrom}T00:00:00Z`) } : {}),
-                ...(input.dueTo ? { lte: new Date(`${input.dueTo}T00:00:00Z`) } : {}),
-              },
-            }
-          : {}),
-        ...(input.minAmount !== undefined || input.maxAmount !== undefined
-          ? {
-              amount: {
-                ...(input.minAmount !== undefined ? { gte: input.minAmount } : {}),
-                ...(input.maxAmount !== undefined ? { lte: input.maxAmount } : {}),
-              },
-            }
-          : {}),
+        OR: [
+          { type: input.type },
+          { type: "TRANSFER", bankAccountId: input.bankAccountId, transferDirection: transferDirectionFor(input.type) },
+        ],
       },
-      include: { contact: true },
+      include: CANDIDATE_INCLUDE,
       orderBy: { dueDate: "asc" },
-      take: 20,
     })
     return entries.map(toCandidateEntry)
   })
@@ -228,7 +243,7 @@ export async function suggestMatchesForTransaction(
           { type: "TRANSFER", bankAccountId: transaction.bankAccountId, transferDirection: transferDirectionFor(direction) },
         ],
       },
-      include: { contact: true },
+      include: CANDIDATE_INCLUDE,
     })
 
     const rankable = openEntries.map((entry) => ({
@@ -289,10 +304,10 @@ export async function getMatchInfoForTransactions(
 
     const [receivableEntries, payableEntries, transferLegs] = await Promise.all([
       needsReceivables
-        ? tx.entry.findMany({ where: { type: "RECEIVABLE", status: { in: ["FORECAST", "PARTIAL"] } }, include: { contact: true } })
+        ? tx.entry.findMany({ where: { type: "RECEIVABLE", status: { in: ["FORECAST", "PARTIAL"] } }, include: CANDIDATE_INCLUDE })
         : Promise.resolve([]),
       needsPayables
-        ? tx.entry.findMany({ where: { type: "PAYABLE", status: { in: ["FORECAST", "PARTIAL"] } }, include: { contact: true } })
+        ? tx.entry.findMany({ where: { type: "PAYABLE", status: { in: ["FORECAST", "PARTIAL"] } }, include: CANDIDATE_INCLUDE })
         : Promise.resolve([]),
       // A outra perna de uma transferência (RN-15) só concilia com o extrato
       // da própria conta — ao contrário de recebimento/pagamento, filtra por conta.
@@ -303,7 +318,7 @@ export async function getMatchInfoForTransactions(
               status: { in: ["FORECAST", "PARTIAL"] },
               bankAccountId: { in: [...new Set(unmatched.map((t) => t.bankAccountId))] },
             },
-            include: { contact: true },
+            include: CANDIDATE_INCLUDE,
           })
         : Promise.resolve([]),
     ])

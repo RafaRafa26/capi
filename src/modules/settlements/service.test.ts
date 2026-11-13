@@ -130,18 +130,19 @@ async function createBankTransaction(amount: number, date = new Date(2026, 7, 10
 }
 
 describe("listCandidateEntries", () => {
-  it("filters open entries by due date range and amount range", async () => {
-    const { entry } = await createReceivableEntry(12_345)
-    const search = (filters: Partial<Parameters<typeof listCandidateEntries>[1]>) =>
-      listCandidateEntries(org.id, { type: "RECEIVABLE", minAmount: 12_345, maxAmount: 12_345, ...filters }).then(
-        (entries) => entries.map((e) => e.id),
-      )
+  it("lists every open entry of the side with what the search table shows, leaving settled ones out", async () => {
+    const { entry: open } = await createReceivableEntry(12_345)
+    const { entry: settled } = await createReceivableEntry(5_000)
+    await manualSettleEntry(org.id, { entryId: settled.id, settledAt: new Date(2026, 7, 12), settledAmount: 5_000 })
 
-    expect(await search({ dueFrom: "2026-08-10", dueTo: "2026-08-10" })).toContain(entry.id)
-    expect(await search({ dueFrom: "2026-08-11" })).not.toContain(entry.id)
-    expect(await search({ dueTo: "2026-08-09" })).not.toContain(entry.id)
-    expect(await search({ minAmount: 12_346 })).not.toContain(entry.id)
-    expect(await search({ maxAmount: 12_344 })).not.toContain(entry.id)
+    const receivables = await listCandidateEntries(org.id, { type: "RECEIVABLE", bankAccountId: org.bankAccountId })
+    const payables = await listCandidateEntries(org.id, { type: "PAYABLE", bankAccountId: org.bankAccountId })
+
+    const candidate = receivables.find((e) => e.id === open.id)
+    expect(candidate).toMatchObject({ amount: 12_345, installment: "1/1", contactId: org.contactId, categoryId: org.categoryId })
+    expect(candidate?.categoryName).toBeTruthy()
+    expect(receivables.map((e) => e.id)).not.toContain(settled.id)
+    expect(payables.map((e) => e.id)).not.toContain(open.id)
   })
 })
 
