@@ -245,3 +245,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Landing page: a wrong pick in the reconciliation demo shakes its head. */
+@keyframes capi-shake {
+  25% { translate: -6px 0; }
+  50% { translate: 5px 0; }
+  75% { translate: -3px 0; }
+}

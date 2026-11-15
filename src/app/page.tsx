@@ -9,9 +9,9 @@ import { currentUser } from "@/modules/auth/session"
 import { listUserOrganizations } from "@/modules/organizations/service"
 
 export const metadata: Metadata = {
-  title: "Capi Gestão - A calma de uma capivara para o financeiro do seu negócio",
+  title: "Capi Gestão - Gestão financeira para empresas",
   description:
-    "Gestão financeira para pequenos negócios: veja o que vai entrar e sair, confira seus números com o banco e decida sabendo onde está. Garantia de 14 dias.",
+    "Veja o que vai entrar, o que vai sair e quanto do saldo é realmente seu, conferido com o extrato do banco. 5 dias grátis, sem cartão.",
 }
 
 // Visitors get the landing page. Signed-in users go back to the company

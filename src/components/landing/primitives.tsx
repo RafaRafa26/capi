@@ -6,7 +6,10 @@ import { cn } from "@/lib/utils"
 
 // The one primary action, styled the same wherever it repeats.
 export const ctaClassName =
-  "h-11 gap-2 rounded-lg bg-primary px-5 text-base text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring/40"
+  "h-12 gap-2 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm transition-[background-color,box-shadow,translate] hover:-translate-y-0.5 hover:bg-capi-purple-dark hover:shadow-lg hover:shadow-capi-purple/25 focus-visible:ring-ring/40 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+
+// What the visitor gets by clicking, repeated next to every primary action.
+export const OFFER_TERMS = ["5 dias grátis", "Sem cartão", "Sem falar com vendedor"]
 
 export function Container({ className, ...props }: React.ComponentProps<"div">) {
   return <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)} {...props} />
@@ -24,68 +27,31 @@ export function Logo({ className }: { className?: string }) {
   )
 }
 
-export function SectionHeading({
-  id,
-  eyebrow,
-  title,
-  description,
-  align = "center",
-}: {
-  id: string
-  eyebrow?: string
-  title: string
-  description?: string
-  align?: "center" | "left"
-}) {
+export function OfferTerms({ className }: { className?: string }) {
   return (
-    <div className={cn("flex max-w-2xl flex-col gap-3", align === "center" && "mx-auto text-center")}>
-      {eyebrow && <p className="text-sm font-semibold text-primary">{eyebrow}</p>}
-      <h2 id={id} className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">
-        {title}
-      </h2>
-      {description && <p className="text-lg text-pretty text-muted-foreground">{description}</p>}
-    </div>
-  )
-}
-
-// Stands in for a real image until it exists, at the final aspect ratio so
-// the layout does not shift when it is swapped in.
-export function ImagePlaceholder({
-  description,
-  label = "IMAGEM",
-  className,
-}: {
-  description: string
-  label?: string
-  className?: string
-}) {
-  return (
-    <div
-      role="img"
-      aria-label={`[${label}: ${description}]`}
-      className={cn(
-        "flex items-center justify-center rounded-xl border-2 border-dashed border-capi-lilac/40 bg-capi-lilac/5 p-4 text-center text-sm text-balance text-muted-foreground",
-        className
-      )}
-    >
-      <span aria-hidden>
-        [{label}: {description}]
-      </span>
-    </div>
+    <ul className={cn("flex flex-wrap gap-x-2 gap-y-1 text-sm", className)}>
+      {OFFER_TERMS.map((term, index) => (
+        <li key={term} className="flex items-center gap-2">
+          {index > 0 && <span aria-hidden>·</span>}
+          {term}
+        </li>
+      ))}
+    </ul>
   )
 }
 
 // Browser window chrome around a product screenshot.
 export function BrowserFrame({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn("overflow-hidden rounded-xl bg-background shadow-2xl ring-1 shadow-capi-purple/10 ring-foreground/10", className)}>
+    <div className={cn("overflow-hidden rounded-2xl bg-background shadow-2xl ring-1 shadow-capi-purple/15 ring-foreground/10", className)}>
       <div className="flex items-center gap-1.5 border-b bg-muted/60 px-3 py-2" aria-hidden>
         <span className="size-2.5 rounded-full bg-foreground/15" />
         <span className="size-2.5 rounded-full bg-foreground/15" />
         <span className="size-2.5 rounded-full bg-foreground/15" />
-        <span className="ml-3 h-4 w-40 rounded bg-foreground/5" />
       </div>
       {children}
     </div>
   )
 }
+
+export const brl = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
