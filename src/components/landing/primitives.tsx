@@ -15,11 +15,10 @@ export function Container({ className, ...props }: React.ComponentProps<"div">) 
   return <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)} {...props} />
 }
 
-// The landing page has its own cut of the logo, in its brighter violet.
 export function Logo({ className, white }: { className?: string; white?: boolean }) {
   return (
     <Image
-      src={white ? "/brand/capi-gestao-baixo-branco.svg" : "/brand/capi-gestao-landing.svg"}
+      src={white ? "/brand/capi-gestao-baixo-branco.svg" : "/brand/capi-gestao-baixo.svg"}
       alt="Capi Gestão"
       width={1173}
       height={368}
