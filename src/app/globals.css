@@ -182,8 +182,9 @@
   --category-10: oklch(0.6 0.02 30);
 }
 
-/* Purple and red fall under 4.5:1 on the dark background, so dark mode reads
-   them as lilac and light red; green flips to the bright brand tone. */
+/* Dark mode keeps the same purple as light mode, with white on top of it.
+   As text on the dark background it sits near 3:1, under the 4.5:1 of WCAG
+   AA. Red still reads as light red and green flips to the bright brand tone. */
 .dark {
   --background: var(--color-capi-black);
   --foreground: oklch(0.985 0 0);
@@ -191,8 +192,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: var(--color-capi-lilac);
-  --primary-foreground: var(--color-capi-black);
+  --primary: var(--color-capi-purple);
+  --primary-foreground: var(--color-capi-white);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -204,27 +205,27 @@
   --positive: var(--color-capi-green);
   --negative: var(--color-capi-red-light);
   --warning: var(--color-capi-amber-light);
-  --info: var(--color-capi-lilac);
+  --info: var(--color-capi-purple);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: var(--color-capi-lilac);
-  --chart-1: var(--color-capi-lilac);
+  --ring: var(--color-capi-purple);
+  --chart-1: var(--color-capi-purple);
   --chart-2: var(--color-capi-lilac-light);
   --chart-3: var(--color-capi-green);
-  --chart-4: var(--color-capi-purple);
+  --chart-4: var(--color-capi-lilac);
   --chart-5: var(--color-capi-red-light);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: var(--color-capi-lilac);
-  --sidebar-primary-foreground: var(--color-capi-black);
+  --sidebar-primary: var(--color-capi-purple);
+  --sidebar-primary-foreground: var(--color-capi-white);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: var(--color-capi-lilac);
+  --sidebar-ring: var(--color-capi-purple);
   --chart-background: var(--color-capi-black);
   --chart-foreground: oklch(0.45 0 0);
   --chart-foreground-muted: oklch(0.65 0.01 260);
-  --chart-crosshair: var(--color-capi-lilac);
+  --chart-crosshair: var(--color-capi-purple);
   --chart-grid: oklch(0.25 0 0);
   --chart-brush-border: var(--chart-grid);
   --chart-marker-background: oklch(0.25 0.01 260);

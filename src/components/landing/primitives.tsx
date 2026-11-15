@@ -18,9 +18,9 @@ export function Container({ className, ...props }: React.ComponentProps<"div">) 
 export function Logo({ className, white }: { className?: string; white?: boolean }) {
   return (
     <Image
-      src={white ? "/brand/capi-gestao-baixo-branco.svg" : "/brand/capi-gestao-baixo.svg"}
-      alt="Capi Gestão"
-      width={1173}
+      src={white ? "/brand/capi-branco.svg" : "/brand/capi.svg"}
+      alt="Capi"
+      width={815}
       height={368}
       className={cn("h-8 w-auto sm:h-10", className)}
     />
