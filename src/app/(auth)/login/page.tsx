@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { LoginCover, type CoverVariant } from "@/components/auth/login-cover"
+import { LoginCover } from "@/components/auth/login-cover"
 import { LoginForm } from "@/components/auth/login-form"
 import { Logo } from "@/components/landing/primitives"
 import { safeNextPath } from "@/lib/org-path"
@@ -13,15 +13,13 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   if (await currentUser()) redirect(next ?? "/")
 
-  const cover = (typeof params.cover === "string" ? params.cover : "mascote") as CoverVariant
-
   const signUpHref = next ? `/signup?next=${encodeURIComponent(next)}` : "/signup"
 
   return (
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
-      {/* Cover: brand artwork with the logo on top and the promise at the bottom. */}
+      {/* Cover: the cash-flow curve, with the logo on top and the promise at the bottom. */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-capi-purple-dark p-12 text-white lg:flex xl:p-16">
-        <LoginCover variant={cover} />
+        <LoginCover />
         <Link
           href="/"
           aria-label="Capi, ir para a página inicial"
