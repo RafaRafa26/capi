@@ -21,7 +21,7 @@ import { StickyCta } from "./sticky-cta"
 // until the offer is defined. No testimonials or client numbers.
 export function LandingPage() {
   return (
-    <div className="flex min-h-svh flex-col bg-background text-foreground">
+    <div className="landing flex min-h-svh flex-col bg-background text-foreground">
       <a
         href="#conteudo"
         className="sr-only z-50 rounded-md bg-background px-3 py-2 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -114,7 +114,7 @@ function Story() {
     <section aria-labelledby="historia-title" className="py-20 lg:py-28">
       <Container className="flex flex-col gap-10">
         <Reveal className="flex max-w-3xl flex-col gap-4">
-          <h2 id="historia-title" className="text-3xl font-extrabold tracking-tight text-balance sm:text-5xl">
+          <h2 id="historia-title" className="text-4xl font-extrabold tracking-tight text-balance text-primary sm:text-6xl">
             Elas começaram iguais.
           </h2>
           <p className="text-lg text-pretty text-muted-foreground sm:text-xl">
@@ -143,22 +143,23 @@ function Story() {
   )
 }
 
-// The one color band: what separates the two companies, in big type.
+// A full-bleed band of the brand color: what separates the two companies,
+// in oversized type.
 function Difference() {
   return (
-    <section aria-labelledby="diferenca-title" className="bg-capi-purple-dark py-24 text-white lg:py-36">
-      <Container className="max-w-4xl">
+    <section aria-labelledby="diferenca-title" className="bg-capi-purple py-24 text-white lg:py-36">
+      <Container>
         <Reveal className="flex flex-col gap-8">
-          <h2 id="diferenca-title" className="text-lg font-semibold text-capi-lilac sm:text-xl">
+          <h2 id="diferenca-title" className="text-xl font-bold sm:text-2xl">
             O que faz a diferença?
           </h2>
-          <p className="text-2xl text-pretty text-white/70 sm:text-3xl">
+          <p className="max-w-3xl text-2xl text-pretty text-white/80 sm:text-3xl">
             Não é trabalhar mais. Não é vender mais. Nem entender de contabilidade.
           </p>
-          <p className="text-[clamp(2rem,6vw,3.75rem)] leading-[1.08] font-extrabold tracking-tight text-balance">
+          <p className="text-[clamp(2.5rem,8vw,6rem)] leading-[1.02] font-extrabold tracking-tight text-balance">
             É enxergar os próprios números <span className="text-capi-green">antes de precisar deles.</span>
           </p>
-          <p className="text-xl text-white/85">O Capi existe para isso.</p>
+          <p className="text-xl font-semibold sm:text-2xl">O Capi existe para isso.</p>
         </Reveal>
       </Container>
     </section>
@@ -197,8 +198,8 @@ function Product() {
     <section id="como-funciona" aria-labelledby="como-funciona-title" className="scroll-mt-16 py-20 lg:py-28">
       <Container className="flex flex-col gap-16 lg:gap-24">
         <Reveal className="flex max-w-3xl flex-col gap-4">
-          <h2 id="como-funciona-title" className="text-3xl font-extrabold tracking-tight text-balance sm:text-5xl">
-            Abra o Capi numa segunda-feira de manhã. <span className="text-primary">É isto que você vê.</span>
+          <h2 id="como-funciona-title" className="text-4xl font-extrabold tracking-tight text-balance text-primary sm:text-6xl">
+            Abra o Capi numa segunda-feira de manhã. <span className="text-foreground">É isto que você vê.</span>
           </h2>
         </Reveal>
         {VIEWS.map(({ title, text, src, width, height, alt }, index) => (
@@ -226,7 +227,7 @@ function Demo() {
     <section id="demonstracao" aria-labelledby="demonstracao-title" className="scroll-mt-16 bg-capi-lilac-light py-20 lg:py-28">
       <Container className="flex max-w-5xl flex-col gap-10">
         <Reveal className="flex max-w-2xl flex-col gap-4">
-          <h2 id="demonstracao-title" className="text-3xl font-extrabold tracking-tight text-balance sm:text-5xl">
+          <h2 id="demonstracao-title" className="text-4xl font-extrabold tracking-tight text-balance text-primary sm:text-6xl">
             Experimente antes de criar a conta.
           </h2>
           <p className="text-lg text-pretty text-foreground/70 sm:text-xl">
@@ -253,19 +254,21 @@ const EXTRAS = [
 
 function AlsoDoes() {
   return (
-    <section aria-labelledby="tambem-faz-title" className="py-20 lg:py-28">
-      <Container className="grid gap-10 lg:grid-cols-[2fr_3fr] lg:gap-16">
+    <section aria-labelledby="tambem-faz-title" className="bg-capi-purple py-20 text-white lg:py-28">
+      <Container className="flex flex-col gap-10">
         <Reveal>
-          <h2 id="tambem-faz-title" className="text-3xl font-extrabold tracking-tight text-balance sm:text-4xl">
+          <h2 id="tambem-faz-title" className="max-w-2xl text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
             E quando a sua operação pedir mais
           </h2>
         </Reveal>
         <Reveal>
-          <ul className="grid gap-x-10 sm:grid-cols-2">
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {EXTRAS.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex gap-3 border-t py-5 text-base font-medium text-pretty">
-                <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-                {text}
+              <li key={text} className="flex min-h-36 flex-col justify-between gap-6 rounded-2xl bg-capi-purple-deep p-5">
+                <p className="text-lg font-bold text-pretty">{text}</p>
+                <span className="flex size-9 items-center justify-center rounded-full bg-capi-purple" aria-hidden>
+                  <Icon className="size-4" />
+                </span>
               </li>
             ))}
           </ul>
@@ -285,26 +288,35 @@ const STEPS = [
 
 function Offer() {
   return (
-    <section id="preco" aria-labelledby="preco-title" className="scroll-mt-16 px-4 sm:px-6">
-      <Reveal className="mx-auto flex max-w-6xl flex-col gap-10 rounded-[2rem] bg-capi-purple-dark px-6 py-14 text-white sm:px-12 lg:py-20">
-        <h2 id="preco-title" className="max-w-3xl text-3xl font-extrabold tracking-tight text-balance sm:text-5xl">
-          Ponha o Capi à prova por 5 dias.
-        </h2>
-        <ol className="grid gap-8 md:grid-cols-3 md:gap-10">
-          {STEPS.map(({ when, text }) => (
-            <li key={when} className="flex flex-col gap-2 border-t border-white/20 pt-5">
-              <p className="text-lg font-bold text-capi-green">{when}</p>
-              <p className="text-lg text-pretty text-white/85">{text}</p>
-            </li>
-          ))}
-        </ol>
-        <div className="flex flex-col gap-3">
-          <SignUpLink className="w-full bg-white text-capi-purple-dark hover:bg-capi-lilac-light hover:shadow-black/20 focus-visible:ring-white/60 sm:w-fit">
-            Começar meus 5 dias grátis
-          </SignUpLink>
-          <OfferTerms className="text-white/75" />
-        </div>
-      </Reveal>
+    <section id="preco" aria-labelledby="preco-title" className="scroll-mt-16 overflow-hidden bg-capi-cream pt-12 pb-20 lg:pt-16 lg:pb-28">
+      {/* Decorative: the page's closing line passing by. Stands still for
+          visitors who prefer reduced motion. */}
+      <div aria-hidden className="flex w-max motion-safe:animate-[capi-marquee_32s_linear_infinite]">
+        {[0, 1].map((copy) => (
+          <p key={copy} className="shrink-0 pr-[0.6em] text-[clamp(3.5rem,11vw,8rem)] leading-tight font-extrabold tracking-tight whitespace-nowrap text-primary">
+            Chegue ao fim do mês sabendo, não torcendo.
+          </p>
+        ))}
+      </div>
+      <Container className="mt-12 lg:mt-16">
+        <Reveal className="flex flex-col gap-10">
+          <h2 id="preco-title" className="max-w-3xl text-3xl font-extrabold tracking-tight text-balance text-primary sm:text-5xl">
+            Ponha o Capi à prova por 5 dias.
+          </h2>
+          <ol className="grid gap-8 md:grid-cols-3 md:gap-10">
+            {STEPS.map(({ when, text }) => (
+              <li key={when} className="flex flex-col gap-2 border-t border-foreground/20 pt-5">
+                <p className="text-lg font-extrabold text-primary">{when}</p>
+                <p className="text-lg text-pretty text-foreground/80">{text}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="flex flex-col gap-3">
+            <SignUpLink className="w-full sm:w-fit">Começar meus 5 dias grátis</SignUpLink>
+            <OfferTerms className="text-foreground/70" />
+          </div>
+        </Reveal>
+      </Container>
     </section>
   )
 }
@@ -313,7 +325,7 @@ function Questions() {
   return (
     <section id="duvidas" aria-labelledby="duvidas-title" className="scroll-mt-16 py-20 lg:py-28">
       <Container className="grid gap-10 lg:grid-cols-[1fr_2fr] lg:gap-16">
-        <h2 id="duvidas-title" className="text-3xl font-extrabold tracking-tight text-balance sm:text-4xl">
+        <h2 id="duvidas-title" className="text-3xl font-extrabold tracking-tight text-balance text-primary sm:text-5xl">
           Perguntas frequentes
         </h2>
         <Faq />
@@ -324,26 +336,25 @@ function Questions() {
 
 function Closing() {
   return (
-    <section aria-labelledby="fechamento-title" className="bg-capi-lilac-light py-20 lg:py-28">
-      <Container className="max-w-3xl">
-        <Reveal className="flex flex-col items-center gap-6 text-center">
-          <Image src="/brand/icon-192.png" alt="" width={96} height={96} className="size-20 rounded-3xl sm:size-24" />
-          <h2 id="fechamento-title" className="text-3xl font-extrabold tracking-tight text-balance sm:text-5xl">
+    <section aria-labelledby="fechamento-title" className="bg-capi-purple-dark py-20 text-white lg:py-28">
+      <Container>
+        <Reveal className="flex max-w-4xl flex-col gap-6">
+          <h2 id="fechamento-title" className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
             Sobre aquelas duas empresas.
           </h2>
-          <p className="text-xl text-pretty text-foreground/75 sm:text-2xl">
+          <p className="text-xl text-pretty text-white/85 sm:text-2xl">
             Elas continuam parecidas. A diferença é que uma chega ao fim do mês sabendo, e a outra, torcendo.
           </p>
-          <p className="text-lg text-pretty text-foreground/75">
+          <p className="max-w-2xl text-lg text-pretty text-white/75">
             Não podemos prometer que o seu mês vai fechar no azul. Podemos garantir que você vai saber antes.
           </p>
-          <div className="flex flex-col items-center gap-3 pt-2">
-            <SignUpLink className="w-full sm:w-fit" />
-            <OfferTerms className="justify-center text-foreground/70" />
+          <div className="flex flex-col gap-3 pt-2">
+            <SignUpLink className="w-full bg-white text-capi-purple hover:bg-capi-lilac-light hover:shadow-black/30 focus-visible:ring-white/60 sm:w-fit" />
+            <OfferTerms className="text-white/70" />
           </div>
-          <p className="max-w-xl pt-4 text-base text-pretty text-foreground/75">
-            <strong className="text-foreground">P.S.</strong> Leva poucos minutos: crie a conta, importe o extrato e veja o
-            que vence nesta semana.
+          <p className="max-w-xl pt-4 text-base text-pretty text-white/75">
+            <strong className="text-white">P.S.</strong> Leva poucos minutos: crie a conta, importe o extrato e veja o que
+            vence nesta semana.
           </p>
         </Reveal>
       </Container>
@@ -353,14 +364,14 @@ function Closing() {
 
 function Footer() {
   return (
-    <footer className="border-t max-lg:pb-20">
-      <Container className="flex flex-col gap-6 py-10 sm:flex-row sm:items-center sm:justify-between">
-        <Logo />
-        <Link href="/login" className="text-sm text-foreground underline-offset-4 hover:underline">
+    <footer className="bg-capi-purple-dark text-white max-lg:pb-20">
+      <Container className="flex flex-col gap-6 border-t border-white/15 py-10 sm:flex-row sm:items-center sm:justify-between">
+        <Logo white />
+        <Link href="/login" className="rounded text-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-white/60">
           Já tem conta? Entrar
         </Link>
       </Container>
-      <Container className="border-t py-6 text-sm text-muted-foreground">© {new Date().getFullYear()} Capi Gestão</Container>
+      <Container className="pb-8 text-sm text-white/60">© {new Date().getFullYear()} Capi Gestão</Container>
     </footer>
   )
 }

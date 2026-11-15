@@ -10,6 +10,8 @@
 @theme {
   --color-capi-purple: #5207ae;
   --color-capi-purple-dark: #300766;
+  --color-capi-purple-deep: #3d0782;
+  --color-capi-cream: #f4f0dc;
   --color-capi-lilac: #9e69fa;
   --color-capi-lilac-light: #f4f2ff;
   --color-capi-lilac-text: #7b3fe4;
@@ -251,4 +253,23 @@
   25% { translate: -6px 0; }
   50% { translate: 5px 0; }
   75% { translate: -3px 0; }
+}
+
+/* The landing page wears a brighter violet than the app, with an aubergine
+   for text and dark bands. Scoped here so the app's tokens stay as they are. */
+.landing {
+  --color-capi-purple: #7818e0;
+  --color-capi-purple-deep: #5a0fb0;
+  --color-capi-purple-dark: #1d0b33;
+  --color-capi-lilac: #b58cff;
+  --color-capi-lilac-light: #f5efff;
+  --primary: #7818e0;
+  --ring: #7818e0;
+  --foreground: #1d0b33;
+  --muted-foreground: #645a70;
+}
+
+/* Landing page: the closing line scrolling by in oversized type. */
+@keyframes capi-marquee {
+  to { translate: -50% 0; }
 }

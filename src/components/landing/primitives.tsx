@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 
 // The one primary action, styled the same wherever it repeats.
 export const ctaClassName =
-  "h-12 gap-2 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm transition-[background-color,box-shadow,translate] hover:-translate-y-0.5 hover:bg-capi-purple-dark hover:shadow-lg hover:shadow-capi-purple/25 focus-visible:ring-ring/40 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+  "h-12 gap-2 rounded-full bg-primary px-6 text-base font-semibold text-primary-foreground shadow-sm transition-[background-color,box-shadow,translate] hover:-translate-y-0.5 hover:bg-capi-purple-deep hover:shadow-lg hover:shadow-capi-purple/25 focus-visible:ring-ring/40 motion-reduce:transition-none motion-reduce:hover:translate-y-0"
 
 // What the visitor gets by clicking, repeated next to every primary action.
 export const OFFER_TERMS = ["5 dias grátis", "Sem cartão", "Sem falar com vendedor"]
@@ -15,10 +15,11 @@ export function Container({ className, ...props }: React.ComponentProps<"div">) 
   return <div className={cn("mx-auto w-full max-w-6xl px-4 sm:px-6", className)} {...props} />
 }
 
-export function Logo({ className }: { className?: string }) {
+// The landing page has its own cut of the logo, in its brighter violet.
+export function Logo({ className, white }: { className?: string; white?: boolean }) {
   return (
     <Image
-      src="/brand/capi-gestao-baixo.svg"
+      src={white ? "/brand/capi-gestao-baixo-branco.svg" : "/brand/capi-gestao-landing.svg"}
       alt="Capi Gestão"
       width={1173}
       height={368}

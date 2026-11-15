@@ -43,7 +43,7 @@ export function CompanyCompare() {
   return (
     <div className="rounded-3xl bg-background p-4 shadow-2xl ring-1 shadow-capi-purple/15 ring-foreground/10 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="Escolha a empresa" className="flex rounded-full bg-muted p-1">
+        <div role="tablist" aria-label="Escolha a empresa" className="flex rounded-full bg-background p-1 ring-1 ring-primary">
           {OPTIONS.map(({ value, label }) => (
             <button
               key={value}
@@ -55,7 +55,7 @@ export function CompanyCompare() {
               onClick={() => choose(value)}
               className={cn(
                 "relative h-10 rounded-full px-4 text-sm font-semibold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/40",
-                company === value ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                company === value ? "text-primary-foreground" : "text-foreground hover:text-primary"
               )}
             >
               {company === value && (
