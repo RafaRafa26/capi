@@ -165,30 +165,33 @@ function Difference() {
   )
 }
 
-const VIEWS = [
+// Real screens of the app, shown at the size they were captured so the text
+// stays sharp: 2x captures served as they are, with no recompression. Phones
+// get the app's own small-screen layout where it has one, and otherwise a
+// closer cut of the desktop screen that scrolls sideways.
+type Shot = { src: string; width: number; height: number }
+
+const VIEWS: { title: string; text: string; alt: string; desktop: Shot; phone: Shot & { scrolls?: boolean } }[] = [
   {
     title: "O que vence nesta semana.",
     text: "Contas a pagar e a receber por vencimento, com as atrasadas em destaque. O aperto aparece no dia 5, não no dia 28.",
-    src: "/landing/painel.png",
-    width: 2200,
-    height: 1280,
     alt: "Painel do Capi com saldo atual, pontos de atenção, fluxo de caixa e contas a receber e a pagar separadas em vencidas, vencem hoje e a vencer.",
+    desktop: { src: "/landing/painel.png", width: 2208, height: 1280 },
+    phone: { src: "/landing/painel-celular.png", width: 1170, height: 1680 },
   },
   {
     title: "O saldo que é seu de verdade.",
     text: "Importe o extrato do banco e confira lançamento por lançamento. Importou o mesmo arquivo duas vezes? Nada se repete.",
-    src: "/landing/conciliacao.png",
-    width: 2200,
-    height: 1440,
-    alt: "Tela de conciliação do Capi, com os lançamentos do banco à esquerda e os lançamentos do Capi à direita.",
+    alt: "Tela Contas e Extratos do Capi, com saldo, entradas e saídas do mês, o gráfico do saldo dia a dia e o extrato da conta com cada lançamento.",
+    desktop: { src: "/landing/contas-e-extratos.png", width: 2560, height: 1880 },
+    phone: { src: "/landing/contas-e-extratos-celular.png", width: 1980, height: 1730, scrolls: true },
   },
   {
     title: "Para onde o dinheiro foi.",
     text: "Receitas e despesas nas categorias que você define, com relatórios em PDF e Excel para levar ao sócio ou ao contador.",
-    src: "/landing/contas-a-pagar.png",
-    width: 2200,
-    height: 1560,
     alt: "Lista de contas a pagar do Capi, com categoria, fornecedor, vencimento e situação de cada conta, e botão de exportar.",
+    desktop: { src: "/landing/contas-a-pagar.png", width: 2208, height: 1560 },
+    phone: { src: "/landing/contas-a-pagar.png", width: 2208, height: 1560, scrolls: true },
   },
 ]
 
@@ -201,18 +204,30 @@ function Product() {
             Abra o Capi numa segunda-feira de manhã. <span className="text-foreground">É isto que você vê.</span>
           </h2>
         </Reveal>
-        {VIEWS.map(({ title, text, src, width, height, alt }, index) => (
-          <Reveal key={title} className="grid items-center gap-8 lg:grid-cols-[2fr_3fr] lg:gap-14">
-            <div className={cn("flex flex-col gap-4", index % 2 === 1 && "lg:order-2")}>
+        {VIEWS.map(({ title, text, alt, desktop, phone }, index) => (
+          <Reveal key={title} className="flex flex-col gap-8">
+            <div className="grid gap-4 lg:grid-cols-[auto_2fr_3fr] lg:items-start lg:gap-8">
               <p className="flex size-10 items-center justify-center rounded-full bg-capi-lilac-light text-base font-bold text-primary" aria-hidden>
                 {index + 1}
               </p>
               <h3 className="text-2xl font-extrabold tracking-tight text-balance sm:text-3xl">{title}</h3>
               <p className="text-lg text-pretty text-muted-foreground">{text}</p>
             </div>
-            <BrowserFrame>
-              <Image src={src} width={width} height={height} alt={alt} sizes="(min-width: 1024px) 660px, 100vw" className="h-auto w-full" />
+            <BrowserFrame className="max-sm:hidden">
+              <Image src={desktop.src} width={desktop.width} height={desktop.height} alt={alt} unoptimized className="h-auto w-full" />
             </BrowserFrame>
+            <div className="flex flex-col gap-2 sm:hidden">
+              <BrowserFrame>
+                {phone.scrolls ? (
+                  <div role="region" aria-label={`${title} Tela do Capi, role para o lado`} tabIndex={0} className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
+                    <Image src={phone.src} width={phone.width} height={phone.height} alt={alt} unoptimized className="h-auto w-[52rem] max-w-none" />
+                  </div>
+                ) : (
+                  <Image src={phone.src} width={phone.width} height={phone.height} alt={alt} unoptimized className="h-auto w-full" />
+                )}
+              </BrowserFrame>
+              {phone.scrolls && <p className="text-sm text-muted-foreground">Arraste para o lado para ver a tela inteira.</p>}
+            </div>
           </Reveal>
         ))}
         <p className="text-sm text-muted-foreground">Telas reais do Capi, com os dados de uma empresa fictícia.</p>
@@ -335,7 +350,7 @@ function Questions() {
 
 function Closing() {
   return (
-    <section aria-labelledby="fechamento-title" className="bg-capi-purple-dark py-20 text-white lg:py-28">
+    <section aria-labelledby="fechamento-title" className="bg-capi-purple py-20 text-white lg:py-28">
       <Container>
         <Reveal className="flex max-w-4xl flex-col gap-6">
           <h2 id="fechamento-title" className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
@@ -344,14 +359,14 @@ function Closing() {
           <p className="text-xl text-pretty text-white/85 sm:text-2xl">
             Elas continuam parecidas. A diferença é que uma chega ao fim do mês sabendo, e a outra, torcendo.
           </p>
-          <p className="max-w-2xl text-lg text-pretty text-white/75">
+          <p className="max-w-2xl text-lg text-pretty text-white/85">
             Não podemos prometer que o seu mês vai fechar no azul. Podemos garantir que você vai saber antes.
           </p>
           <div className="flex flex-col gap-3 pt-2">
             <SignUpLink className="w-full bg-white text-capi-purple hover:bg-capi-lilac-light hover:shadow-black/30 focus-visible:ring-white/60 sm:w-fit" />
-            <OfferTerms className="text-white/70" />
+            <OfferTerms className="text-white/85" />
           </div>
-          <p className="max-w-xl pt-4 text-base text-pretty text-white/75">
+          <p className="max-w-xl pt-4 text-base text-pretty text-white/85">
             <strong className="text-white">P.S.</strong> Leva poucos minutos: crie a conta, importe o extrato e veja o que
             vence nesta semana.
           </p>
@@ -363,14 +378,14 @@ function Closing() {
 
 function Footer() {
   return (
-    <footer className="bg-capi-purple-dark text-white max-lg:pb-20">
-      <Container className="flex flex-col gap-6 border-t border-white/15 py-10 sm:flex-row sm:items-center sm:justify-between">
+    <footer className="bg-capi-purple text-white max-lg:pb-20">
+      <Container className="flex flex-col gap-6 border-t border-white/25 py-10 sm:flex-row sm:items-center sm:justify-between">
         <Logo white />
         <Link href="/login" className="rounded text-sm underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-white/60">
           Já tem conta? Entrar
         </Link>
       </Container>
-      <Container className="pb-8 text-sm text-white/60">© {new Date().getFullYear()} Capi Gestão</Container>
+      <Container className="pb-8 text-sm text-white/80">© {new Date().getFullYear()} Capi Gestão</Container>
     </footer>
   )
 }
