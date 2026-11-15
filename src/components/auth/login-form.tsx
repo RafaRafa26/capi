@@ -1,14 +1,15 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { signInAction } from "@/app/(auth)/login/actions"
 import { Button } from "@/components/ui/button"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 
-export function LoginForm({ next }: { next: string | null }) {
+export function LoginForm({ next, signUpHref }: { next: string | null; signUpHref: string }) {
   const router = useRouter()
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
@@ -32,25 +33,54 @@ export function LoginForm({ next }: { next: string | null }) {
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      <div className="space-y-1.5">
-        <Label htmlFor="email">E-mail</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="password">Senha</Label>
-        <Input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-        />
-      </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Entrando..." : "Entrar"}
-      </Button>
+    <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
+      <FieldGroup>
+        <div className="mb-3 flex flex-col gap-2">
+          <h1 className="text-4xl font-semibold tracking-tight">Bem-vindo de volta.</h1>
+          <p className="text-sm text-muted-foreground">Entre com seu e-mail e senha para continuar.</p>
+        </div>
+        <Field>
+          <FieldLabel htmlFor="email">E-mail</FieldLabel>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="voce@empresa.com.br"
+            aria-invalid={error ? true : undefined}
+            className="h-11 px-3.5"
+            required
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="password">Senha</FieldLabel>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            aria-invalid={error ? true : undefined}
+            className="h-11 px-3.5"
+            required
+          />
+        </Field>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <Field>
+          <Button type="submit" className="h-11 text-base" disabled={pending}>
+            {pending ? "Entrando..." : "Entrar"}
+          </Button>
+          <FieldDescription className="mt-4 text-center">
+            Ainda não tem conta?{" "}
+            <Link href={signUpHref} className="font-medium text-foreground">
+              Criar conta
+            </Link>
+          </FieldDescription>
+        </Field>
+      </FieldGroup>
     </form>
   )
 }
