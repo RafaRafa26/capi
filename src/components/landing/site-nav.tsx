@@ -13,14 +13,12 @@ import {
 } from "@/components/ui/navigation-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 
-// Anchors to the landing page sections (see the `id`s in landing-page.tsx),
-// then the content pages. /blog and /ferramentas do not exist yet.
+// Anchors to the landing page sections (see the `id`s in landing-page.tsx).
 const LINKS = [
-  { href: "#problema", title: "O problema" },
-  { href: "#efeito-capivara", title: "Efeito Capivara" },
-  { href: "#planos", title: "Planos" },
-  { href: "/blog", title: "Blog" },
-  { href: "/ferramentas", title: "Ferramentas" },
+  { href: "#como-funciona", title: "Como funciona" },
+  { href: "#demonstracao", title: "Demonstração" },
+  { href: "#preco", title: "Preço" },
+  { href: "#duvidas", title: "Dúvidas" },
 ]
 
 export function DesktopNav() {
@@ -44,7 +42,7 @@ export function MobileNav() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger render={<Button variant="ghost" size="icon-lg" className="size-9 lg:hidden" aria-label="Abrir menu" />}>
+      <SheetTrigger render={<Button variant="ghost" size="icon-lg" className="size-10 lg:hidden" aria-label="Abrir menu" />}>
         <Menu className="size-5" aria-hidden />
       </SheetTrigger>
       <SheetContent side="right" className="gap-0">
