@@ -5,7 +5,6 @@ import { ArrowRight, Building2, CalendarClock, FileText, HandCoins, LogIn, Perce
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-import { CompanyCompare } from "./company-compare"
 import { Faq } from "./faq"
 import { HomeLink } from "./home-link"
 import { BrowserFrame, Container, Logo, OfferTerms, ctaClassName } from "./primitives"
@@ -15,9 +14,9 @@ import { DesktopNav, MobileNav } from "./site-nav"
 import { StickyCta } from "./sticky-cta"
 
 // Public landing page, shown at / to visitors without a session. It follows
-// the arc of a classic sales letter: two alike companies and one difference
-// (hero, story), what makes the difference, the product shown rather than
-// described, a hands-on demo, the offer, objections, and back to the story.
+// the arc of a classic sales letter: a promise (hero), the same day before
+// and after, what makes the difference, the product shown rather than
+// described, a hands-on demo, the offer, objections, and the promise again.
 // Screenshots are the real app with a made-up company; prices are masked
 // until the offer is defined. No testimonials or client numbers.
 export function LandingPage() {
@@ -84,55 +83,67 @@ function Header() {
 function Hero() {
   return (
     <section aria-labelledby="hero-title" className="overflow-hidden bg-capi-lilac-light">
-      <Container className="grid items-center gap-12 pt-12 pb-16 lg:grid-cols-[11fr_9fr] lg:gap-14 lg:pt-20 lg:pb-24">
-        <div className="flex flex-col gap-6 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
+      <Container className="flex flex-col items-center gap-12 pt-12 pb-16 lg:gap-16 lg:pt-20 lg:pb-24">
+        <div className="flex max-w-4xl flex-col items-center gap-6 text-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-500">
           <p className="w-fit rounded-full bg-background px-3.5 py-1.5 text-sm font-semibold text-primary ring-1 ring-capi-lilac/30">
             Gestão financeira de verdade
           </p>
-          <h1 id="hero-title" className="text-[clamp(2.375rem,6.2vw,4.25rem)] leading-[1.04] font-extrabold tracking-tight text-balance">
-            Duas empresas faturam o mesmo. <span className="text-primary">Só uma sabe se teve lucro.</span>
+          <h1 id="hero-title" className="text-[clamp(2.5rem,7vw,5rem)] leading-[1.02] font-extrabold tracking-tight text-balance">
+            Chegue ao fim do mês sabendo, <span className="text-primary">não torcendo.</span>
           </h1>
-          <p className="max-w-xl text-lg text-pretty text-foreground/70 sm:text-xl">
+          <p className="max-w-2xl text-lg text-pretty text-foreground/70 sm:text-xl">
             O Capi mostra o que vai entrar, o que vai sair e quanto do saldo é realmente seu, sem complicação.
           </p>
-          <div className="flex flex-col gap-3">
+          <div className="flex w-full flex-col items-center gap-3">
             <SignUpLink id="hero-cta" className="w-full sm:w-fit" />
-            <OfferTerms className="text-foreground/70" />
+            <OfferTerms className="justify-center text-foreground/70" />
           </div>
         </div>
-        <div className="motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-700">
-          <CompanyCompare />
+        <div className="w-full max-w-5xl motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-700">
+          <BrowserFrame>
+            <Image
+              src="/landing/painel.png"
+              width={2208}
+              height={1280}
+              alt="Painel do Capi com saldo atual, pontos de atenção, fluxo de caixa e contas a receber e a pagar separadas em vencidas, vencem hoje e a vencer."
+              unoptimized
+              preload
+              className="h-auto w-full"
+            />
+          </BrowserFrame>
+          <p className="mt-3 text-center text-xs text-muted-foreground">Tela real do Capi, com os dados de uma empresa fictícia.</p>
         </div>
       </Container>
     </section>
   )
 }
 
+// The same day of the month, before and after.
 function Story() {
   return (
     <section aria-labelledby="historia-title" className="py-20 lg:py-28">
       <Container className="flex flex-col gap-10">
         <Reveal className="flex max-w-3xl flex-col gap-4">
           <h2 id="historia-title" className="text-4xl font-extrabold tracking-tight text-balance text-primary sm:text-6xl">
-            Elas começaram iguais.
+            O mesmo dia 20, de dois jeitos.
           </h2>
           <p className="text-lg text-pretty text-muted-foreground sm:text-xl">
-            Imagine duas empresas abertas no mesmo ano, no mesmo bairro. Mesmo ramo, faturamento parecido, donos igualmente
-            dedicados.
+            Faltam dez dias para o mês acabar. Ainda tem conta para pagar, cliente para receber e uma decisão esperando por
+            você.
           </p>
         </Reveal>
         <div className="grid gap-6 md:grid-cols-2">
           <Reveal className="flex flex-col gap-3 rounded-3xl bg-muted p-6 sm:p-8">
-            <p className="text-sm font-semibold text-muted-foreground">No dia 20, em uma delas</p>
+            <p className="text-sm font-semibold text-muted-foreground">Torcendo</p>
             <p className="text-xl font-semibold text-pretty sm:text-2xl">
-              O dono abre o aplicativo do banco, vê o saldo e faz a conta de cabeça.
+              Você abre o aplicativo do banco, vê o saldo e faz a conta de cabeça.
             </p>
-            <p className="text-lg text-muted-foreground">Vai descobrir no dia 30.</p>
+            <p className="text-lg text-muted-foreground">Descobre no dia 30 se deu.</p>
           </Reveal>
           <Reveal delay={0.1} className="flex flex-col gap-3 rounded-3xl bg-capi-lilac-light p-6 ring-1 ring-capi-lilac/30 sm:p-8">
-            <p className="text-sm font-semibold text-primary">No dia 20, na outra</p>
+            <p className="text-sm font-semibold text-primary">Sabendo</p>
             <p className="text-xl font-semibold text-pretty sm:text-2xl">
-              O dono abre o computador e vê quanto ainda entra, quanto ainda sai e quanto sobra.
+              Você vê quanto ainda entra, quanto ainda sai e o que está atrasado.
             </p>
             <p className="text-lg text-muted-foreground">Decide na hora se contrata, se compra ou se espera.</p>
           </Reveal>
@@ -172,10 +183,10 @@ const VIEWS = [
   {
     title: "O que vence nesta semana.",
     text: "Contas a pagar e a receber por vencimento, com as atrasadas em destaque. O aperto aparece no dia 5, não no dia 28.",
-    alt: "Painel do Capi com saldo atual, pontos de atenção, fluxo de caixa e contas a receber e a pagar separadas em vencidas, vencem hoje e a vencer.",
-    src: "/landing/painel.png",
+    alt: "Lista de contas a receber do Capi, com os totais de vencidos, vencem hoje, a vencer e recebidos, e cada lançamento com vencimento, cliente e situação.",
+    src: "/landing/contas-a-receber.png",
     width: 2208,
-    height: 1280,
+    height: 1560,
   },
   {
     title: "O saldo que é seu de verdade.",
@@ -293,10 +304,10 @@ function Offer() {
     <section id="preco" aria-labelledby="preco-title" className="scroll-mt-16 overflow-hidden bg-capi-cream pt-12 pb-20 lg:pt-16 lg:pb-28">
       {/* Decorative: the page's closing line passing by. Stands still for
           visitors who prefer reduced motion. */}
-      <div aria-hidden className="flex w-max motion-safe:animate-[capi-marquee_32s_linear_infinite]">
-        {[0, 1].map((copy) => (
+      <div aria-hidden className="flex w-max motion-safe:animate-[capi-marquee_40s_linear_infinite]">
+        {[0, 1, 2, 3, 4, 5].map((copy) => (
           <p key={copy} className="shrink-0 pr-[0.6em] text-[clamp(3.5rem,11vw,8rem)] leading-tight font-extrabold tracking-tight whitespace-nowrap text-primary">
-            Chegue ao fim do mês sabendo, não torcendo.
+            Sabendo, não torcendo.
           </p>
         ))}
       </div>
@@ -342,10 +353,10 @@ function Closing() {
       <Container>
         <Reveal className="flex max-w-4xl flex-col gap-6">
           <h2 id="fechamento-title" className="text-4xl font-extrabold tracking-tight text-balance sm:text-6xl">
-            Sobre aquelas duas empresas.
+            O mês vai fechar de qualquer jeito.
           </h2>
           <p className="text-xl text-pretty text-white/85 sm:text-2xl">
-            Elas continuam parecidas. A diferença é que uma chega ao fim do mês sabendo, e a outra, torcendo.
+            A diferença é chegar lá sabendo.
           </p>
           <p className="max-w-2xl text-lg text-pretty text-white/85">
             Não podemos prometer que o seu mês vai fechar no azul. Podemos garantir que você vai saber antes.
