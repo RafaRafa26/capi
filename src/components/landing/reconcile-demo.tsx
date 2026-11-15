@@ -12,15 +12,15 @@ import { brl, ctaClassName } from "./primitives"
 
 // Each pair shares an id: the bank line and the entry it settles.
 const BANK_LINES = [
-  { id: "mesas", date: "12/11", description: "TED RECEBIDA CAFE FOLHA VERDE", amount: 7200 },
-  { id: "madeira", date: "13/11", description: "PIX ENVIADO MADEIREIRA SAO JORGE", amount: -3980 },
-  { id: "comoda", date: "14/11", description: "PIX RECEBIDO BRUNA SIQUEIRA", amount: 1600 },
+  { id: "aluguel", date: "10/11", description: "BOLETO IMOBILIARIA CENTRAL", amount: -4200 },
+  { id: "energia", date: "12/11", description: "DEB AUT CIA DE ENERGIA", amount: -986.4 },
+  { id: "imposto", date: "13/11", description: "PAGTO DAS SIMPLES NACIONAL", amount: -2874.3 },
 ]
 
 const ENTRIES = [
-  { id: "madeira", description: "Madeira maciça, pedido 482", contact: "Madeireira São Jorge", amount: -3980 },
-  { id: "comoda", description: "Restauro de cômoda", contact: "Bruna Siqueira", amount: 1600 },
-  { id: "mesas", description: "Mesas do salão, entrada", contact: "Café Folha Verde", amount: 7200 },
+  { id: "energia", description: "Conta de energia", contact: "Companhia de Energia", amount: -986.4 },
+  { id: "imposto", description: "Imposto do mês (DAS)", contact: "Simples Nacional", amount: -2874.3 },
+  { id: "aluguel", description: "Aluguel de novembro", contact: "Imobiliária Central", amount: -4200 },
 ]
 
 const BANK_BALANCE = 21733.6
