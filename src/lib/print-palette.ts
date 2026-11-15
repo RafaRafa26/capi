@@ -3,8 +3,8 @@
 // this is the only place outside globals.css that spells out a color.
 
 export const capiHex = {
-  purpleDark: "#300766",
-  purple: "#5207ae",
+  purpleDark: "#3b0b7a",
+  purple: "#7818e0",
   lilacLight: "#f4f2ff",
   red: "#dc2626",
   white: "#ffffff",
