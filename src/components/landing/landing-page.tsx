@@ -165,33 +165,33 @@ function Difference() {
   )
 }
 
-// Real screens of the app, shown at the size they were captured so the text
-// stays sharp: 2x captures served as they are, with no recompression. Phones
-// get the app's own small-screen layout where it has one, and otherwise a
-// closer cut of the desktop screen that scrolls sideways.
-type Shot = { src: string; width: number; height: number }
-
-const VIEWS: { title: string; text: string; alt: string; desktop: Shot; phone: Shot & { scrolls?: boolean } }[] = [
+// Real screens of the app: 2x captures served as they are, with no
+// recompression, so the text stays sharp. On wide screens they show close to
+// actual size; on phones the whole screen shrinks to fit the width.
+const VIEWS = [
   {
     title: "O que vence nesta semana.",
     text: "Contas a pagar e a receber por vencimento, com as atrasadas em destaque. O aperto aparece no dia 5, não no dia 28.",
     alt: "Painel do Capi com saldo atual, pontos de atenção, fluxo de caixa e contas a receber e a pagar separadas em vencidas, vencem hoje e a vencer.",
-    desktop: { src: "/landing/painel.png", width: 2208, height: 1280 },
-    phone: { src: "/landing/painel-celular.png", width: 1170, height: 1680 },
+    src: "/landing/painel.png",
+    width: 2208,
+    height: 1280,
   },
   {
     title: "O saldo que é seu de verdade.",
     text: "Importe o extrato do banco e confira lançamento por lançamento. Importou o mesmo arquivo duas vezes? Nada se repete.",
     alt: "Tela Contas e Extratos do Capi, com saldo, entradas e saídas do mês, o gráfico do saldo dia a dia e o extrato da conta com cada lançamento.",
-    desktop: { src: "/landing/contas-e-extratos.png", width: 2560, height: 1880 },
-    phone: { src: "/landing/contas-e-extratos-celular.png", width: 1980, height: 1730, scrolls: true },
+    src: "/landing/contas-e-extratos.png",
+    width: 2560,
+    height: 1880,
   },
   {
     title: "Para onde o dinheiro foi.",
     text: "Receitas e despesas nas categorias que você define, com relatórios em PDF e Excel para levar ao sócio ou ao contador.",
     alt: "Lista de contas a pagar do Capi, com categoria, fornecedor, vencimento e situação de cada conta, e botão de exportar.",
-    desktop: { src: "/landing/contas-a-pagar.png", width: 2208, height: 1560 },
-    phone: { src: "/landing/contas-a-pagar.png", width: 2208, height: 1560, scrolls: true },
+    src: "/landing/contas-a-pagar.png",
+    width: 2208,
+    height: 1560,
   },
 ]
 
@@ -204,7 +204,7 @@ function Product() {
             Abra o Capi numa segunda-feira de manhã. <span className="text-foreground">É isto que você vê.</span>
           </h2>
         </Reveal>
-        {VIEWS.map(({ title, text, alt, desktop, phone }, index) => (
+        {VIEWS.map(({ title, text, alt, src, width, height }, index) => (
           <Reveal key={title} className="flex flex-col gap-8">
             <div className="grid gap-4 lg:grid-cols-[auto_2fr_3fr] lg:items-start lg:gap-8">
               <p className="flex size-10 items-center justify-center rounded-full bg-capi-lilac-light text-base font-bold text-primary" aria-hidden>
@@ -213,21 +213,9 @@ function Product() {
               <h3 className="text-2xl font-extrabold tracking-tight text-balance sm:text-3xl">{title}</h3>
               <p className="text-lg text-pretty text-muted-foreground">{text}</p>
             </div>
-            <BrowserFrame className="max-sm:hidden">
-              <Image src={desktop.src} width={desktop.width} height={desktop.height} alt={alt} unoptimized className="h-auto w-full" />
+            <BrowserFrame>
+              <Image src={src} width={width} height={height} alt={alt} unoptimized className="h-auto w-full" />
             </BrowserFrame>
-            <div className="flex flex-col gap-2 sm:hidden">
-              <BrowserFrame>
-                {phone.scrolls ? (
-                  <div role="region" aria-label={`${title} Tela do Capi, role para o lado`} tabIndex={0} className="overflow-x-auto outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
-                    <Image src={phone.src} width={phone.width} height={phone.height} alt={alt} unoptimized className="h-auto w-[52rem] max-w-none" />
-                  </div>
-                ) : (
-                  <Image src={phone.src} width={phone.width} height={phone.height} alt={alt} unoptimized className="h-auto w-full" />
-                )}
-              </BrowserFrame>
-              {phone.scrolls && <p className="text-sm text-muted-foreground">Arraste para o lado para ver a tela inteira.</p>}
-            </div>
           </Reveal>
         ))}
         <p className="text-sm text-muted-foreground">Telas reais do Capi, com os dados de uma empresa fictícia.</p>
