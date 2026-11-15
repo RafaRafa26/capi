@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 
 import { CompanyCompare } from "./company-compare"
 import { Faq } from "./faq"
+import { HomeLink } from "./home-link"
 import { BrowserFrame, Container, Logo, OfferTerms, ctaClassName } from "./primitives"
 import { ReconcileDemo } from "./reconcile-demo"
 import { Reveal } from "./reveal"
@@ -59,9 +60,7 @@ function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-foreground/5 bg-background/85 backdrop-blur">
       <Container className="flex h-16 items-center justify-between gap-2 sm:gap-4">
-        <Link href="/" aria-label="Capi Gestão, página inicial" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/40">
-          <Logo />
-        </Link>
+        <HomeLink />
         <DesktopNav />
         <div className="flex items-center gap-1 sm:gap-2">
           {/* Below 380px there is no room for the label next to the brand. */}
