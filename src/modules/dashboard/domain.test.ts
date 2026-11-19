@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { bucketEntries, buildBalanceSeries, getFlowPeriod, type BucketableEntry } from "./domain"
+import { bucketEntries, buildBalanceSeries, flowSeriesBounds, type BucketableEntry } from "./domain"
 
 function entry(overrides: Partial<BucketableEntry> = {}): BucketableEntry {
   return {
@@ -83,21 +83,6 @@ describe("bucketEntries", () => {
   })
 })
 
-describe("getFlowPeriod", () => {
-  const ref = new Date(2026, 8, 29, 15, 30)
-
-  it("ends the 'últimos N dias' presets today", () => {
-    expect(getFlowPeriod("last7", ref)).toEqual({ from: new Date(2026, 8, 23), to: new Date(2026, 8, 29) })
-    expect(getFlowPeriod("last30", ref).from).toEqual(new Date(2026, 7, 31))
-  })
-
-  it("covers the whole current month, quarter and year", () => {
-    expect(getFlowPeriod("month", ref)).toEqual({ from: new Date(2026, 8, 1), to: new Date(2026, 8, 30) })
-    expect(getFlowPeriod("quarter", ref)).toEqual({ from: new Date(2026, 6, 1), to: new Date(2026, 8, 30) })
-    expect(getFlowPeriod("year", ref)).toEqual({ from: new Date(2026, 0, 1), to: new Date(2026, 11, 31) })
-  })
-})
-
 describe("buildBalanceSeries", () => {
   const base = {
     from: new Date(2026, 8, 27),
@@ -118,11 +103,50 @@ describe("buildBalanceSeries", () => {
       ["2026-09-27", 8000],
       ["2026-09-28", 11000],
       ["2026-09-29", 10000],
+      ["2026-09-30", 10000],
     ])
   })
 
-  it("stops at today even when the period runs further", () => {
-    const series = buildBalanceSeries({ ...base, realized: [] })
-    expect(series.at(-1)?.day).toBe("2026-09-29")
+  it("projects the days after today from what is still open, dotted", () => {
+    const series = buildBalanceSeries({
+      ...base,
+      to: new Date(2026, 9, 1),
+      realized: [],
+      forecast: [
+        { day: "2026-09-20", amount: 99999 }, // overdue: no date to place it
+        { day: "2026-09-29", amount: 500 },
+        { day: "2026-09-30", amount: -2000 },
+        { day: "2026-10-01", amount: 700 },
+      ],
+    })
+    expect(series.map((p) => [p.day, p.balance, p.projected])).toEqual([
+      ["2026-09-27", 10000, false],
+      ["2026-09-28", 10000, false],
+      ["2026-09-29", 10000, false],
+      ["2026-09-30", 8500, true],
+      ["2026-10-01", 9200, true],
+    ])
+  })
+})
+
+describe("flowSeriesBounds", () => {
+  const today = new Date(2026, 8, 29, 12)
+
+  it("keeps a bounded period as calendar days", () => {
+    expect(flowSeriesBounds({ from: new Date(2026, 8, 1), to: new Date(2026, 8, 30, 23, 59) }, today, [], [])).toEqual({
+      from: new Date(2026, 8, 1),
+      to: new Date(2026, 8, 30),
+    })
+  })
+
+  it("spans first movement to last open due date for 'todo o período'", () => {
+    expect(
+      flowSeriesBounds(
+        { from: null, to: null },
+        today,
+        [{ day: "2025-03-10", amount: 1 }],
+        [{ day: "2027-01-05", amount: 1 }],
+      ),
+    ).toEqual({ from: new Date(2025, 2, 10), to: new Date(2027, 0, 5) })
   })
 })

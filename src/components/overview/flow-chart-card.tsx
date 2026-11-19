@@ -3,33 +3,26 @@
 import * as React from "react"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
-import { CalendarIcon, CheckIcon, ChevronDownIcon } from "lucide-react"
 import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts"
 
 import { useHideValues } from "@/components/overview/hide-values"
-import { Button } from "@/components/ui/button"
+import { PeriodFilter } from "@/components/accounts/period-filter"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { getPeriodRange, type PeriodRange } from "@/lib/accounts/filter"
 import { balanceAxisScale } from "@/lib/chart-scale"
 import { formatBRL, formatCompactBRL, formatDate } from "@/lib/format"
 import {
   buildBalanceSeries,
-  flowPeriodLabel,
-  flowPeriodOrder,
-  getFlowPeriod,
+  flowSeriesBounds,
+  fromDayKey,
   toDayKey,
   type DailyAmount,
-  type FlowPeriodPreset,
 } from "@/modules/dashboard/domain"
 
 const chartConfig = {
   realizado: { label: "Realizado", color: "var(--chart-1)" },
+  previsto: { label: "Previsto", color: "var(--chart-1)" },
 } satisfies ChartConfig
 
 function axisLabel(date: Date, today: Date): string {
@@ -40,6 +33,7 @@ function axisLabel(date: Date, today: Date): string {
 interface FlowChartCardProps {
   currentBalance: number
   realizedByDay: DailyAmount[]
+  forecastByDay: DailyAmount[]
   sideHeight: number | undefined
   className?: string
 }
@@ -75,16 +69,17 @@ export function FlowChartCard(props: FlowChartCardProps) {
 function FlowChart({
   currentBalance,
   realizedByDay,
+  forecastByDay,
   sideHeight,
   className,
   todayKey,
 }: FlowChartCardProps & { todayKey: string }) {
-  const [preset, setPreset] = React.useState<FlowPeriodPreset>("month")
-  const today = React.useMemo(() => {
-    const [y, m, d] = todayKey.split("-").map(Number)
-    return new Date(y, m - 1, d)
-  }, [todayKey])
-  const period = React.useMemo(() => getFlowPeriod(preset, today), [preset, today])
+  const today = React.useMemo(() => fromDayKey(todayKey), [todayKey])
+  const [range, setRange] = React.useState<PeriodRange>(() => getPeriodRange("month", today))
+  const period = React.useMemo(
+    () => flowSeriesBounds(range, today, realizedByDay, forecastByDay),
+    [range, today, realizedByDay, forecastByDay],
+  )
 
   const series = React.useMemo(
     () =>
@@ -94,16 +89,25 @@ function FlowChart({
         today,
         currentBalance,
         realized: realizedByDay,
+        forecast: forecastByDay,
       }),
-    [period, today, currentBalance, realizedByDay],
+    [period, today, currentBalance, realizedByDay, forecastByDay],
   )
 
   const { hidden } = useHideValues()
 
   const chartData = React.useMemo(
-    () => series.map((point) => ({ day: point.day, date: point.date, realizado: point.balance })),
-    [series],
+    () =>
+      series.map((point) => ({
+        day: point.day,
+        date: point.date,
+        // Today sits on both lines so the dotted projection starts where the solid one ends.
+        realizado: point.projected ? null : point.balance,
+        previsto: point.projected || point.day === todayKey ? point.balance : null,
+      })),
+    [series, todayKey],
   )
+  const showToday = series.some((point) => point.projected) && series.some((point) => !point.projected)
 
   const yScale = React.useMemo(() => balanceAxisScale(series.map((point) => point.balance)), [series])
 
@@ -112,29 +116,7 @@ function FlowChart({
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <h2 className="text-sm font-semibold">Fluxo de caixa</h2>
         <div className="ml-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
-                <Button variant="outline" className="h-8 gap-1.5 px-2.5 text-[13px] font-medium text-foreground" />
-              }
-            >
-              <CalendarIcon className="size-3.5" />
-              {flowPeriodLabel[preset]}
-              <ChevronDownIcon className="size-3.5" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" sideOffset={6} backdrop className="w-auto min-w-[200px] p-1">
-              {flowPeriodOrder.map((option) => (
-                <DropdownMenuItem
-                  key={option}
-                  onClick={() => setPreset(option)}
-                  className={`rounded-md px-2.5 py-[7px] text-[13px] ${option === preset ? "bg-accent" : ""}`}
-                >
-                  {flowPeriodLabel[option]}
-                  {option === preset && <CheckIcon className="ml-auto size-3.5" />}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <PeriodFilter value={range} onChange={setRange} today={today} label={null} />
         </div>
       </div>
 
@@ -165,17 +147,22 @@ function FlowChart({
               tickFormatter={(value) => (hidden ? "•••" : formatCompactBRL(value as number))}
             />
             <ReferenceLine y={0} stroke="var(--border)" />
+            {showToday && <ReferenceLine x={todayKey} stroke="var(--border)" strokeDasharray="2 3" />}
             <ChartTooltip
               content={
                 <ChartTooltipContent
                   className="w-44"
                   labelFormatter={(_, payload) => formatDate(payload?.[0]?.payload?.date)}
-                  formatter={(value, name) => (
+                  formatter={(value, name, item) => {
+                    // On today both series carry the same balance — show it once, as realizado.
+                    if (name === "previsto" && item?.payload?.realizado != null) return null
+                    return (
                     <div className="flex w-full items-center justify-between gap-3">
                       <span className="text-muted-foreground">{chartConfig[name as keyof typeof chartConfig]?.label}</span>
                       <span className="font-medium tabular-nums">{hidden ? "R$ •••••" : formatBRL(Number(value))}</span>
                     </div>
-                  )}
+                    )
+                  }}
                 />
               }
             />
@@ -186,6 +173,17 @@ function FlowChart({
               strokeWidth={2}
               dot={false}
               isAnimationActive={false}
+              connectNulls={false}
+            />
+            <Line
+              dataKey="previsto"
+              type="monotone"
+              stroke="var(--color-previsto)"
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              dot={false}
+              isAnimationActive={false}
+              connectNulls={false}
             />
           </LineChart>
         </ChartContainer>
@@ -200,7 +198,7 @@ export function FlowChartCardSkeletonBody() {
     <>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <h2 className="text-sm font-semibold">Fluxo de caixa</h2>
-        <Skeleton className="ml-auto h-8 w-36" />
+        <Skeleton className="ml-auto h-[34px] w-[264px]" />
       </div>
       <Skeleton className="min-h-[180px] w-full flex-1" />
     </>

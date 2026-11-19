@@ -40,20 +40,28 @@ function dbDayKey(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
+function sumByDay(items: DailyAmount[]): DailyAmount[] {
+  const totals = new Map<string, number>()
+  for (const item of items) totals.set(item.day, (totals.get(item.day) ?? 0) + item.amount)
+  return [...totals].map(([day, amount]) => ({ day, amount }))
+}
+
 export interface OverviewData {
   accounts: { id: string; name: string; balance: number }[]
   receivables: ResumoLancamentos
   payables: ResumoLancamentos
   pendingReconciliationCount: number
   beneficiariesWithBalanceCount: number
-  /** Reconciled bank movements per day (active accounts, transfers left out), from Jan 1st of last year on. */
+  /** Reconciled bank movements per day (active accounts, transfers left out). */
   realizedByDay: DailyAmount[]
+  /** What is still open per due date, from today on: receivables in, payables out. */
+  forecastByDay: DailyAmount[]
 }
 
 /** Everything the "Visão geral" screen needs, in one round of parallel queries. */
 export async function getOverview(organizationId: string): Promise<OverviewData> {
-  const now = new Date()
-  const realizedSince = new Date(Date.UTC(now.getFullYear() - 1, 0, 1))
+  const today = businessToday()
+  const forecastSince = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()))
 
   const [accounts, receivables, payables, payoutSummary, flows] = await Promise.all([
     getBankAccountsOverview(organizationId),
@@ -68,13 +76,21 @@ export async function getOverview(organizationId: string): Promise<OverviewData>
         by: ["date"],
         where: {
           status: "RECONCILED",
-          date: { gte: realizedSince },
           bankAccount: { active: true },
           settlements: { none: { entry: { type: "TRANSFER" } } },
         },
         _sum: { amount: true },
       })
-      return { realized }
+      const forecast = await tx.entry.groupBy({
+        by: ["dueDate", "type"],
+        where: {
+          type: { in: ["RECEIVABLE", "PAYABLE"] },
+          status: { in: ["FORECAST", "PARTIAL"] },
+          dueDate: { gte: forecastSince },
+        },
+        _sum: { amount: true, settledAmount: true },
+      })
+      return { realized, forecast }
     }),
   ])
 
@@ -85,5 +101,11 @@ export async function getOverview(organizationId: string): Promise<OverviewData>
     pendingReconciliationCount: accounts.reduce((sum, account) => sum + account.pendingCount, 0),
     beneficiariesWithBalanceCount: payoutSummary.beneficiaries.filter((b) => b.available > 0).length,
     realizedByDay: flows.realized.map((row) => ({ day: dbDayKey(row.date), amount: row._sum.amount ?? 0 })),
+    forecastByDay: sumByDay(
+      flows.forecast.map((row) => {
+        const open = (row._sum.amount ?? 0) - (row._sum.settledAmount ?? 0)
+        return { day: dbDayKey(row.dueDate), amount: row.type === "PAYABLE" ? -open : open }
+      }),
+    ),
   }
 }

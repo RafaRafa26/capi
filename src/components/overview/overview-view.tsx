@@ -204,6 +204,7 @@ export function OverviewView({ data }: { data: OverviewData }) {
         sideHeight={sideHeight}
         currentBalance={currentBalance}
         realizedByDay={data.realizedByDay}
+        forecastByDay={data.forecastByDay}
       />
 
       <AccountsBucketCard
