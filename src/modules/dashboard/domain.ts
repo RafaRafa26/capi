@@ -87,42 +87,6 @@ export function bucketEntries(entries: BucketableEntry[], today: Date): ResumoLa
 // "yyyy-MM-dd" keys (calendar days, no timezone), so the server can hand them
 // to the client and the client can pick any period without another request.
 
-export type FlowPeriodPreset = "last7" | "last30" | "last90" | "month" | "quarter" | "year"
-
-export const flowPeriodLabel: Record<FlowPeriodPreset, string> = {
-  last7: "Últimos 7 dias",
-  last30: "Últimos 30 dias",
-  last90: "Últimos 90 dias",
-  month: "Mês atual",
-  quarter: "Trimestre atual",
-  year: "Ano atual",
-}
-
-export const flowPeriodOrder: FlowPeriodPreset[] = ["last7", "last30", "last90", "month", "quarter", "year"]
-
-/** First and last calendar day of the period (both inclusive, time at 00:00). */
-export function getFlowPeriod(preset: FlowPeriodPreset, today: Date): { from: Date; to: Date } {
-  const t = startOfDay(today)
-  const y = t.getFullYear()
-  const m = t.getMonth()
-  switch (preset) {
-    case "last7":
-      return { from: new Date(y, m, t.getDate() - 6), to: t }
-    case "last30":
-      return { from: new Date(y, m, t.getDate() - 29), to: t }
-    case "last90":
-      return { from: new Date(y, m, t.getDate() - 89), to: t }
-    case "month":
-      return { from: new Date(y, m, 1), to: new Date(y, m + 1, 0) }
-    case "quarter": {
-      const first = m - (m % 3)
-      return { from: new Date(y, first, 1), to: new Date(y, first + 3, 0) }
-    }
-    case "year":
-      return { from: new Date(y, 0, 1), to: new Date(y, 11, 31) }
-  }
-}
-
 export function toDayKey(date: Date): string {
   const mm = String(date.getMonth() + 1).padStart(2, "0")
   const dd = String(date.getDate()).padStart(2, "0")
@@ -139,12 +103,16 @@ export interface BalancePoint {
   day: string
   date: Date
   balance: number
+  /** After today: a projection from what is still open, not money that moved. */
+  projected: boolean
 }
 
 /**
- * One end-of-day balance per day of [from, to], stopping at today — only
- * what already happened: currentBalance − what was actually received/paid
- * after that day.
+ * One end-of-day balance per day of [from, to]:
+ * - up to today, what already happened — currentBalance − what was actually
+ *   received/paid after that day;
+ * - after today, the projection — currentBalance + what is still open and due
+ *   from today up to that day (overdue entries stay out: no date to place them).
  */
 export function buildBalanceSeries(input: {
   from: Date
@@ -152,15 +120,48 @@ export function buildBalanceSeries(input: {
   today: Date
   currentBalance: number
   realized: DailyAmount[]
+  forecast?: DailyAmount[]
 }): BalancePoint[] {
-  const todayStart = startOfDay(input.today)
+  const todayKey = toDayKey(startOfDay(input.today))
+  const forecast = input.forecast ?? []
   const points: BalancePoint[] = []
   const start = startOfDay(input.from)
-  const end = new Date(Math.min(startOfDay(input.to).getTime(), todayStart.getTime()))
+  const end = startOfDay(input.to)
   for (let d = start; d.getTime() <= end.getTime(); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
     const day = toDayKey(d)
-    const after = input.realized.reduce((sum, item) => (item.day > day ? sum + item.amount : sum), 0)
-    points.push({ day, date: d, balance: input.currentBalance - after })
+    if (day <= todayKey) {
+      const after = input.realized.reduce((sum, item) => (item.day > day ? sum + item.amount : sum), 0)
+      points.push({ day, date: d, balance: input.currentBalance - after, projected: false })
+    } else {
+      const due = forecast.reduce(
+        (sum, item) => (item.day >= todayKey && item.day <= day ? sum + item.amount : sum),
+        0,
+      )
+      points.push({ day, date: d, balance: input.currentBalance + due, projected: true })
+    }
   }
   return points
+}
+
+/**
+ * Calendar bounds for the chart. "Todo o período" has none of its own, so it
+ * runs from the first realized movement to the last open due date (today at
+ * least on both ends).
+ */
+export function flowSeriesBounds(
+  range: { from: Date | null; to: Date | null },
+  today: Date,
+  realized: DailyAmount[],
+  forecast: DailyAmount[],
+): { from: Date; to: Date } {
+  if (range.from && range.to) return { from: startOfDay(range.from), to: startOfDay(range.to) }
+  const todayKey = toDayKey(startOfDay(today))
+  const fromDay = realized.reduce((min, item) => (item.day < min ? item.day : min), todayKey)
+  const toDay = forecast.reduce((max, item) => (item.day > max ? item.day : max), todayKey)
+  return { from: fromDayKey(fromDay), to: fromDayKey(toDay) }
+}
+
+export function fromDayKey(key: string): Date {
+  const [y, m, d] = key.split("-").map(Number)
+  return new Date(y, m - 1, d)
 }

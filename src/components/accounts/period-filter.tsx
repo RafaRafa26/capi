@@ -40,7 +40,8 @@ export function PeriodFilter({
   value: PeriodRange
   onChange: (range: PeriodRange) => void
   today: Date
-  label?: string
+  /** `null` hides the caption above the control (e.g. inside a card header). */
+  label?: string | null
 }) {
   const [open, setOpen] = React.useState(false)
   const [customRange, setCustomRange] = React.useState<DateRange | undefined>(() => toDateRange(value))
@@ -71,7 +72,7 @@ export function PeriodFilter({
 
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      {label !== null && <span className="text-xs text-muted-foreground">{label}</span>}
       <div className="flex h-[34px] items-stretch overflow-hidden rounded-lg border border-input">
         <button
           type="button"
