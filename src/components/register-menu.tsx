@@ -13,11 +13,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 export function RegisterMenu() {
-  const { openEntry, prefetch } = useEntrySheet()
+  const { openEntry } = useEntrySheet()
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size="lg" onPointerEnter={prefetch} onFocus={prefetch} />}>
+      <DropdownMenuTrigger render={<Button size="lg" />}>
         <PlusIcon />
         Registrar
         <ChevronDownIcon />

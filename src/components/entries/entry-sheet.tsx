@@ -18,8 +18,6 @@ import type { EntryKind } from "@/lib/entries/draft"
 
 interface EntrySheetContextValue {
   openEntry: (kind: EntryKind) => void
-  /** Starts loading the sheet's lists early (e.g. on hovering "Registrar"). */
-  prefetch: () => void
 }
 
 const EntrySheetContext = React.createContext<EntrySheetContextValue | null>(null)
@@ -54,14 +52,18 @@ export function EntrySheetProvider({ children }: { children: React.ReactNode }) 
 
   const loadingRef = React.useRef(false)
   const loadedRef = React.useRef(false)
+  // Whether this opening of the sheet already asked the server for the lists.
+  const requestedRef = React.useRef(false)
   const dirtyRef = React.useRef(false)
   const amountRef = React.useRef<HTMLInputElement>(null)
 
-  const load = React.useCallback(async (force: boolean) => {
-    if (loadingRef.current || (!force && loadedRef.current)) return
+  const load = React.useCallback(async () => {
+    if (loadingRef.current) return
     loadingRef.current = true
+    let ok = false
     try {
       const result = await loadEntryOptionsAction()
+      ok = result.ok
       if (result.ok) {
         loadedRef.current = true
         setOptions(result.data)
@@ -76,8 +78,21 @@ export function EntrySheetProvider({ children }: { children: React.ReactNode }) 
       if (!loadedRef.current) setLoadError("Sem conexão com o servidor.")
     } finally {
       loadingRef.current = false
+      // A failed request is retried the next time a selector opens.
+      if (!ok) requestedRef.current = false
     }
   }, [])
+
+  /**
+   * Called when a selector (cliente, categoria, conta, favorecido) opens:
+   * the lists are fetched then, once per opening of the sheet, never just
+   * for opening it. Lists fetched on an earlier opening show meanwhile.
+   */
+  const requestOptions = React.useCallback(() => {
+    if (requestedRef.current) return
+    requestedRef.current = true
+    void load()
+  }, [load])
 
   const openEntry = React.useCallback(
     (next: EntryKind) => {
@@ -85,23 +100,12 @@ export function EntrySheetProvider({ children }: { children: React.ReactNode }) 
       setKind(next)
       setFormKey((key) => key + 1)
       setOpen(true)
-      // Refresh on every open so contacts or accounts created on other
-      // screens show up; the cached lists are shown meanwhile.
-      void load(true)
+      // The next selector opened fetches fresh lists, so contacts or
+      // accounts created on other screens show up.
+      requestedRef.current = false
     },
-    [load],
+    [],
   )
-
-  const prefetch = React.useCallback(() => void load(false), [load])
-
-  // Load the lists as soon as the page is idle, so they're already there
-  // when the sheet opens instead of filling in after it.
-  React.useEffect(() => {
-    const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 200))
-    const cancel = window.cancelIdleCallback ?? window.clearTimeout
-    const handle = idle(() => void load(false))
-    return () => cancel(handle)
-  }, [load])
 
   const requestClose = React.useCallback(() => {
     if (dirtyRef.current) setConfirmingDiscard(true)
@@ -121,7 +125,7 @@ export function EntrySheetProvider({ children }: { children: React.ReactNode }) 
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [openEntry])
 
-  const contextValue = React.useMemo(() => ({ openEntry, prefetch }), [openEntry, prefetch])
+  const contextValue = React.useMemo(() => ({ openEntry }), [openEntry])
   const handleDirtyChange = React.useCallback((dirty: boolean) => {
     dirtyRef.current = dirty
   }, [])
@@ -147,7 +151,8 @@ export function EntrySheetProvider({ children }: { children: React.ReactNode }) 
             options={options}
             loadError={loadError}
             amountRef={amountRef}
-            onRetryLoad={() => void load(true)}
+            onRetryLoad={() => void load()}
+            onRequestOptions={requestOptions}
             onOptionsChange={handleOptionsChange}
             onDirtyChange={handleDirtyChange}
             onClose={requestClose}

@@ -83,12 +83,18 @@ export function AllocationEditor({
   error,
   onChange,
   onBeneficiaryCreated,
+  loading = false,
+  onSelectorOpen,
 }: {
   draft: EntryDraft
   beneficiaries: Contact[]
   error?: string
   onChange: (patch: Partial<AllocationPatch>) => void
   onBeneficiaryCreated: (contact: Contact) => void
+  /** The beneficiary list is still being fetched. */
+  loading?: boolean
+  /** A beneficiary selector opened: fetch the lists on demand. */
+  onSelectorOpen?: () => void
 }) {
   const { allocationMode: mode, allocations: rows, amount: base } = draft
 
@@ -195,6 +201,8 @@ export function AllocationEditor({
             value={row.beneficiaryId}
             onValueChange={(value) => updateRow(row.id, { beneficiaryId: value })}
             placeholder="Selecione o favorecido"
+            emptyMessage={loading ? "Carregando..." : undefined}
+            onOpenChange={(open) => open && onSelectorOpen?.()}
             footer={
               <QuickAddContactDialog
                 contactType="BENEFICIARY"

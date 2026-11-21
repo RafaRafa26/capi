@@ -195,6 +195,8 @@ export interface EntryFormProps {
   loadError: string | null
   amountRef: React.RefObject<HTMLInputElement | null>
   onRetryLoad: () => void
+  /** A selector opened: fetch the lists it shows. */
+  onRequestOptions: () => void
   onOptionsChange: (update: (options: EntryOptions) => EntryOptions) => void
   onDirtyChange: (dirty: boolean) => void
   onClose: () => void
@@ -212,6 +214,7 @@ export function EntryForm({
   loadError,
   amountRef,
   onRetryLoad,
+  onRequestOptions,
   onOptionsChange,
   onDirtyChange,
   onClose,
@@ -285,8 +288,9 @@ export function EntryForm({
         : isSale
           ? "Primeira cobrança"
           : "Primeiro pagamento"
-  // The sheet renders its full structure right away; while the lists are
-  // still on their way, only an opened dropdown says so.
+  // The lists are fetched when a selector opens, not when the sheet does, so
+  // the sheet renders its full structure right away; only an opened dropdown
+  // says the lists are still on their way.
   const emptyMessage = loading ? "Carregando..." : undefined
 
   function update(patch: Partial<EntryDraft>, ...fields: FieldKey[]) {
@@ -537,6 +541,7 @@ export function EntryForm({
               onValueChange={(contactId) => update({ contactId }, "contactId")}
               placeholder={isSale ? "Selecione o cliente" : "Selecione o contato"}
               emptyMessage={emptyMessage}
+              onOpenChange={(open) => open && onRequestOptions()}
               footer={
                 <QuickAddContactDialog
                   key={draft.kind}
@@ -560,6 +565,7 @@ export function EntryForm({
               onValueChange={(categoryId) => update({ categoryId }, "categoryId")}
               placeholder="Selecione a categoria"
               emptyMessage={emptyMessage}
+              onOpenChange={(open) => open && onRequestOptions()}
               footer={
                 <QuickAddCategoryDialog
                   key={draft.kind}
@@ -685,6 +691,7 @@ export function EntryForm({
               onValueChange={(bankAccountId) => update({ bankAccountId }, "bankAccountId")}
               placeholder="Selecione a conta"
               emptyMessage={emptyMessage}
+              onOpenChange={(open) => open && onRequestOptions()}
               footer={
                 <NewBankAccountDialog
                   onCreated={(account) => {
@@ -755,6 +762,8 @@ export function EntryForm({
             error={errors.allocations ?? errors.allocationMode}
             onChange={(patch) => update(patch, "allocations", "allocationMode")}
             onBeneficiaryCreated={addContact}
+            loading={loading}
+            onSelectorOpen={onRequestOptions}
           />
         )}
       </div>
