@@ -94,6 +94,15 @@ export function EntrySheetProvider({ children }: { children: React.ReactNode }) 
 
   const prefetch = React.useCallback(() => void load(false), [load])
 
+  // Load the lists as soon as the page is idle, so they're already there
+  // when the sheet opens instead of filling in after it.
+  React.useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 200))
+    const cancel = window.cancelIdleCallback ?? window.clearTimeout
+    const handle = idle(() => void load(false))
+    return () => cancel(handle)
+  }, [load])
+
   const requestClose = React.useCallback(() => {
     if (dirtyRef.current) setConfirmingDiscard(true)
     else setOpen(false)

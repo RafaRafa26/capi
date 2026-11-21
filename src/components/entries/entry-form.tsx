@@ -285,7 +285,9 @@ export function EntryForm({
         : isSale
           ? "Primeira cobrança"
           : "Primeiro pagamento"
-  const loadingPlaceholder = loading ? "Carregando..." : undefined
+  // The sheet renders its full structure right away; while the lists are
+  // still on their way, only an opened dropdown says so.
+  const emptyMessage = loading ? "Carregando..." : undefined
 
   function update(patch: Partial<EntryDraft>, ...fields: FieldKey[]) {
     setDraft((current) => ({ ...current, ...patch }))
@@ -533,7 +535,8 @@ export function EntryForm({
               options={contactOptions}
               value={draft.contactId}
               onValueChange={(contactId) => update({ contactId }, "contactId")}
-              placeholder={loadingPlaceholder ?? (isSale ? "Selecione o cliente" : "Selecione o contato")}
+              placeholder={isSale ? "Selecione o cliente" : "Selecione o contato"}
+              emptyMessage={emptyMessage}
               footer={
                 <QuickAddContactDialog
                   key={draft.kind}
@@ -555,7 +558,8 @@ export function EntryForm({
               groups={categoryGroups}
               value={draft.categoryId}
               onValueChange={(categoryId) => update({ categoryId }, "categoryId")}
-              placeholder={loadingPlaceholder ?? "Selecione a categoria"}
+              placeholder="Selecione a categoria"
+              emptyMessage={emptyMessage}
               footer={
                 <QuickAddCategoryDialog
                   key={draft.kind}
@@ -679,7 +683,8 @@ export function EntryForm({
               options={bankAccountOptions}
               value={effectiveDraft.bankAccountId}
               onValueChange={(bankAccountId) => update({ bankAccountId }, "bankAccountId")}
-              placeholder={loadingPlaceholder ?? "Selecione a conta"}
+              placeholder="Selecione a conta"
+              emptyMessage={emptyMessage}
               footer={
                 <NewBankAccountDialog
                   onCreated={(account) => {
