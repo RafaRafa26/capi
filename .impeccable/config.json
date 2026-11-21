@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/components/entries/entry-form.tsx"
+        ],
+        "createdAt": "2026-11-21T01:02:12.372Z",
+        "reason": "Claude triage: L120 is the Kbd keycap (Ctrl/Enter hint); the 2px bottom border is the neutral --border token giving the standard keycap depth, not an accent border on a card"
+      }
+    ]
+  }
+}

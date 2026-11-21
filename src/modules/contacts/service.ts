@@ -113,7 +113,7 @@ export async function createContact(
   return fromDatabase(row);
 }
 
-/** Quick-add from the new-sale/new-expense screens — name and type only, no document yet. */
+/** Quick-add from the Registrar sheet (venda/despesa) — name and type only, no document yet. */
 export async function createQuickContact(
   organizationId: string,
   name: string,

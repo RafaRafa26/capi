@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { orgPath } from "@/lib/org-path";
 import { requireSession } from "@/modules/auth/session";
-import { createCategory, moveSubcategory, renameCategory } from "@/modules/categories/service";
-import { categoryInputSchema, renameCategorySchema } from "@/modules/categories/schema";
+import { createCategory, createQuickCategory, moveSubcategory, renameCategory } from "@/modules/categories/service";
+import { categoryInputSchema, quickCategorySchema, renameCategorySchema } from "@/modules/categories/schema";
 import { failure, type Result } from "@/shared/errors";
 import type { Category } from "@/modules/categories/types";
 
@@ -29,6 +29,36 @@ export async function createCategoryAction(form: FormData): Promise<Result<Categ
     revalidatePath(orgPath(session.organizationId, "/categories"));
 
     return { ok: true, data: category };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Quick-add used by the Registrar sheet and the reconciliation pickers. */
+export async function createQuickCategoryAction(
+  form: FormData,
+): Promise<Result<{ category: Category; group: Category | null }>> {
+  try {
+    const session = await requireSession("write");
+
+    const groupId = form.get("groupId");
+    const groupName = form.get("groupName");
+    const parsed = quickCategorySchema.safeParse({
+      name: String(form.get("name") ?? ""),
+      type: String(form.get("type") ?? ""),
+      groupId: groupId ? String(groupId) : undefined,
+      groupName: groupName ? String(groupName) : undefined,
+    });
+
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0];
+      return { ok: false, error: issue.message, field: String(issue.path[0]) };
+    }
+
+    const created = await createQuickCategory(session.organizationId, parsed.data);
+    revalidatePath(orgPath(session.organizationId, "/categories"));
+
+    return { ok: true, data: created };
   } catch (error) {
     return failure(error);
   }

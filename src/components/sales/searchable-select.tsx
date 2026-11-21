@@ -31,6 +31,8 @@ interface BaseProps {
   emptyMessage?: string
   footer?: React.ReactNode
   className?: string
+  /** Called when the list opens or closes — e.g. to fetch its options on demand. */
+  onOpenChange?: (open: boolean) => void
 }
 
 const isEqual = (item: SearchableSelectOption, value: SearchableSelectOption) =>
@@ -47,7 +49,7 @@ const toLabel = (item: SearchableSelectOption) => item.label
 export function SearchableSelect(
   props: BaseProps & ({ options: SearchableSelectOption[]; groups?: undefined } | { groups: SearchableSelectGroup[]; options?: undefined }),
 ) {
-  const { value, onValueChange, placeholder, emptyMessage = "Nenhum resultado.", footer, className } = props
+  const { value, onValueChange, placeholder, emptyMessage = "Nenhum resultado.", footer, className, onOpenChange } = props
 
   if (props.groups) {
     const { groups } = props
@@ -61,6 +63,7 @@ export function SearchableSelect(
         onValueChange={(item) => onValueChange(item?.value ?? "")}
         itemToStringLabel={toLabel}
         isItemEqualToValue={isEqual}
+        onOpenChange={(open) => onOpenChange?.(open)}
       >
         <ComboboxInput placeholder={placeholder} className={className} />
         <ComboboxContent>
@@ -98,6 +101,7 @@ export function SearchableSelect(
       // every render, so identity-based matching would never find a
       // highlighted item — compare by id instead.
       isItemEqualToValue={isEqual}
+      onOpenChange={(open) => onOpenChange?.(open)}
     >
       <ComboboxInput placeholder={placeholder} className={className} />
       <ComboboxContent>

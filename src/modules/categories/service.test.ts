@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment";
 import { BusinessError, NotFound } from "@/shared/errors";
-import { createCategory, moveSubcategory, renameCategory } from "./service";
+import { createCategory, createQuickCategory, moveSubcategory, renameCategory } from "./service";
 
 let org: TestOrg;
 
@@ -81,5 +81,42 @@ describe("categories", () => {
     const a = await createCategory(org.id, { name: "Nível A", type: "INCOME" });
     const b = await createCategory(org.id, { name: "Nível B", type: "INCOME" });
     await expect(moveSubcategory(org.id, a.id, b.id)).rejects.toThrow(BusinessError);
+  });
+
+  describe("quick-add", () => {
+    it("creates a category inside an existing group", async () => {
+      const group = await createCategory(org.id, { name: "Receitas de serviço", type: "INCOME" });
+      const { category, group: created } = await createQuickCategory(org.id, {
+        name: "Consultoria",
+        type: "INCOME",
+        groupId: group.id,
+      });
+      expect(created).toBeNull();
+      expect(category.parentId).toBe(group.id);
+    });
+
+    it("creates the group and the category together when there's no group yet", async () => {
+      const { category, group } = await createQuickCategory(org.id, {
+        name: "Hospedagem",
+        type: "EXPENSE",
+        groupName: "Tecnologia",
+      });
+      expect(group).toMatchObject({ name: "Tecnologia", type: "EXPENSE", parentId: null });
+      expect(category).toMatchObject({ name: "Hospedagem", type: "EXPENSE", parentId: group?.id });
+    });
+
+    it("refuses a new group whose name is taken, creating nothing", async () => {
+      await createCategory(org.id, { name: "Pessoal", type: "EXPENSE" });
+      await expect(
+        createQuickCategory(org.id, { name: "Salários", type: "EXPENSE", groupName: "Pessoal" }),
+      ).rejects.toThrow(BusinessError);
+    });
+
+    it("refuses a group of the other type", async () => {
+      const group = await createCategory(org.id, { name: "Só receitas", type: "INCOME" });
+      await expect(
+        createQuickCategory(org.id, { name: "Aluguel", type: "EXPENSE", groupId: group.id }),
+      ).rejects.toThrow(BusinessError);
+    });
   });
 });
