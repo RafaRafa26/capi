@@ -360,7 +360,16 @@ export function EntryForm({
     setPending(true)
     const form = new FormData()
     form.set("payload", JSON.stringify(payload))
-    const result = await (isSale ? createSaleAction(form) : createExpenseAction(form))
+    let result: Awaited<ReturnType<typeof createSaleAction>>
+    try {
+      result = await (isSale ? createSaleAction(form) : createExpenseAction(form))
+    } catch {
+      // The request itself failed (network, or the server restarting
+      // mid-deploy). Nothing was saved, and what was typed is still here.
+      setPending(false)
+      setFormError("Não foi possível falar com o servidor. Nada foi salvo; tente de novo.")
+      return
+    }
     setPending(false)
 
     if (!result.ok) {

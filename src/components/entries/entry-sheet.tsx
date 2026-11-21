@@ -60,14 +60,22 @@ export function EntrySheetProvider({ children }: { children: React.ReactNode }) 
   const load = React.useCallback(async (force: boolean) => {
     if (loadingRef.current || (!force && loadedRef.current)) return
     loadingRef.current = true
-    const result = await loadEntryOptionsAction()
-    loadingRef.current = false
-    if (result.ok) {
-      loadedRef.current = true
-      setOptions(result.data)
-      setLoadError(null)
-    } else if (!loadedRef.current) {
-      setLoadError(result.error)
+    try {
+      const result = await loadEntryOptionsAction()
+      if (result.ok) {
+        loadedRef.current = true
+        setOptions(result.data)
+        setLoadError(null)
+      } else if (!loadedRef.current) {
+        setLoadError(result.error)
+      }
+    } catch {
+      // The request itself failed (network, or the server restarting
+      // mid-deploy) rather than returning an error. Lists already loaded
+      // stay usable; without them the sheet offers to try again.
+      if (!loadedRef.current) setLoadError("Sem conexão com o servidor.")
+    } finally {
+      loadingRef.current = false
     }
   }, [])
 
