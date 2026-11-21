@@ -91,11 +91,8 @@ export function CategoriesView({ categories }: { categories: Category[] }) {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       {/* Left side, away from the header's Registrar button so the two don't stack up. */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center">
         <NewCategoryDialog />
-        <p className="max-w-prose text-sm text-muted-foreground">
-          Os grupos organizam suas categorias. Para mudar uma categoria de grupo, arraste-a até o outro grupo.
-        </p>
       </div>
 
       {(["INCOME", "EXPENSE"] as CategoryType[]).map((type) => {
