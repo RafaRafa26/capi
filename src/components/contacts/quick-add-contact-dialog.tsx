@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label"
 import type { Contact, ContactType } from "@/modules/contacts/types"
 
 /**
- * Quick-add a contact without leaving the new-sale/new-expense form — name
+ * Quick-add a contact without leaving the Registrar sheet — name
  * only, of a fixed `contactType` decided by the caller. The contact starts
  * without a document; it can be completed later on the Contacts screen.
  */

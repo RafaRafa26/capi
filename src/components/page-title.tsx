@@ -4,8 +4,6 @@ import { useOrgPathname } from "@/hooks/use-org-path"
 
 const titles: Record<string, string> = {
   "/dashboard": "Visão geral",
-  "/new-sale": "Nova venda",
-  "/new-expense": "Nova despesa",
   "/accounts": "Contas e Extratos",
   "/payout": "Repasses",
   "/payables": "Contas a pagar",
