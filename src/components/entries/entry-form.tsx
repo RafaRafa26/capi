@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   CreditCardIcon,
   FlagIcon,
+  LayersIcon,
   LandmarkIcon,
   ListOrderedIcon,
   RepeatIcon,
@@ -97,8 +98,8 @@ const installmentCountOptions: SearchableSelectOption[] = Array.from({ length: 5
 }))
 
 const repetitionLabel: Record<Repetition, string> = {
-  single: "Não repete",
-  installments: "Parcelar",
+  single: "Avulsa",
+  installments: "Parcelada",
   recurring: "Recorrente",
 }
 
@@ -503,6 +504,29 @@ export function EntryForm({
         </div>
 
         <div className="flex flex-col">
+          <PropertyRow icon={LayersIcon} label="Tipo">
+            <div className="flex h-9 items-center px-2.5 sm:px-1">
+              <ToggleGroup
+                variant="outline"
+                size="sm"
+                spacing={0}
+                aria-label="Tipo de lançamento"
+                value={[draft.repetition]}
+                onValueChange={(value) => {
+                  if (!value[0]) return
+                  setEditingInstallments(false)
+                  update({ repetition: value[0] as Repetition }, "installmentsCount", "recurrenceEndDate", "installments")
+                }}
+              >
+                {(Object.keys(repetitionLabel) as Repetition[]).map((repetition) => (
+                  <ToggleGroupItem key={repetition} value={repetition}>
+                    {repetitionLabel[repetition]}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
+          </PropertyRow>
+
           <PropertyRow icon={UserIcon} label={isSale ? "Cliente" : "Contato"} field="contactId" error={errors.contactId}>
             <SearchableSelect
               className={cn(ghostControl, errors.contactId && "border-destructive")}
@@ -547,29 +571,6 @@ export function EntryForm({
                 />
               }
             />
-          </PropertyRow>
-
-          <PropertyRow icon={RepeatIcon} label="Repetição">
-            <div className="flex h-9 items-center px-2.5 sm:px-1">
-              <ToggleGroup
-                variant="outline"
-                size="sm"
-                spacing={0}
-                aria-label="Repetição"
-                value={[draft.repetition]}
-                onValueChange={(value) => {
-                  if (!value[0]) return
-                  setEditingInstallments(false)
-                  update({ repetition: value[0] as Repetition }, "installmentsCount", "recurrenceEndDate", "installments")
-                }}
-              >
-                {(Object.keys(repetitionLabel) as Repetition[]).map((repetition) => (
-                  <ToggleGroupItem key={repetition} value={repetition}>
-                    {repetitionLabel[repetition]}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-            </div>
           </PropertyRow>
 
           {draft.repetition === "installments" && (

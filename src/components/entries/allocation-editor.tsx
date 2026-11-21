@@ -108,7 +108,7 @@ export function AllocationEditor({
         className="flex w-full items-center gap-2 rounded-lg border border-dashed px-3 py-2.5 text-left text-sm font-medium text-primary transition-colors outline-none hover:border-primary hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 dark:text-capi-lilac"
       >
         <PlusIcon className="size-4" />
-        Adicionar repasse a favorecidos
+        Adicionar repasse
       </button>
     )
   }
