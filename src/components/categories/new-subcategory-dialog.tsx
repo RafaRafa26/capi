@@ -16,7 +16,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export function NewSubcategoryDialog({ parentId }: { parentId: string }) {
+/** Creates a categoria inside a grupo (a subcategory in the model). */
+export function NewSubcategoryDialog({ parentId, groupName }: { parentId: string; groupName: string }) {
   const [open, setOpen] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
@@ -44,19 +45,21 @@ export function NewSubcategoryDialog({ parentId }: { parentId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="ghost" size="icon-xs" />}>
+      <DialogTrigger
+        render={<Button variant="ghost" size="xs" aria-label={`Nova categoria em ${groupName}`} />}
+      >
         <PlusIcon />
-        <span className="sr-only">Nova subcategoria</span>
+        Nova categoria
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Nova subcategoria</DialogTitle>
+            <DialogTitle>Nova categoria em {groupName}</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-3 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor={`subcategory-name-${parentId}`}>Nome</Label>
+              <Label htmlFor={`subcategory-name-${parentId}`}>Nome da categoria</Label>
               <Input id={`subcategory-name-${parentId}`} name="name" required />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}

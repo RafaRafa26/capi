@@ -25,10 +25,10 @@ import {
 } from "@/app/o/[orgId]/(app)/entries/actions"
 import { NewBankAccountDialog } from "@/components/bank-accounts/new-bank-account-dialog"
 import { buildCategoryGroups } from "@/components/categories/category-groups"
+import { QuickAddCategoryDialog } from "@/components/categories/quick-add-category-dialog"
 import { QuickAddContactDialog } from "@/components/contacts/quick-add-contact-dialog"
 import { AllocationEditor } from "@/components/entries/allocation-editor"
 import { InstallmentChips, InstallmentsEditor, isEdited } from "@/components/entries/installments-editor"
-import { NewSaleCategoryDialog } from "@/components/sales/new-sale-category-dialog"
 import { SearchableSelect, type SearchableSelectOption } from "@/components/sales/searchable-select"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -533,12 +533,15 @@ export function EntryForm({
               onValueChange={(categoryId) => update({ categoryId }, "categoryId")}
               placeholder={loadingPlaceholder ?? "Selecione a categoria"}
               footer={
-                <NewSaleCategoryDialog
+                <QuickAddCategoryDialog
                   key={draft.kind}
                   categories={categories}
-                  defaultType={isSale ? "INCOME" : "EXPENSE"}
-                  onCreated={(category) => {
-                    onOptionsChange((current) => ({ ...current, categories: [...current.categories, category] }))
+                  type={isSale ? "INCOME" : "EXPENSE"}
+                  onCreated={(category, group) => {
+                    onOptionsChange((current) => ({
+                      ...current,
+                      categories: [...current.categories, ...(group ? [group] : []), category],
+                    }))
                     update({ categoryId: category.id }, "categoryId")
                   }}
                 />

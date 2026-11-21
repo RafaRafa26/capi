@@ -13,6 +13,8 @@ import type { Category, CategoryType } from "@/modules/categories/types"
 
 const sectionLabel: Record<CategoryType, string> = { INCOME: "Receitas", EXPENSE: "Despesas" }
 
+// On screen a top-level Category is a "grupo" and a subcategory is a
+// "categoria"; the model keeps the parent/child naming.
 function CategoryCard({ category, subcategories }: { category: Category; subcategories: Category[] }) {
   const [dragOver, setDragOver] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -42,12 +44,14 @@ function CategoryCard({ category, subcategories }: { category: Category; subcate
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium">{category.name}</p>
           <div className="flex items-center gap-1">
-            <NewSubcategoryDialog parentId={category.id} />
-            <EditCategoryDialog id={category.id} name={category.name} />
+            <NewSubcategoryDialog parentId={category.id} groupName={category.name} />
+            <EditCategoryDialog id={category.id} name={category.name} kind="group" />
           </div>
         </div>
 
-        {subcategories.length > 0 && (
+        {subcategories.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhuma categoria neste grupo ainda.</p>
+        ) : (
           <div className="flex flex-wrap gap-1.5">
             {subcategories.map((subcategory) => (
               <div
@@ -61,7 +65,7 @@ function CategoryCard({ category, subcategories }: { category: Category; subcate
               >
                 <GripVerticalIcon className="size-3 text-muted-foreground" />
                 {subcategory.name}
-                <EditCategoryDialog id={subcategory.id} name={subcategory.name} />
+                <EditCategoryDialog id={subcategory.id} name={subcategory.name} kind="category" />
               </div>
             ))}
           </div>
@@ -86,7 +90,10 @@ export function CategoriesView({ categories }: { categories: Category[] }) {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="flex items-center justify-start">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="max-w-prose text-sm text-muted-foreground">
+          Os grupos organizam suas categorias. Para mudar uma categoria de grupo, arraste-a até o outro grupo.
+        </p>
         <NewCategoryDialog />
       </div>
 
@@ -98,7 +105,7 @@ export function CategoriesView({ categories }: { categories: Category[] }) {
             {categoriesOfType.length === 0 ? (
               <Card>
                 <CardContent className="py-6 text-center text-sm text-muted-foreground">
-                  Nenhuma categoria cadastrada ainda.
+                  Nenhum grupo de {type === "INCOME" ? "receitas" : "despesas"} ainda.
                 </CardContent>
               </Card>
             ) : (
