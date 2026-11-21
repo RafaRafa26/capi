@@ -53,6 +53,7 @@ import {
   isDraftDirty,
   scheduleKey,
   switchKind,
+  withInstallmentsTotal,
   type EntryDraft,
   type EntryKind,
   type Repetition,
@@ -226,15 +227,18 @@ export function EntryForm({
   const bodyRef = React.useRef<HTMLDivElement>(null)
 
   // Per-installment edits live on top of the generated schedule until a
-  // field it's generated from changes (RN-17).
-  const [installments, setInstallments] = React.useState<Installment[]>(() => generateSchedule(draft))
+  // field it's generated from changes (RN-17). `baseline` is that generated
+  // schedule, kept so edits can be marked and undone.
+  const [baseline, setBaseline] = React.useState<Installment[]>(() => generateSchedule(draft))
+  const [installments, setInstallments] = React.useState<Installment[]>(baseline)
   const key = scheduleKey(draft)
   const [lastKey, setLastKey] = React.useState(key)
   if (key !== lastKey) {
+    const regenerated = generateSchedule(draft)
     setLastKey(key)
-    setInstallments(generateSchedule(draft))
+    setBaseline(regenerated)
+    setInstallments(regenerated)
   }
-  const generated = generateSchedule(draft)
 
   React.useEffect(() => {
     onDirtyChange(isDraftDirty(draft))
@@ -297,13 +301,28 @@ export function EntryForm({
     onOptionsChange((current) => ({ ...current, contacts: [...current.contacts, contact] }))
   }
 
+  /**
+   * Replaces the schedule without regenerating it. In a parcelada entry the
+   * total follows the installments, so editing one updates the value at the
+   * top; the schedule key is moved along with it so that change doesn't
+   * throw the edits away.
+   */
+  function replaceInstallments(next: Installment[]) {
+    setInstallments(next)
+    const nextDraft = withInstallmentsTotal(draft, next)
+    if (nextDraft !== draft) {
+      setDraft(nextDraft)
+      setLastKey(scheduleKey(nextDraft))
+    }
+    setErrors((current) => ({ ...current, installments: undefined, totalAmount: undefined }))
+  }
+
   function updateInstallment(installmentNumber: number, patch: Partial<Pick<Installment, "dueDate" | "amount">>) {
-    setInstallments((current) =>
-      current.map((installment) =>
+    replaceInstallments(
+      installments.map((installment) =>
         installment.installmentNumber === installmentNumber ? { ...installment, ...patch } : installment,
       ),
     )
-    setErrors((current) => ({ ...current, installments: undefined }))
   }
 
   function showErrors(next: FieldErrors) {
@@ -387,9 +406,7 @@ export function EntryForm({
       : ""
 
   const showSchedule = installments.length > 1 || recurring
-  const anyEdited = installments.some((installment, index) => isEdited(installment, generated[index]))
-  const installmentsSum = installments.reduce((sum, installment) => sum + installment.amount, 0)
-  const sumMismatch = draft.repetition === "installments" && installments.length > 0 && installmentsSum !== draft.amount
+  const anyEdited = installments.some((installment, index) => isEdited(installment, baseline[index]))
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -436,7 +453,7 @@ export function EntryForm({
           <label htmlFor="entry-amount" className="text-xs font-medium text-muted-foreground">
             {amountLabel}
           </label>
-          <div className="flex items-baseline gap-2 border-b-2 border-transparent pb-1 transition-colors focus-within:border-primary has-aria-invalid:border-destructive">
+          <div className="flex items-baseline gap-2">
             <span className="shrink-0 text-lg font-semibold whitespace-nowrap text-muted-foreground" aria-hidden>
               {isSale ? "+" : "−"} R$
             </span>
@@ -455,6 +472,8 @@ export function EntryForm({
               className={cn(
                 "w-full min-w-0 bg-transparent text-4xl font-extrabold tracking-tight tabular-nums outline-none placeholder:text-muted-foreground/40",
                 isSale ? "text-positive" : "text-negative",
+                // Saving without a value turns the empty "0,00" red.
+                errors.totalAmount && "text-destructive placeholder:text-destructive",
               )}
             />
           </div>
@@ -553,7 +572,7 @@ export function EntryForm({
                 <FrequencySelect value={draft.frequency} onChange={(frequency) => update({ frequency })} />
                 {installments.length > 1 && draft.amount > 0 && (
                   <span className="px-1 text-sm text-muted-foreground tabular-nums">
-                    de {formatBRL(generated[0]?.amount ?? 0)}
+                    {anyEdited ? "com valores editados" : `de ${formatBRL(baseline[0]?.amount ?? 0)}`}
                   </span>
                 )}
               </div>
@@ -673,7 +692,7 @@ export function EntryForm({
                     variant="ghost"
                     size="sm"
                     className="text-muted-foreground"
-                    onClick={() => setInstallments(generated)}
+                    onClick={() => replaceInstallments(baseline)}
                   >
                     Desfazer edições
                   </Button>
@@ -697,19 +716,14 @@ export function EntryForm({
                 Informe o valor e as datas para ver {recurring ? "as cobranças" : "as parcelas"}.
               </p>
             ) : editingInstallments ? (
-              <InstallmentsEditor installments={installments} generated={generated} onChange={updateInstallment} />
+              <InstallmentsEditor installments={installments} generated={baseline} onChange={updateInstallment} />
             ) : (
-              <InstallmentChips installments={installments} generated={generated} />
+              <InstallmentChips installments={installments} generated={baseline} />
             )}
             {recurring && !draft.recurrenceEndDate && (
               <p className="text-xs text-muted-foreground">
                 Sem data de término, mantemos sempre as próximas {RECURRING_ROLLING_WINDOW}{" "}
                 {isSale ? "cobranças" : "parcelas"} geradas. Ao conciliar uma, criamos a seguinte.
-              </p>
-            )}
-            {sumMismatch && (
-              <p className="text-xs text-warning">
-                As parcelas somam {formatBRL(installmentsSum)} e o valor total é {formatBRL(draft.amount)}.
               </p>
             )}
             {errors.installments && <p className="text-xs text-destructive">{errors.installments}</p>}

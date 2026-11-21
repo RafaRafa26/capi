@@ -9,6 +9,7 @@ import {
   isDraftDirty,
   scheduleKey,
   switchKind,
+  withInstallmentsTotal,
   type EntryDraft,
 } from "./draft"
 
@@ -174,5 +175,26 @@ describe("buildPayload", () => {
     )
     expect(payload).not.toHaveProperty("allocations")
     expect(payload).not.toHaveProperty("allocationMode")
+  })
+})
+
+describe("withInstallmentsTotal", () => {
+  it("moves a parcelada total to the sum of its edited installments", () => {
+    const d = draft({ amount: 10000, repetition: "installments", installmentsCount: 2 })
+    const edited = generateSchedule(d).map((i, index) => (index === 0 ? { ...i, amount: 7000 } : i))
+    expect(withInstallmentsTotal(d, edited).amount).toBe(12000)
+  })
+
+  it("returns the same draft when nothing changes the total", () => {
+    const d = draft({ amount: 10000, repetition: "installments", installmentsCount: 2 })
+    expect(withInstallmentsTotal(d, generateSchedule(d))).toBe(d)
+  })
+
+  it("leaves recurring and avulsa amounts alone", () => {
+    const recurring = draft({ amount: 5000, repetition: "recurring" })
+    const edited = generateSchedule(recurring).map((i) => ({ ...i, amount: 9000 }))
+    expect(withInstallmentsTotal(recurring, edited)).toBe(recurring)
+    const single = draft({ amount: 5000 })
+    expect(withInstallmentsTotal(single, [{ installmentNumber: 1, dueDate: today, amount: 1 }])).toBe(single)
   })
 })

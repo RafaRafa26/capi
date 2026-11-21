@@ -153,6 +153,18 @@ export function scheduleKey(draft: EntryDraft): string {
   return `I-${draft.amount}-${count}-${draft.firstDueDate.getTime()}-${draft.frequency}`
 }
 
+/**
+ * In a parcelada entry the total is the sum of its installments, so an edit
+ * to one installment's amount moves the total with it. A recurring entry's
+ * amount is per period, and an avulsa has a single installment generated
+ * from the amount itself, so both stay as they are.
+ */
+export function withInstallmentsTotal(draft: EntryDraft, installments: Installment[]): EntryDraft {
+  if (draft.repetition !== "installments" || installments.length === 0) return draft
+  const total = installments.reduce((sum, installment) => sum + installment.amount, 0)
+  return total === draft.amount ? draft : { ...draft, amount: total }
+}
+
 export function allocationAmount(mode: AllocationMode, base: number, value: number): number {
   return mode === "PERCENTAGE" ? Math.round(base * (value / 100)) : value
 }
