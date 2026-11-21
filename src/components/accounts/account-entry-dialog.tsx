@@ -89,8 +89,8 @@ export function AccountEntryDialog({
   const [pending, setPending] = React.useState(false)
 
   // Reset the form fields whenever a different entry is opened — same
-  // "adjust state during render" pattern as new-expense-form.tsx's
-  // generationKey, not an effect, so it applies before the first paint.
+  // "adjust state during render" pattern as entry-form.tsx's
+  // scheduleKey, not an effect, so it applies before the first paint.
   const [loadedEntryId, setLoadedEntryId] = React.useState<string | null>(null)
   if (entry && entry.id !== loadedEntryId) {
     setLoadedEntryId(entry.id)

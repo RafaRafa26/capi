@@ -28,7 +28,7 @@ export const contactInputSchema = z.object({
 
 export type ContactInput = z.infer<typeof contactInputSchema>
 
-// Quick-add from the new-sale/new-expense screens: only name and type, so
+// Quick-add from the Registrar sheet (venda/despesa): only name and type, so
 // the user never has to leave the form to register a contact. `document`
 // stays unset until someone completes the contact later on the Contacts
 // screen.

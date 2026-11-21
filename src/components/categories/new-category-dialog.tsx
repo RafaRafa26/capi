@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+/** Creates a grupo — a top-level Category, which holds the categorias. */
 export function NewCategoryDialog() {
   const [open, setOpen] = React.useState(false)
   const [type, setType] = React.useState<"INCOME" | "EXPENSE">("INCOME")
@@ -54,17 +55,17 @@ export function NewCategoryDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button size="sm" />}>
         <PlusIcon />
-        Nova categoria
+        Novo grupo
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Nova categoria</DialogTitle>
+            <DialogTitle>Novo grupo</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-3 py-2">
             <div className="space-y-1.5">
-              <Label htmlFor="name">Nome</Label>
+              <Label htmlFor="name">Nome do grupo</Label>
               <Input id="name" name="name" required />
             </div>
             <div className="space-y-1.5">

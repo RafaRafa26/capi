@@ -51,7 +51,7 @@ export async function updateContactAction(id: string, form: FormData): Promise<R
   }
 }
 
-/** Quick-add used by the new-sale/new-expense screens' contact combobox. */
+/** Quick-add used by the Registrar sheet (venda/despesa)' contact combobox. */
 export async function createQuickContactAction(form: FormData): Promise<Result<Contact>> {
   try {
     const session = await requireSession("write");

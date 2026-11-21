@@ -4,7 +4,7 @@ import * as React from "react"
 
 import { buildCategoryGroups } from "@/components/categories/category-groups"
 import { QuickAddContactDialog } from "@/components/contacts/quick-add-contact-dialog"
-import { NewSaleCategoryDialog } from "@/components/sales/new-sale-category-dialog"
+import { QuickAddCategoryDialog } from "@/components/categories/quick-add-category-dialog"
 import { SearchableSelect } from "@/components/sales/searchable-select"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
@@ -76,7 +76,17 @@ export function ReconciliationCategoryPicker({
       value={value}
       onValueChange={onValueChange}
       placeholder="Categoria"
-      footer={<NewSaleCategoryDialog categories={categories} defaultType={type} onCreated={onCreated} />}
+      footer={
+        <QuickAddCategoryDialog
+          categories={categories}
+          type={type}
+          onCreated={(category, group) => {
+            // A new grupo joins the list first; the categoria is what gets picked.
+            if (group) onCreated(group)
+            onCreated(category)
+          }}
+        />
+      }
     />
   )
 }

@@ -16,7 +16,16 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
-export function EditCategoryDialog({ id, name }: { id: string; name: string }) {
+export function EditCategoryDialog({
+  id,
+  name,
+  kind,
+}: {
+  id: string
+  name: string
+  /** A top-level Category is shown as a grupo, a subcategory as a categoria. */
+  kind: "group" | "category"
+}) {
   const [open, setOpen] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
@@ -41,12 +50,12 @@ export function EditCategoryDialog({ id, name }: { id: string; name: string }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="ghost" size="icon-xs" />}>
         <PencilIcon />
-        <span className="sr-only">Editar</span>
+        <span className="sr-only">{kind === "group" ? `Renomear grupo ${name}` : `Renomear categoria ${name}`}</span>
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Renomear categoria</DialogTitle>
+            <DialogTitle>{kind === "group" ? "Renomear grupo" : "Renomear categoria"}</DialogTitle>
           </DialogHeader>
 
           <div className="flex flex-col gap-3 py-2">
