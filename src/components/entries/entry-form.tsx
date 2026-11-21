@@ -533,56 +533,7 @@ export function EntryForm({
             </div>
           </PropertyRow>
 
-          <PropertyRow icon={UserIcon} label={isSale ? "Cliente" : "Contato"} field="contactId" error={errors.contactId}>
-            <SearchableSelect
-              className={cn(ghostControl, errors.contactId && "border-destructive")}
-              options={contactOptions}
-              value={draft.contactId}
-              onValueChange={(contactId) => update({ contactId }, "contactId")}
-              placeholder={isSale ? "Selecione o cliente" : "Selecione o contato"}
-              emptyMessage={emptyMessage}
-              onOpenChange={(open) => open && onRequestOptions()}
-              footer={
-                <QuickAddContactDialog
-                  key={draft.kind}
-                  contactType={isSale ? "CLIENT" : "SUPPLIER"}
-                  triggerLabel={isSale ? "Novo cliente" : "Novo fornecedor"}
-                  dialogTitle={isSale ? "Novo cliente" : "Novo fornecedor"}
-                  onCreated={(contact) => {
-                    addContact(contact)
-                    update({ contactId: contact.id }, "contactId")
-                  }}
-                />
-              }
-            />
-          </PropertyRow>
-
-          <PropertyRow icon={TagIcon} label="Categoria" field="categoryId" error={errors.categoryId}>
-            <SearchableSelect
-              className={cn(ghostControl, errors.categoryId && "border-destructive")}
-              groups={categoryGroups}
-              value={draft.categoryId}
-              onValueChange={(categoryId) => update({ categoryId }, "categoryId")}
-              placeholder="Selecione a categoria"
-              emptyMessage={emptyMessage}
-              onOpenChange={(open) => open && onRequestOptions()}
-              footer={
-                <QuickAddCategoryDialog
-                  key={draft.kind}
-                  categories={categories}
-                  type={isSale ? "INCOME" : "EXPENSE"}
-                  onCreated={(category, group) => {
-                    onOptionsChange((current) => ({
-                      ...current,
-                      categories: [...current.categories, ...(group ? [group] : []), category],
-                    }))
-                    update({ categoryId: category.id }, "categoryId")
-                  }}
-                />
-              }
-            />
-          </PropertyRow>
-
+          {/* What each tipo needs sits right under the tipo picker. */}
           {draft.repetition === "installments" && (
             <PropertyRow icon={ListOrderedIcon} label="Parcelas" field="installmentsCount" error={errors.installmentsCount}>
               <div className="flex flex-wrap items-center gap-1">
@@ -642,6 +593,56 @@ export function EntryForm({
               </PropertyRow>
             </>
           )}
+
+          <PropertyRow icon={UserIcon} label={isSale ? "Cliente" : "Contato"} field="contactId" error={errors.contactId}>
+            <SearchableSelect
+              className={cn(ghostControl, errors.contactId && "border-destructive")}
+              options={contactOptions}
+              value={draft.contactId}
+              onValueChange={(contactId) => update({ contactId }, "contactId")}
+              placeholder={isSale ? "Selecione o cliente" : "Selecione o contato"}
+              emptyMessage={emptyMessage}
+              onOpenChange={(open) => open && onRequestOptions()}
+              footer={
+                <QuickAddContactDialog
+                  key={draft.kind}
+                  contactType={isSale ? "CLIENT" : "SUPPLIER"}
+                  triggerLabel={isSale ? "Novo cliente" : "Novo fornecedor"}
+                  dialogTitle={isSale ? "Novo cliente" : "Novo fornecedor"}
+                  onCreated={(contact) => {
+                    addContact(contact)
+                    update({ contactId: contact.id }, "contactId")
+                  }}
+                />
+              }
+            />
+          </PropertyRow>
+
+          <PropertyRow icon={TagIcon} label="Categoria" field="categoryId" error={errors.categoryId}>
+            <SearchableSelect
+              className={cn(ghostControl, errors.categoryId && "border-destructive")}
+              groups={categoryGroups}
+              value={draft.categoryId}
+              onValueChange={(categoryId) => update({ categoryId }, "categoryId")}
+              placeholder="Selecione a categoria"
+              emptyMessage={emptyMessage}
+              onOpenChange={(open) => open && onRequestOptions()}
+              footer={
+                <QuickAddCategoryDialog
+                  key={draft.kind}
+                  categories={categories}
+                  type={isSale ? "INCOME" : "EXPENSE"}
+                  onCreated={(category, group) => {
+                    onOptionsChange((current) => ({
+                      ...current,
+                      categories: [...current.categories, ...(group ? [group] : []), category],
+                    }))
+                    update({ categoryId: category.id }, "categoryId")
+                  }}
+                />
+              }
+            />
+          </PropertyRow>
 
           <PropertyRow icon={CalendarIcon} label={dateLabel} field="firstDueDate" error={errors.firstDueDate}>
             <DateButton
