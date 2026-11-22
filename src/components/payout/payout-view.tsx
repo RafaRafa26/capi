@@ -8,6 +8,8 @@ import { CalendarIcon, CheckIcon, CopyIcon, FileDownIcon } from "lucide-react"
 import { EntryDetailSheet } from "@/components/accounts/entry-detail-sheet"
 import { PeriodFilter } from "@/components/accounts/period-filter"
 import { CreditSummary } from "@/components/payout/credit-summary"
+import { ReconciliationContactPicker } from "@/components/reconciliation/entry-pickers"
+import { CurrencyInput } from "@/components/sales/currency-input"
 import {
   generatePayoutAction,
   getAccountEntryAction,
@@ -32,6 +34,7 @@ import { toParamDate } from "@/lib/accounts/params"
 import { formatBRL, formatDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import type { AccountEntry } from "@/modules/accounts/types"
+import type { Contact } from "@/modules/contacts/types"
 import { sliceStatement } from "@/modules/payouts/statement"
 import type { BeneficiaryCredit, BeneficiaryPosition, BeneficiaryStatement, PayoutSummary } from "@/modules/payouts/types"
 
@@ -65,14 +68,28 @@ function CampoCopiavel({ label, value, className }: { label: string; value: stri
   )
 }
 
+/** O que o diálogo de sucesso mostra: para quem pagar, quanto e os dados bancários de quem recebe. */
+interface RepasseGerado {
+  beneficiario: BeneficiaryPosition
+  /** Outro contato que recebe por conta e ordem do favorecido; nulo quando é o próprio favorecido. */
+  pagarA: Contact | null
+  amount: number
+}
+
+type Destino = "favorecido" | "terceiro"
+
 function GerarRepasseDialog({
   beneficiario,
+  contacts,
+  onContactCreated,
   onClose,
   onDone,
 }: {
   beneficiario: BeneficiaryPosition | null
+  contacts: Contact[]
+  onContactCreated: (contact: Contact) => void
   onClose: () => void
-  onDone: (repasse: { beneficiario: BeneficiaryPosition; amount: number }) => void
+  onDone: (repasse: RepasseGerado) => void
 }) {
   // Montado com `key` por favorecido (ver PayoutView), então o estado inicial
   // já nasce certo — nada de sincronizar formulário dentro de efeito.
@@ -80,14 +97,29 @@ function GerarRepasseDialog({
   // Tudo marcado ao abrir: o caso comum continua sendo repassar o saldo inteiro.
   const [selecionados, setSelecionados] = React.useState<Set<string>>(new Set())
   const [dueDate, setDueDate] = React.useState<Date>(() => new Date())
+  // Nulo = o total dos recebimentos marcados. Preenchido, o repasse fica menor
+  // e o que sobra do último recebimento continua disponível.
+  const [valorInformado, setValorInformado] = React.useState<number | null>(null)
+  const [destino, setDestino] = React.useState<Destino>("favorecido")
+  const [pagarAId, setPagarAId] = React.useState("")
+  const [descricao, setDescricao] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
 
   const beneficiarioId = beneficiario?.beneficiaryId
   const lista = credits ?? []
-  const total = lista.reduce((sum, credit) => (selecionados.has(credit.id) ? sum + credit.amount : sum), 0)
+  const totalSelecionado = lista.reduce((sum, credit) => (selecionados.has(credit.id) ? sum + credit.amount : sum), 0)
+  const total = valorInformado ?? totalSelecionado
+  const valorPassa = valorInformado !== null && valorInformado > totalSelecionado
   const todosMarcados = lista.length > 0 && selecionados.size === lista.length
   const algunsMarcados = selecionados.size > 0 && !todosMarcados
+  // O próprio favorecido não aparece como "outro contato".
+  const outrosContatos = React.useMemo(
+    () => contacts.filter((contact) => contact.active && contact.id !== beneficiarioId),
+    [contacts, beneficiarioId],
+  )
+  const pagarA = destino === "terceiro" ? (contacts.find((contact) => contact.id === pagarAId) ?? null) : null
+  const faltaContato = destino === "terceiro" && !pagarA
 
   React.useEffect(() => {
     if (!beneficiarioId) return
@@ -129,14 +161,23 @@ function GerarRepasseDialog({
       credits: lista
         .filter((credit) => selecionados.has(credit.id))
         .map(({ settlementId, allocationId }) => ({ settlementId, allocationId })),
+      ...(valorInformado !== null && valorInformado !== totalSelecionado ? { amount: valorInformado } : {}),
+      ...(pagarA ? { payeeId: pagarA.id } : {}),
+      ...(descricao.trim() ? { description: descricao.trim() } : {}),
     })
     setPending(false)
     if (!response.ok) {
       setError(response.error)
       return
     }
-    onDone({ beneficiario, amount: total })
+    onDone({ beneficiario, pagarA, amount: total })
   }
+
+  const descricaoPadrao = beneficiario
+    ? pagarA
+      ? `${pagarA.name} - por conta de ${beneficiario.name}`
+      : `Repasse - ${beneficiario.name}`
+    : ""
 
   return (
     <Dialog open={beneficiario !== null} onOpenChange={(next) => !next && onClose()}>
@@ -169,7 +210,7 @@ function GerarRepasseDialog({
                   Selecionar todos
                 </label>
               )}
-              <ScrollArea className="h-56 pr-4">
+              <ScrollArea className="h-48 pr-4">
                 <div className="divide-y">
                   {lista.map((credit) => (
                     <label
@@ -196,11 +237,72 @@ function GerarRepasseDialog({
               </ScrollArea>
             </div>
 
+            <div className="flex flex-col gap-3 border-t pt-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Pagar a</Label>
+                <ToggleGroup
+                  variant="outline"
+                  multiple={false}
+                  value={[destino]}
+                  onValueChange={(value) => value[0] && setDestino(value[0] as Destino)}
+                >
+                  <ToggleGroupItem value="favorecido">O próprio favorecido</ToggleGroupItem>
+                  <ToggleGroupItem value="terceiro">Outro contato, por conta dele</ToggleGroupItem>
+                </ToggleGroup>
+                {destino === "terceiro" && (
+                  <>
+                    <ReconciliationContactPicker
+                      contacts={outrosContatos}
+                      direction="PAYABLE"
+                      value={pagarAId}
+                      onValueChange={setPagarAId}
+                      onCreated={(contact) => {
+                        onContactCreated(contact)
+                        setPagarAId(contact.id)
+                      }}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Ex.: honorários que o favorecido pediu para descontar. O valor sai do saldo dele, e o extrato
+                      mostra quem recebeu.
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="repasse-descricao">Descrição</Label>
+                <Input
+                  id="repasse-descricao"
+                  placeholder={descricaoPadrao}
+                  value={descricao}
+                  maxLength={200}
+                  onChange={(event) => setDescricao(event.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="flex items-end justify-between gap-4 border-t pt-3">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Total do repasse</span>
-                <span className="text-2xl font-semibold">{formatBRL(total)}</span>
-                {beneficiario.available > total && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="repasse-valor">Valor do repasse</Label>
+                <CurrencyInput
+                  id="repasse-valor"
+                  className="w-48"
+                  valueInCents={total}
+                  onValueChange={setValorInformado}
+                />
+                {valorPassa ? (
+                  <span className="text-xs text-destructive">
+                    Passa da soma dos recebimentos selecionados ({formatBRL(totalSelecionado)})
+                  </span>
+                ) : valorInformado !== null && valorInformado !== totalSelecionado ? (
+                  <span className="text-xs text-muted-foreground">
+                    Dos {formatBRL(totalSelecionado)} selecionados ·{" "}
+                    <button type="button" className="underline" onClick={() => setValorInformado(null)}>
+                      usar o total
+                    </button>
+                  </span>
+                ) : null}
+                {!valorPassa && beneficiario.available > total && (
                   <span className="text-xs text-muted-foreground">
                     {formatBRL(beneficiario.available - total)} continuam disponíveis
                   </span>
@@ -232,7 +334,7 @@ function GerarRepasseDialog({
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-          <Button onClick={confirmar} disabled={pending || total <= 0}>
+          <Button onClick={confirmar} disabled={pending || total <= 0 || valorPassa || faltaContato}>
             Confirmar repasse
           </Button>
         </DialogFooter>
@@ -241,13 +343,13 @@ function GerarRepasseDialog({
   )
 }
 
-function RepasseConcluidoDialog({
-  repasse,
-  onClose,
-}: {
-  repasse: { beneficiario: BeneficiaryPosition; amount: number } | null
-  onClose: () => void
-}) {
+function RepasseConcluidoDialog({ repasse, onClose }: { repasse: RepasseGerado | null; onClose: () => void }) {
+  // Os dados bancários são de quem recebe o dinheiro: o favorecido, ou o
+  // contato pago por conta dele.
+  const recebedor = repasse?.pagarA ?? null
+  const nomeRecebedor = recebedor?.name ?? repasse?.beneficiario.name ?? ""
+  const bankDetails = recebedor ? recebedor.bankDetails : (repasse?.beneficiario.bankDetails ?? null)
+
   return (
     <Dialog open={repasse !== null} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="sm:max-w-md" showCloseButton={false}>
@@ -260,46 +362,49 @@ function RepasseConcluidoDialog({
               <div className="space-y-0.5">
                 <p className="text-sm font-semibold">Repasse gerado com sucesso!</p>
                 <p className="text-xs text-muted-foreground">
-                  Ele entrou em contas a pagar. Pague o favorecido e concilie a saída no extrato da conta.
+                  Ele entrou em contas a pagar. Pague {recebedor ? "o contato" : "o favorecido"} e concilie a saída no
+                  extrato da conta.
                 </p>
               </div>
             </div>
 
             <div className="space-y-1.5 border-t pt-3 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Favorecido</span>
-                <span className="font-medium">{repasse.beneficiario.name}</span>
+                <span className="text-muted-foreground">{recebedor ? "Pagar a" : "Favorecido"}</span>
+                <span className="font-medium">{nomeRecebedor}</span>
               </div>
+              {recebedor && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Por conta de</span>
+                  <span className="font-medium">{repasse.beneficiario.name}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Valor do repasse</span>
                 <span className="font-medium">{formatBRL(repasse.amount)}</span>
               </div>
             </div>
 
-            {!repasse.beneficiario.bankDetails && (
+            {!bankDetails && (
               <div className="space-y-1 border-t pt-3">
                 <p className="text-sm font-semibold">Dados bancários</p>
                 <p className="text-xs text-muted-foreground">
-                  Este favorecido foi cadastrado sem dados bancários — complete o cadastro dele em Contatos para que a
+                  {nomeRecebedor} foi cadastrado sem dados bancários — complete o cadastro em Contatos para que a
                   chave PIX e a conta apareçam aqui.
                 </p>
               </div>
             )}
 
-            {repasse.beneficiario.bankDetails && (
+            {bankDetails && (
               <div className="space-y-2 border-t pt-3">
                 <p className="text-sm font-semibold">Dados bancários</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <CampoCopiavel label="Chave PIX" value={repasse.beneficiario.bankDetails.pixKey} />
-                  <CampoCopiavel label="Tipo de conta" value={repasse.beneficiario.bankDetails.accountType} />
-                  <CampoCopiavel label="Banco" value={repasse.beneficiario.bankDetails.bank} className="col-span-2" />
-                  <CampoCopiavel label="Agência" value={repasse.beneficiario.bankDetails.branchNumber} />
-                  <CampoCopiavel label="Conta" value={repasse.beneficiario.bankDetails.accountNumber} />
-                  <CampoCopiavel
-                    label="Titular"
-                    value={repasse.beneficiario.bankDetails.accountHolder}
-                    className="col-span-2"
-                  />
+                  <CampoCopiavel label="Chave PIX" value={bankDetails.pixKey} />
+                  <CampoCopiavel label="Tipo de conta" value={bankDetails.accountType} />
+                  <CampoCopiavel label="Banco" value={bankDetails.bank} className="col-span-2" />
+                  <CampoCopiavel label="Agência" value={bankDetails.branchNumber} />
+                  <CampoCopiavel label="Conta" value={bankDetails.accountNumber} />
+                  <CampoCopiavel label="Titular" value={bankDetails.accountHolder} className="col-span-2" />
                 </div>
               </div>
             )}
@@ -495,9 +600,12 @@ function ExtratoSheet({
 
 export function PayoutView({
   summary,
+  contacts: initialContacts,
   initialFilter = "todos",
 }: {
   summary: PayoutSummary
+  /** Para "Pagar a outro contato" no Gerar repasse. */
+  contacts: Contact[]
   /** Vem de `?saldo=` — o ponto de atenção da Visão geral abre direto em "Com saldo". */
   initialFilter?: FiltroSaldo
 }) {
@@ -509,7 +617,9 @@ export function PayoutView({
   const [statementLoading, setStatementLoading] = React.useState(false)
   const [detailEntry, setDetailEntry] = React.useState<AccountEntry | null>(null)
   const [gerando, setGerando] = React.useState<BeneficiaryPosition | null>(null)
-  const [concluido, setConcluido] = React.useState<{ beneficiario: BeneficiaryPosition; amount: number } | null>(null)
+  const [concluido, setConcluido] = React.useState<RepasseGerado | null>(null)
+  // Cresce com o cadastro rápido de contato dentro do Gerar repasse.
+  const [contacts, setContacts] = React.useState(initialContacts)
 
   const visiveis = React.useMemo(() => {
     return summary.beneficiaries.filter((beneficiario) => {
@@ -658,6 +768,8 @@ export function PayoutView({
       <GerarRepasseDialog
         key={gerando?.beneficiaryId ?? "nenhum"}
         beneficiario={gerando}
+        contacts={contacts}
+        onContactCreated={(contact) => setContacts((atual) => [...atual, contact])}
         onClose={() => setGerando(null)}
         onDone={(repasse) => {
           setGerando(null)

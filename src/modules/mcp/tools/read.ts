@@ -57,6 +57,8 @@ function entrySummary(entry: AccountEntry, today: string) {
     data_pagamento: optionalDay(entry.paidAt),
     conta_bancaria: entry.bankAccountName,
     repasse: entry.isPayout,
+    // Repasse pago a outro contato (o "contato" acima) por conta deste favorecido.
+    repasse_por_conta_de: entry.payoutOnBehalfOf ?? null,
     favorecidos: entry.beneficiaryNames,
     marcador: entry.marker?.name ?? null,
   }

@@ -444,3 +444,128 @@ describe("listPayoutCredits", () => {
     ])
   })
 })
+
+describe("generatePayout with a chosen amount", () => {
+  it("pays less than the selected receipts and keeps the rest of the last one available", async () => {
+    const fresh = await newBeneficiary("Valor parcial")
+    const a = await createSaleWithAllocation(1_000, 1_000, fresh.id)
+    await settleReceivable(a.entry.id, 1_000)
+    const b = await createSaleWithAllocation(2_000, 2_000, fresh.id)
+    await settleReceivable(b.entry.id, 2_000)
+
+    const credits = await listAvailableCredits(org.id, fresh.id)
+    await generatePayout(org.id, {
+      beneficiaryId: fresh.id,
+      dueDate: new Date(2026, 7, 15),
+      credits: credits.map(({ settlementId, allocationId }) => ({ settlementId, allocationId })),
+      amount: 2_500,
+    })
+
+    const payout = await prismaAdmin.payout.findFirstOrThrow({
+      where: { beneficiaryId: fresh.id },
+      include: { entry: true, items: true },
+    })
+    expect(payout.amount).toBe(2_500)
+    expect(payout.entry.amount).toBe(2_500)
+    expect(payout.items.reduce((sum, item) => sum + item.amount, 0)).toBe(2_500)
+
+    // Um recebimento saiu inteiro; o outro deixou 500 disponíveis.
+    const after = await listAvailableCredits(org.id, fresh.id)
+    expect(after).toHaveLength(1)
+    expect(after[0].amount).toBe(500)
+    expect((await availableFor(fresh.id))?.available).toBe(500)
+  })
+
+  it("rejects an amount above the selected receipts", async () => {
+    const fresh = await newBeneficiary("Valor acima")
+    const sale = await createSaleWithAllocation(1_000, 1_000, fresh.id)
+    await settleReceivable(sale.entry.id, 1_000)
+
+    const credits = await listAvailableCredits(org.id, fresh.id)
+    await expect(
+      generatePayout(org.id, {
+        beneficiaryId: fresh.id,
+        dueDate: new Date(2026, 7, 15),
+        credits: credits.map(({ settlementId, allocationId }) => ({ settlementId, allocationId })),
+        amount: 1_001,
+      }),
+    ).rejects.toBeInstanceOf(BusinessError)
+    expect((await availableFor(fresh.id))?.available).toBe(1_000)
+  })
+})
+
+describe("generatePayout paid to another contact", () => {
+  async function newSupplier(name: string) {
+    return prismaAdmin.contact.create({
+      data: {
+        organizationId: org.id,
+        name,
+        document: `supplier-${Date.now()}-${Math.random()}`,
+        personType: "COMPANY",
+        contactType: "SUPPLIER",
+      },
+    })
+  }
+
+  it("splits one receipt between the favorecido and a third party paid on his behalf", async () => {
+    const fresh = await newBeneficiary("Honorários")
+    const target = await newSupplier("Prestadora de Serviços")
+    const sale = await createSaleWithAllocation(13_196_14, 13_196_14, fresh.id)
+    await settleReceivable(sale.entry.id, 13_196_14)
+
+    // Líquido para o favorecido; o resto vai à prestadora, por conta dele.
+    const [credit] = await listAvailableCredits(org.id, fresh.id)
+    const chosen = [{ settlementId: credit.settlementId, allocationId: credit.allocationId }]
+    await generatePayout(org.id, {
+      beneficiaryId: fresh.id,
+      dueDate: new Date(2026, 9, 22),
+      credits: chosen,
+      amount: 5_583_76,
+    })
+    await generatePayout(org.id, {
+      beneficiaryId: fresh.id,
+      dueDate: new Date(2026, 9, 23),
+      credits: chosen,
+      payeeId: target.id,
+    })
+
+    // O segundo repasse levou só o que sobrou do recebimento.
+    const thirdParty = await prismaAdmin.entry.findFirstOrThrow({
+      where: { organizationId: org.id, contactId: target.id, type: "PAYABLE" },
+      include: { payout: true },
+    })
+    expect(thirdParty.amount).toBe(7_612_38)
+    expect(thirdParty.payout?.beneficiaryId).toBe(fresh.id)
+    expect(thirdParty.description).toBe(`Prestadora de Serviços - por conta de ${fresh.name}`)
+    expect((await availableFor(fresh.id))?.available).toBe(0)
+
+    // O extrato do favorecido mostra as duas saídas separadas, cada uma com quem recebeu.
+    const statement = await getBeneficiaryStatement(org.id, fresh.id)
+    const debits = statement.lines.filter((line) => line.kind === "DEBIT")
+    expect(debits.map((line) => [line.title, line.amount]).sort()).toEqual(
+      [
+        ["Pago a Prestadora de Serviços", -7_612_38],
+        ["Repasse", -5_583_76],
+      ].sort(),
+    )
+  })
+
+  it("uses the description typed by the user", async () => {
+    const fresh = await newBeneficiary("Descrição")
+    const target = await newSupplier("Escritório")
+    const sale = await createSaleWithAllocation(1_000, 1_000, fresh.id)
+    await settleReceivable(sale.entry.id, 1_000)
+
+    const [credit] = await listAvailableCredits(org.id, fresh.id)
+    await generatePayout(org.id, {
+      beneficiaryId: fresh.id,
+      dueDate: new Date(2026, 9, 23),
+      credits: [{ settlementId: credit.settlementId, allocationId: credit.allocationId }],
+      payeeId: target.id,
+      description: "Honorários - boleto 123",
+    })
+
+    const entry = await prismaAdmin.entry.findFirstOrThrow({ where: { contactId: target.id, type: "PAYABLE" } })
+    expect(entry.description).toBe("Honorários - boleto 123")
+  })
+})

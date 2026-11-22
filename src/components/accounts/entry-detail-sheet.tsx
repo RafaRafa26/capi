@@ -133,7 +133,7 @@ export function EntryDetailSheet({
       : "Avulsa"
   // O repasse é uma conta a pagar ao favorecido, não uma compra de fornecedor.
   const originSectionTitle = entry.isPayout ? "Dados do repasse" : config.contractOriginLabel
-  const contactLabel = entry.isPayout ? "Favorecido" : config.contactLabel
+  const contactLabel = entry.payoutOnBehalfOf ? "Pago a" : entry.isPayout ? "Favorecido" : config.contactLabel
   const remaining = isSettled ? 0 : Math.max(0, entry.amount - entry.settledAmount)
   // Allocation.amount is the favorecido's share of the whole contract — scale
   // it down to this parcela's amount, same formula the settlements module
@@ -308,6 +308,7 @@ export function EntryDetailSheet({
             <SectionTitle>{originSectionTitle}</SectionTitle>
             <div className="grid grid-cols-2 gap-3">
               <Field label={contactLabel} value={entry.contactName} />
+              {entry.payoutOnBehalfOf && <Field label="Por conta de" value={entry.payoutOnBehalfOf} />}
               <Field label="Categoria" value={<CategoryValue categoryId={entry.categoryId} categoryName={entry.categoryName} />} />
               <Field label="Descrição" value={entry.description} full />
               {entry.isPayout && (
