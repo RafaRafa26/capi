@@ -2,6 +2,7 @@ import "server-only"
 
 import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { BusinessError, NotFound } from "@/shared/errors"
+import { formatBRL } from "@/lib/format"
 import { businessToday } from "@/lib/today"
 import {
   directionForTransactionAmount,
@@ -101,6 +102,24 @@ interface InsertSettlementInput {
 
 async function insertSettlement(tx: Tx, organizationId: string, input: InsertSettlementInput) {
   const entry = input.entry ?? (await loadEntry(tx, input.entryId))
+
+  // Invariante: o que se recebe/paga num lançamento nunca passa do valor dele
+  // — um de 1.000 recebe no máximo 1.000, somando todas as liquidações. O
+  // lock serializa conciliações simultâneas do mesmo lançamento (duas
+  // transações de mesmo valor confirmando a mesma sugestão), para que as duas
+  // não leiam o mesmo saldo em aberto.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`entry-settlement:${input.entryId}`}))`
+  const alreadySettled = await tx.settlement.aggregate({ where: { entryId: input.entryId }, _sum: { settledAmount: true } })
+  const open = entry.amount - (alreadySettled._sum.settledAmount ?? 0)
+  if (open <= 0) {
+    throw new BusinessError("Este lançamento já está totalmente liquidado.")
+  }
+  if (input.settledAmount > open) {
+    throw new BusinessError(
+      `O valor (${formatBRL(input.settledAmount)}) passa do que falta liquidar no lançamento (${formatBRL(open)}).`,
+      "settledAmount",
+    )
+  }
 
   const net = netSettledAmount({
     settledAmount: input.settledAmount,

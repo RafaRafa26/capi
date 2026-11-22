@@ -197,6 +197,48 @@ describe("createSettlement", () => {
     expect(updatedEntry.settledAmount).toBe(4_000)
   })
 
+  it("rejects a second transaction of the same amount settling an already settled entry", async () => {
+    const { entry } = await createReceivableEntry(87_000)
+    const first = await createBankTransaction(87_000)
+    const second = await createBankTransaction(87_000)
+
+    await createSettlement(org.id, { entryId: entry.id, bankTransactionId: first.id, settledAmount: 87_000, settledAt: new Date() })
+    await expect(
+      createSettlement(org.id, { entryId: entry.id, bankTransactionId: second.id, settledAmount: 87_000, settledAt: new Date() }),
+    ).rejects.toThrow(BusinessError)
+
+    const updatedEntry = await prismaAdmin.entry.findUniqueOrThrow({ where: { id: entry.id } })
+    expect(updatedEntry.settledAmount).toBe(87_000)
+    const untouched = await prismaAdmin.bankTransaction.findUniqueOrThrow({ where: { id: second.id } })
+    expect(untouched.status).toBe("PENDING")
+  })
+
+  it("rejects settling more than what's left open on a partially settled entry", async () => {
+    const { entry } = await createReceivableEntry(10_000)
+    const first = await createBankTransaction(6_000)
+    const second = await createBankTransaction(6_000)
+
+    await createSettlement(org.id, { entryId: entry.id, bankTransactionId: first.id, settledAmount: 6_000, settledAt: new Date() })
+    await expect(
+      createSettlement(org.id, { entryId: entry.id, bankTransactionId: second.id, settledAmount: 6_000, settledAt: new Date() }),
+    ).rejects.toThrow(BusinessError)
+  })
+
+  it("never lets two concurrent reconciliations settle the same entry twice", async () => {
+    const { entry } = await createReceivableEntry(50_000)
+    const [first, second] = await Promise.all([createBankTransaction(50_000), createBankTransaction(50_000)])
+
+    const results = await Promise.allSettled(
+      [first, second].map((transaction) =>
+        createSettlement(org.id, { entryId: entry.id, bankTransactionId: transaction.id, settledAmount: 50_000, settledAt: new Date() }),
+      ),
+    )
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+    const settlements = await prismaAdmin.settlement.count({ where: { entryId: entry.id } })
+    expect(settlements).toBe(1)
+  })
+
   it("rejects an unknown entry", async () => {
     const transaction = await createBankTransaction(1_000)
     await expect(
