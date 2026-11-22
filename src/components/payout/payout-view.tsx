@@ -175,7 +175,7 @@ function GerarRepasseDialog({
 
   const descricaoPadrao = beneficiario
     ? pagarA
-      ? `${pagarA.name} - por conta de ${beneficiario.name}`
+      ? `${pagarA.name} - ${beneficiario.name}`
       : `Repasse - ${beneficiario.name}`
     : ""
 
@@ -247,7 +247,7 @@ function GerarRepasseDialog({
                   onValueChange={(value) => value[0] && setDestino(value[0] as Destino)}
                 >
                   <ToggleGroupItem value="favorecido">O próprio favorecido</ToggleGroupItem>
-                  <ToggleGroupItem value="terceiro">Outro contato, por conta dele</ToggleGroupItem>
+                  <ToggleGroupItem value="terceiro">Outro contato</ToggleGroupItem>
                 </ToggleGroup>
                 {destino === "terceiro" && (
                   <>
