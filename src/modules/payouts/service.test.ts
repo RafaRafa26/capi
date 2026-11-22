@@ -536,7 +536,7 @@ describe("generatePayout paid to another contact", () => {
     })
     expect(thirdParty.amount).toBe(7_612_38)
     expect(thirdParty.payout?.beneficiaryId).toBe(fresh.id)
-    expect(thirdParty.description).toBe(`Prestadora de Serviços - por conta de ${fresh.name}`)
+    expect(thirdParty.description).toBe(`Prestadora de Serviços - ${fresh.name}`)
     expect((await availableFor(fresh.id))?.available).toBe(0)
 
     // O extrato do favorecido mostra as duas saídas separadas, cada uma com quem recebeu.

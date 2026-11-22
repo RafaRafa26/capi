@@ -394,7 +394,7 @@ export async function generatePayout(organizationId: string, input: GeneratePayo
     const description =
       input.description ||
       (payee
-        ? `${payee.name} - por conta de ${beneficiary.name}`
+        ? `${payee.name} - ${beneficiary.name}`
         : `${PAYOUT_CATEGORY_NAME} - ${beneficiary.name}`)
 
     const entry = await tx.entry.create({
