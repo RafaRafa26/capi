@@ -1,193 +1,203 @@
 // O PDF do relatório de contas, renderizado no servidor (react-pdf) pela rota
-// reports/accounts/pdf. Cores fixas e claras — não herda o tema da tela — e
-// um bloco por lançamento: a linha de cima só com campos curtos, e a
-// descrição e a observação embaixo na largura toda, para que descrição longa
-// não estique a linha.
+// reports/accounts/pdf. Uma lista simples: as contas que a tela mostra com os
+// filtros do momento (situação, período, chips, busca), uma linha por conta,
+// com o marcador de cada uma. Cores fixas e claras — não herda o tema da tela.
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
 
 import { kindConfig } from "@/lib/accounts/labels"
-import { NO_BENEFICIARY_LABEL, type AccountsReport, type ReportEntry } from "@/lib/accounts/report"
+import type { AccountsReport, ReportEntry } from "@/lib/accounts/report"
 import { formatBRL, formatDate } from "@/lib/format"
 import { markerPrintColor } from "@/lib/marker-colors"
+import { PDF_FONT_FAMILY, tabularNumbers } from "@/lib/pdf-fonts"
 import { capiHex, printNeutral } from "@/lib/print-palette"
 
 const ink = capiHex.black
 const { soft, line, zebra } = printNeutral
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 28, paddingBottom: 40, paddingHorizontal: 32, fontFamily: "Helvetica", fontSize: 9, color: ink },
-  orgName: { fontSize: 8, color: soft, textTransform: "uppercase", letterSpacing: 0.6 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
-  title: { fontSize: 16, fontFamily: "Helvetica-Bold", marginTop: 2 },
-  meta: { fontSize: 9, color: soft, marginTop: 3 },
-  headerTotalLabel: { fontSize: 8, color: soft, textAlign: "right" },
-  headerTotal: { fontSize: 14, fontFamily: "Helvetica-Bold", textAlign: "right" },
-  rule: { borderBottomWidth: 1.5, borderBottomColor: ink, marginTop: 10, marginBottom: 4 },
+  page: {
+    paddingTop: 32,
+    paddingBottom: 44,
+    paddingHorizontal: 32,
+    fontFamily: PDF_FONT_FAMILY,
+    fontSize: 9,
+    color: ink,
+  },
+  orgName: { fontSize: 8, color: soft, textTransform: "uppercase", letterSpacing: 0.6, fontWeight: 600 },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 2 },
+  title: { fontSize: 17, fontWeight: 700 },
+  count: { fontSize: 9, color: soft },
+  filters: { fontSize: 9, color: soft, marginTop: 4 },
+  filtersStrong: { color: ink, fontWeight: 600 },
+  rule: { borderBottomWidth: 1, borderBottomColor: ink, marginTop: 10 },
   columns: {
     flexDirection: "row",
-    paddingVertical: 4,
+    paddingVertical: 5,
     paddingHorizontal: 6,
     borderBottomWidth: 0.75,
     borderBottomColor: line,
     fontSize: 7.5,
-    fontFamily: "Helvetica-Bold",
+    fontWeight: 700,
     color: soft,
     textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
-  group: { marginTop: 12 },
-  groupHeader: {
+  row: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: capiHex.purpleDark,
-    color: capiHex.white,
+    alignItems: "flex-start",
     paddingVertical: 5,
     paddingHorizontal: 6,
+    borderBottomWidth: 0.5,
+    borderBottomColor: line,
   },
-  groupName: { fontSize: 10, fontFamily: "Helvetica-Bold" },
-  groupMeta: { fontSize: 9 },
-  entry: { paddingVertical: 5, paddingHorizontal: 6, borderBottomWidth: 0.75, borderBottomColor: line },
-  row: { flexDirection: "row", alignItems: "flex-start" },
-  description: { marginTop: 2, color: soft, fontSize: 8.5 },
-  note: {
-    marginTop: 3,
-    paddingLeft: 5,
+  bold: { fontWeight: 700 },
+  note: { marginTop: 2, fontSize: 8, color: soft },
+  marker: {
+    alignSelf: "flex-start",
+    borderRadius: 3,
+    borderWidth: 0.75,
+    paddingHorizontal: 4,
     paddingVertical: 1,
-    borderLeftWidth: 2,
-    borderLeftColor: ink,
-    fontSize: 8.5,
+    fontSize: 7.5,
+    fontWeight: 600,
   },
-  bold: { fontFamily: "Helvetica-Bold" },
-  marker: { marginTop: 2, alignSelf: "flex-start", borderRadius: 3, borderWidth: 0.75, paddingHorizontal: 4, paddingVertical: 1, fontSize: 7.5 },
-  subtotal: { flexDirection: "row", justifyContent: "flex-end", paddingTop: 4, paddingHorizontal: 6, fontSize: 9 },
-  footer: {
-    marginTop: 16,
-    borderTopWidth: 1.5,
+  empty: { marginTop: 28, textAlign: "center", color: soft },
+  totals: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 7,
+    paddingHorizontal: 6,
+    borderTopWidth: 1,
     borderTopColor: ink,
-    paddingTop: 8,
-    alignItems: "flex-end",
+    fontWeight: 700,
+    fontSize: 10,
   },
-  grandTotal: { fontSize: 13, fontFamily: "Helvetica-Bold" },
-  grandMeta: { fontSize: 8.5, color: soft, marginTop: 2 },
-  pageNumber: { position: "absolute", bottom: 18, left: 32, right: 32, fontSize: 7.5, color: soft, flexDirection: "row", justifyContent: "space-between" },
+  footer: {
+    position: "absolute",
+    bottom: 20,
+    left: 32,
+    right: 32,
+    fontSize: 7.5,
+    color: soft,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
 })
 
-// Larguras das colunas da linha de cima; Cliente e Categoria dividem o resto.
 const col = {
-  due: { width: 58 },
-  paid: { width: 64 },
-  contact: { flex: 2, paddingRight: 6 },
-  category: { flex: 1.3, paddingRight: 6 },
-  amount: { width: 76, textAlign: "right" as const },
-  open: { width: 80, textAlign: "right" as const },
-  status: { width: 118, paddingLeft: 10 },
+  due: { width: 62 },
+  paidAt: { width: 66 },
+  contact: { flex: 1.3, paddingRight: 8 },
+  description: { flex: 2, paddingRight: 8 },
+  marker: { width: 112, paddingRight: 6 },
+  status: { width: 70 },
+  amount: { width: 76, textAlign: "right" as const, ...tabularNumbers },
+  value: { width: 84, textAlign: "right" as const, ...tabularNumbers },
 }
 
-function EntryBlock({ item, index, report }: { item: ReportEntry; index: number; report: AccountsReport }) {
+const statusColor = { OVERDUE: capiHex.red, DUE_TODAY: "#b45309" } as const
+
+function EntryRow({ item, index, report }: { item: ReportEntry; index: number; report: AccountsReport }) {
   const { entry } = item
-  const config = kindConfig[report.kind]
+  const showPaidAt = report.status === "PAID"
   const description = entry.installment ? `${entry.installment} · ${entry.description}` : entry.description
   const marker = entry.marker ? markerPrintColor(entry.marker.color) : null
+  const value = rowValue(item, report)
+  const color = item.status === "OVERDUE" || item.status === "DUE_TODAY" ? statusColor[item.status] : undefined
   return (
-    <View wrap={false} style={[styles.entry, index % 2 === 1 ? { backgroundColor: zebra } : {}]}>
-      <View style={styles.row}>
-        <Text style={col.due}>{formatDate(entry.dueDate)}</Text>
-        <Text style={[col.paid, { color: soft }]}>{entry.paidAt ? formatDate(entry.paidAt) : config.emptyPaymentDate}</Text>
-        <Text style={[col.contact, styles.bold]}>{entry.contactName}</Text>
-        <Text style={[col.category, { color: soft }]}>{entry.categoryName}</Text>
-        <Text style={col.amount}>{formatBRL(entry.amount)}</Text>
-        <Text style={[col.open, styles.bold]}>{formatBRL(item.openAmount)}</Text>
-        <View style={col.status}>
-          <Text style={item.status === "OVERDUE" ? [styles.bold, { color: capiHex.red }] : {}}>{item.statusLabel}</Text>
-          {entry.marker && marker && (
-            <Text style={[styles.marker, { color: marker.text, backgroundColor: marker.background, borderColor: marker.text }]}>
-              {entry.marker.name}
-            </Text>
-          )}
-        </View>
+    <View wrap={false} style={[styles.row, index % 2 === 1 ? { backgroundColor: zebra } : {}]}>
+      <Text style={[col.due, tabularNumbers]}>{formatDate(entry.dueDate)}</Text>
+      {showPaidAt && <Text style={[col.paidAt, tabularNumbers]}>{entry.paidAt ? formatDate(entry.paidAt) : "—"}</Text>}
+      <Text style={[col.contact, styles.bold]}>{entry.contactName}</Text>
+      <View style={col.description}>
+        <Text>{description}</Text>
+        {entry.notes && (
+          <Text style={styles.note}>
+            Obs.{entry.notesUpdatedAt ? ` ${formatDate(entry.notesUpdatedAt)}` : ""}: {entry.notes}
+          </Text>
+        )}
       </View>
-      <Text style={styles.description}>
-        {description}
-        {item.sharedWith.length > 0 ? `  (dividido com ${item.sharedWith.join(", ")})` : ""}
-      </Text>
-      {entry.notes && (
-        <Text style={styles.note}>
-          <Text style={styles.bold}>Obs.{entry.notesUpdatedAt ? ` (${formatDate(entry.notesUpdatedAt)})` : ""}: </Text>
-          {entry.notes}
-        </Text>
+      <View style={col.marker}>
+        {entry.marker && marker && (
+          <Text style={[styles.marker, { color: marker.text, backgroundColor: marker.background, borderColor: marker.text }]}>
+            {entry.marker.name}
+          </Text>
+        )}
+      </View>
+      {report.status === null && (
+        <Text style={[col.status, color ? { color, fontWeight: 700 } : {}]}>{item.statusLabel}</Text>
       )}
+      <Text style={col.amount}>{formatBRL(entry.amount)}</Text>
+      <Text style={[col.value, styles.bold]}>{value > 0 ? formatBRL(value) : "—"}</Text>
     </View>
   )
 }
 
+// Com o card Recebidos/Pagos, a última coluna é o que foi quitado; nos demais,
+// o que ainda falta receber/pagar.
+function rowValue(item: ReportEntry, report: AccountsReport): number {
+  if (report.status === "PAID") return Math.min(item.entry.settledAmount, item.entry.amount)
+  return item.openAmount
+}
+
 export function AccountsReportPdf({ report }: { report: AccountsReport }) {
   const config = kindConfig[report.kind]
-  const meta = [report.periodLabel, report.filtersLabel, `gerado em ${formatDate(report.generatedAt)}`]
-    .filter(Boolean)
-    .join(" · ")
+  const isPaid = report.status === "PAID"
+  const valueLabel = isPaid ? config.paidLabel : config.amountColumnLabel
+  const count = report.entries.length
+  const filters = [
+    `Período: ${report.periodLabel}`,
+    report.status === null ? "Situação: todas" : null,
+    report.filtersLabel || null,
+  ].filter(Boolean)
+  const totalValue = report.entries.reduce((sum, item) => sum + rowValue(item, report), 0)
+  const totalAmount = report.entries.reduce((sum, item) => sum + item.entry.amount, 0)
+
   return (
     <Document title={`${report.title} — ${report.organizationName}`} language="pt-BR">
       <Page size="A4" orientation="landscape" style={styles.page}>
+        <Text style={styles.orgName}>{report.organizationName}</Text>
         <View style={styles.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.orgName}>{report.organizationName}</Text>
-            <Text style={styles.title}>{report.title}</Text>
-            <Text style={styles.meta}>{meta}</Text>
-          </View>
-          <View>
-            <Text style={styles.headerTotalLabel}>Total em aberto</Text>
-            <Text style={styles.headerTotal}>{formatBRL(report.totals.open)}</Text>
-          </View>
+          <Text style={styles.title}>{report.title}</Text>
+          <Text style={styles.count}>
+            {count} {count === 1 ? "conta" : "contas"} · gerado em {formatDate(report.generatedAt)}
+          </Text>
         </View>
+        <Text style={styles.filters}>
+          <Text style={styles.filtersStrong}>Filtros: </Text>
+          {filters.join(" · ")}
+        </Text>
         <View style={styles.rule} />
 
         {/* Repete no topo de cada página. */}
         <View style={styles.columns} fixed>
           <Text style={col.due}>Vencimento</Text>
-          <Text style={col.paid}>{config.paymentColumnLabel}</Text>
+          {isPaid && <Text style={col.paidAt}>{config.paymentColumnLabel}</Text>}
           <Text style={col.contact}>{config.contactLabel}</Text>
-          <Text style={col.category}>Categoria</Text>
-          <Text style={col.amount}>Total</Text>
-          <Text style={col.open}>{config.amountColumnLabel}</Text>
-          <Text style={col.status}>Situação</Text>
+          <Text style={col.description}>Descrição</Text>
+          <Text style={col.marker}>Marcador</Text>
+          {report.status === null && <Text style={col.status}>Situação</Text>}
+          <Text style={col.amount}>Valor</Text>
+          <Text style={col.value}>{valueLabel}</Text>
         </View>
 
-        {report.groups.length === 0 && (
-          <Text style={{ marginTop: 24, textAlign: "center", color: soft }}>Nenhum lançamento neste filtro.</Text>
-        )}
+        {count === 0 && <Text style={styles.empty}>Nenhuma conta com esses filtros.</Text>}
 
-        {report.groups.map((group) => (
-          <View key={group.name} style={styles.group}>
-            {/* fixed dentro da seção: repete no topo de cada página que ela ocupa. minPresenceAhead: não fica sozinho no pé da página. */}
-            <View style={styles.groupHeader} minPresenceAhead={60} fixed>
-              <Text style={styles.groupName}>
-                {group.name === NO_BENEFICIARY_LABEL ? group.name : `${report.groupLabel}: ${group.name}`}
-              </Text>
-              <Text style={styles.groupMeta}>
-                {group.entries.length} {group.entries.length === 1 ? "lançamento" : "lançamentos"} ·{" "}
-                {formatBRL(group.openTotal)} em aberto
-              </Text>
-            </View>
-            {group.entries.map((item, index) => (
-              <EntryBlock key={item.entry.id} item={item} index={index} report={report} />
-            ))}
-            <View style={styles.subtotal} wrap={false}>
-              <Text>
-                Subtotal em aberto — {group.name}: <Text style={styles.bold}>{formatBRL(group.openTotal)}</Text>
-              </Text>
-            </View>
-          </View>
+        {report.entries.map((item, index) => (
+          <EntryRow key={item.entry.id} item={item} index={index} report={report} />
         ))}
 
-        <View style={styles.footer} wrap={false}>
-          <Text style={styles.grandTotal}>TOTAL EM ABERTO: {formatBRL(report.totals.open)}</Text>
-          <Text style={styles.grandMeta}>
-            {report.totals.count} {report.totals.count === 1 ? "lançamento" : "lançamentos"} · Total{" "}
-            {formatBRL(report.totals.amount)} · {config.summaryPaidLabel} {formatBRL(report.totals.settled)}
-          </Text>
-        </View>
+        {count > 0 && (
+          <View style={styles.totals} wrap={false}>
+            <Text style={{ flex: 1 }}>
+              Total · {count} {count === 1 ? "conta" : "contas"}
+            </Text>
+            <Text style={col.amount}>{formatBRL(totalAmount)}</Text>
+            <Text style={col.value}>{formatBRL(totalValue)}</Text>
+          </View>
+        )}
 
-        <View style={styles.pageNumber} fixed>
+        <View style={styles.footer} fixed>
           <Text>
             {report.organizationName} · {report.title}
           </Text>
