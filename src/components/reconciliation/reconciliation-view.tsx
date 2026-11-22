@@ -80,10 +80,15 @@ export function ReconciliationView({
   const addContact = React.useCallback((contact: Contact) => setContacts((prev) => [...prev, contact]), [])
   const addCategory = React.useCallback((category: Category) => setCategories((prev) => [...prev, category]), [])
 
+  // Cada recarga ganha um número; uma resposta mais velha que chegue depois
+  // de uma mais nova é descartada, para não trazer de volta uma sugestão que
+  // já foi conciliada.
+  const refreshSeq = React.useRef(0)
   const refreshMatchInfo = React.useCallback(async (ids: string[]) => {
     if (ids.length === 0) return
+    const seq = ++refreshSeq.current
     const response = await getMatchInfoForTransactionsAction(ids)
-    if (!response.ok) return
+    if (!response.ok || seq !== refreshSeq.current) return
     setMatchInfo((prev) => {
       const next = { ...prev }
       for (const info of response.data) next[info.bankTransactionId] = info
@@ -127,11 +132,33 @@ export function ReconciliationView({
     return [...porTipo].sort((a, b) => a.date.getTime() - b.date.getTime())
   }, [filtradasPorBusca, filtroTipo])
 
+  // Sempre com a lista atual, para recarregar as sugestões sem depender do
+  // estado capturado no callback.
+  const transacoesRef = React.useRef(transacoes)
+  React.useEffect(() => {
+    transacoesRef.current = transacoes
+  }, [transacoes])
+
+  // Recarrega as sugestões de todas as transações ainda na tela. Uma
+  // conciliação muda o que está em aberto: o lançamento quitado deixa de ser
+  // sugerido para outra transação de mesmo valor (senão o mesmo lançamento
+  // acabaria recebido duas vezes), e um parcial passa a sugerir pelo saldo.
+  const refreshSuggestions = React.useCallback(
+    (exceptId?: string) => {
+      void refreshMatchInfo(transacoesRef.current.filter((t) => t.id !== exceptId).map((t) => t.id))
+    },
+    [refreshMatchInfo],
+  )
+
   // Conciliada, a transação sai daqui — passa a aparecer no extrato da conta,
-  // que é de onde se desconcilia.
-  const removeReconciled = React.useCallback((transactionId: string) => {
-    setTransacoes((prev) => prev.filter((t) => t.id !== transactionId))
-  }, [])
+  // que é de onde se desconcilia — e as sugestões das outras são refeitas.
+  const removeReconciled = React.useCallback(
+    (transactionId: string) => {
+      setTransacoes((prev) => prev.filter((t) => t.id !== transactionId))
+      refreshSuggestions(transactionId)
+    },
+    [refreshSuggestions],
+  )
 
   const removerTransacao = React.useCallback(async (id: string) => {
     const response = await deleteBankTransactionAction(id)
@@ -215,6 +242,7 @@ export function ReconciliationView({
                 contacts={contacts}
                 categories={categories}
                 onReconciled={removeReconciled}
+                onReconcileFailed={refreshSuggestions}
                 onRemove={removerTransacao}
                 onOpenModal={setModalTransactionId}
                 onContactCreated={addContact}
@@ -275,6 +303,7 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
   contacts,
   categories,
   onReconciled,
+  onReconcileFailed,
   onRemove,
   onOpenModal,
   onContactCreated,
@@ -287,6 +316,9 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
   contacts: Contact[]
   categories: Category[]
   onReconciled: (transactionId: string) => void
+  // A sugestão pode ter ficado velha (o lançamento foi quitado por outra
+  // transação): recarregar troca ou tira a sugestão deste card.
+  onReconcileFailed: () => void
   onRemove: (transactionId: string) => void
   onOpenModal: (transactionId: string) => void
   onContactCreated: (contact: Contact) => void
@@ -316,8 +348,12 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
       settledAt: transacao.date,
     })
     setIsPending(false)
-    if (response.ok) onReconciled(transacao.id)
-    else toast.error(response.error)
+    if (response.ok) {
+      onReconciled(transacao.id)
+    } else {
+      toast.error(response.error)
+      onReconcileFailed()
+    }
   }
 
   async function confirmTransfer() {
