@@ -179,6 +179,8 @@ model User {
   memberships        Membership[]
   sessions           Session[]
   invitationsCreated Invitation[] @relation("InvitationInvitedBy")
+  oauthCodes         OAuthAuthorizationCode[]
+  oauthGrants        OAuthGrant[]
 
   @@map("users")
 }
@@ -231,6 +233,73 @@ model Session {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
+}
+
+// ------------------------------------------------------------------ OAuth
+//
+// The Capi as an OAuth 2.1 authorization server, so Claude (claude.ai custom
+// connector) can call the MCP endpoint (src/app/api/mcp) on a person's
+// behalf. Like sessions, these rows belong to a person, not to an
+// organization: only the owner role touches them (RLS on, no policy — see
+// the migration). Every secret (client secret, code, access and refresh
+// token) is stored as a SHA-256 hash only, same as sessions.
+
+// A client registered through Dynamic Client Registration (RFC 7591).
+model OAuthClient {
+  id               String   @id @default(uuid()) @db.Uuid
+  clientId         String   @unique @map("client_id")
+  // Null for public clients (token_endpoint_auth_method "none").
+  clientSecretHash String?  @map("client_secret_hash")
+  name             String
+  redirectUris     String[] @map("redirect_uris")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  codes  OAuthAuthorizationCode[]
+  grants OAuthGrant[]
+
+  @@map("oauth_clients")
+}
+
+// Single-use, short-lived code handed back to the client after consent.
+model OAuthAuthorizationCode {
+  id            String   @id @default(uuid()) @db.Uuid
+  codeHash      String   @unique @map("code_hash")
+  clientId      String   @map("client_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  redirectUri   String   @map("redirect_uri")
+  // PKCE (S256 only), mandatory in OAuth 2.1.
+  codeChallenge String   @map("code_challenge")
+  scope         String
+  expiresAt     DateTime @map("expires_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("oauth_authorization_codes")
+}
+
+// One authorization a person gave a client ("Claude can read my Capi"),
+// holding its current access/refresh token pair. Refreshing rotates both in
+// place, so a stolen refresh token stops working as soon as it's used once
+// by its rightful owner. Revoking is deleting the row.
+model OAuthGrant {
+  id               String    @id @default(uuid()) @db.Uuid
+  clientId         String    @map("client_id") @db.Uuid
+  userId           String    @map("user_id") @db.Uuid
+  scope            String
+  accessTokenHash  String    @unique @map("access_token_hash")
+  accessExpiresAt  DateTime  @map("access_expires_at")
+  refreshTokenHash String    @unique @map("refresh_token_hash")
+  refreshExpiresAt DateTime  @map("refresh_expires_at")
+  lastUsedAt       DateTime? @map("last_used_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  client OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("oauth_grants")
 }
 
 // `name` is the display name: the person's name for an INDIVIDUAL, the trade
