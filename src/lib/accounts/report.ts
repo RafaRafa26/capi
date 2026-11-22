@@ -41,6 +41,11 @@ export interface AccountsReport {
   filtersLabel: string
   groupLabel: string
   generatedAt: Date
+  // O card de situação da tela — null em "Total do período".
+  status: AccountStatus | null
+  // A lista do PDF: cada lançamento uma vez, na ordem da tela.
+  entries: ReportEntry[]
+  // As seções por favorecido/fornecedor, usadas pelo XLSX.
   groups: ReportGroup[]
   // Cada lançamento conta uma vez, mesmo aparecendo em várias seções.
   totals: { count: number; amount: number; settled: number; open: number }
@@ -140,6 +145,17 @@ export function buildAccountsReport({
     filtersLabel: filters.join(" · "),
     groupLabel: kind === "pay" ? kindConfig.pay.contactLabel : "Favorecido",
     generatedAt: today,
+    status,
+    entries: filtered.map((entry) => {
+      const entryStatus = deriveStatus(entry, today)
+      return {
+        entry,
+        status: entryStatus,
+        statusLabel: statusLabel(entryStatus, kind),
+        openAmount: openAmount(entry),
+        sharedWith: [],
+      }
+    }),
     groups,
     totals: {
       count: filtered.length,

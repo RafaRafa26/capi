@@ -80,6 +80,15 @@ describe("buildAccountsReport", () => {
     expect(report.totals.count).toBe(1)
   })
 
+  it("lists each entry once, in the screen's order, for the PDF", () => {
+    const report = build([
+      entry({ description: "B", dueDate: new Date(2026, 8, 25), beneficiaryNames: ["Ana", "Bia"] }),
+      entry({ description: "A", dueDate: new Date(2026, 8, 10) }),
+    ])
+    expect(report.entries.map((item) => item.entry.description)).toEqual(["A", "B"])
+    expect(report.status).toBeNull()
+  })
+
   it("totals the open amount of the listed entries, not their face value", () => {
     const report = build([
       entry({ amount: 20_000, settledAmount: 7_500 }),
