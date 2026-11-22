@@ -78,6 +78,12 @@ export interface AccountEntry {
   installmentNumber?: number
   /** Conta a pagar gerada na tela de repasses — o contato é o favorecido, não um fornecedor. */
   isPayout: boolean
+  /**
+   * Repasse pago a outro contato por conta e ordem do favorecido (ex.:
+   * honorários descontados): o nome do favorecido de cuja cota o valor saiu.
+   * O contato do lançamento é quem recebeu.
+   */
+  payoutOnBehalfOf?: string
   contract?: AccountContract
   settlements: AccountSettlement[]
   // Repasse (RN-04) — undefined when the sale has no Allocation rows.

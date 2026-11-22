@@ -4,6 +4,7 @@ import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import type { BankDetails } from "@/modules/contacts/types"
 import { computeBeneficiaryShare, netSettledAmount } from "@/modules/settlements/domain"
 import { BusinessError, NotFound } from "@/shared/errors"
+import { formatBRL } from "@/lib/format"
 import { installmentLabel, withRunningBalance } from "./statement"
 import type { GeneratePayoutInput } from "./schema"
 import type {
@@ -249,7 +250,10 @@ export async function getBeneficiaryStatement(organizationId: string, beneficiar
 
     const [creditsByBeneficiary, payouts] = await Promise.all([
       loadCredits(tx, beneficiaryId),
-      tx.payout.findMany({ where: { beneficiaryId }, include: { entry: true } }),
+      tx.payout.findMany({
+        where: { beneficiaryId },
+        include: { entry: { include: { contact: { select: { name: true } } } } },
+      }),
     ])
 
     const credits = creditsByBeneficiary.get(beneficiaryId) ?? []
@@ -280,7 +284,12 @@ export async function getBeneficiaryStatement(organizationId: string, beneficiar
         kind: "DEBIT",
         date: fromDbDate(payout.entry.dueDate),
         amount: -payout.amount,
-        title: "Repasse",
+        // Pago a outro contato por conta do favorecido (ex.: honorários que
+        // ele pediu para descontar): o extrato diz quem recebeu o dinheiro.
+        title:
+          payout.entry.contactId && payout.entry.contactId !== beneficiaryId
+            ? `Pago a ${payout.entry.contact?.name ?? "terceiro"}`
+            : "Repasse",
         description: payout.entry.description,
         entryId: payout.entryId,
         status: settled >= payout.amount ? "REALIZED" : "PENDING",
@@ -324,6 +333,13 @@ async function resolvePayoutCategory(tx: Tx, organizationId: string): Promise<st
  * bancária — de onde sai o dinheiro só se sabe na conciliação, que não filtra
  * lançamento por conta. Daí em diante é um PAYABLE comum: quem move de
  * "pendente" para "realizado" é a conciliação normal dessa entry com a saída.
+ *
+ * Com `payeeId`, a conta a pagar é de outro contato (pagamento por conta e
+ * ordem do favorecido); o Payout continua do favorecido, então o valor sai do
+ * disponível dele. Com `amount`, o repasse fica abaixo da soma dos recebimentos
+ * escolhidos e o restante do último continua disponível — é assim que um
+ * mesmo recebimento se divide entre o repasse ao favorecido e o pagamento ao
+ * terceiro.
  */
 export async function generatePayout(organizationId: string, input: GeneratePayoutInput): Promise<void> {
   await withOrganization(organizationId, async (tx) => {
@@ -333,29 +349,61 @@ export async function generatePayout(organizationId: string, input: GeneratePayo
       throw new BusinessError("O contato selecionado não é um favorecido.", "beneficiaryId")
     }
 
+    // Pagar outro contato por conta e ordem do favorecido: a conta a pagar é
+    // de quem recebe o dinheiro, mas o valor sai da cota do favorecido.
+    const payee =
+      input.payeeId && input.payeeId !== input.beneficiaryId
+        ? await tx.contact.findUnique({ where: { id: input.payeeId } })
+        : null
+    if (input.payeeId && input.payeeId !== input.beneficiaryId && !payee) throw new NotFound("Contato a pagar")
+
     // RN-10: o valor é o restante de cada recebimento apurado aqui dentro, não
     // o que a tela mostrou — entre abrir o diálogo e confirmar, uma
     // conciliação ou outro repasse pode ter mudado o saldo.
-    const remaining = new Map((await loadRemainingCredits(tx, input.beneficiaryId)).map((c) => [c.id, c]))
-    const selected = [...new Set(input.credits.map((c) => creditKey(c.settlementId, c.allocationId)))].map((key) => {
-      const credit = remaining.get(key)
-      if (!credit) {
+    const remaining = await loadRemainingCredits(tx, input.beneficiaryId)
+    const remainingByKey = new Map(remaining.map((c) => [c.id, c]))
+    const keys = new Set(input.credits.map((c) => creditKey(c.settlementId, c.allocationId)))
+    for (const key of keys) {
+      if (!remainingByKey.has(key)) {
         throw new BusinessError("Um dos recebimentos selecionados não está mais disponível para repasse. Reabra o repasse.")
       }
-      return credit
-    })
-    const amount = selected.reduce((sum, credit) => sum + credit.amount, 0)
-    if (amount <= 0) {
+    }
+    // Mais antigo primeiro: com valor informado, é o último que fica parcial.
+    const selected = remaining.filter((credit) => keys.has(credit.id))
+    const selectedTotal = selected.reduce((sum, credit) => sum + credit.amount, 0)
+    if (selectedTotal <= 0) {
       throw new BusinessError("Este favorecido não tem saldo disponível para repasse.")
     }
+    if (input.amount !== undefined && input.amount > selectedTotal) {
+      throw new BusinessError(
+        `O valor do repasse (${formatBRL(input.amount)}) passa da soma dos recebimentos selecionados (${formatBRL(selectedTotal)}).`,
+        "amount",
+      )
+    }
+    const amount = input.amount ?? selectedTotal
+
+    let left = amount
+    const items: { settlementId: string; allocationId: string; amount: number }[] = []
+    for (const credit of selected) {
+      if (left <= 0) break
+      const taken = Math.min(credit.amount, left)
+      items.push({ settlementId: credit.settlementId, allocationId: credit.allocationId, amount: taken })
+      left -= taken
+    }
+
+    const description =
+      input.description ||
+      (payee
+        ? `${payee.name} - por conta de ${beneficiary.name}`
+        : `${PAYOUT_CATEGORY_NAME} - ${beneficiary.name}`)
 
     const entry = await tx.entry.create({
       data: {
         organizationId,
-        contactId: input.beneficiaryId,
+        contactId: payee?.id ?? input.beneficiaryId,
         categoryId: await resolvePayoutCategory(tx, organizationId),
         type: "PAYABLE",
-        description: `${PAYOUT_CATEGORY_NAME} - ${beneficiary.name}`,
+        description,
         dueDate: input.dueDate,
         amount,
         // O favorecido é cadastrado com chave PIX (contacts/types.ts#BankDetails),
@@ -370,14 +418,7 @@ export async function generatePayout(organizationId: string, input: GeneratePayo
         beneficiaryId: input.beneficiaryId,
         entryId: entry.id,
         amount,
-        items: {
-          create: selected.map((credit) => ({
-            organizationId,
-            settlementId: credit.settlementId,
-            allocationId: credit.allocationId,
-            amount: credit.amount,
-          })),
-        },
+        items: { create: items.map((item) => ({ organizationId, ...item })) },
       },
     })
   })

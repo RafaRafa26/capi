@@ -18,7 +18,7 @@ const ENTRY_INCLUDE = {
   category: true,
   bankAccount: true,
   marker: { select: { id: true, name: true, color: true } },
-  payout: { select: { id: true } },
+  payout: { select: { id: true, beneficiaryId: true, beneficiary: { select: { name: true } } } },
   sale: {
     select: {
       id: true,
@@ -76,6 +76,8 @@ function toAccountEntry(entry: EntryWithRelations, kind: LedgerKind): AccountEnt
           : undefined,
       installmentNumber: entry.installmentNumber ?? undefined,
       isPayout: entry.payout !== null,
+      payoutOnBehalfOf:
+        entry.payout && entry.payout.beneficiaryId !== entry.contactId ? entry.payout.beneficiary.name : undefined,
       settlements: entry.settlements.map((settlement) => ({
         id: settlement.id,
         settledAt: fromDbDate(settlement.settledAt),
