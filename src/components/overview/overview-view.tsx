@@ -2,20 +2,22 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { ArrowDownRightIcon, ArrowUpRightIcon, ChevronRightIcon, CircleCheckIcon } from "lucide-react"
+import { ArrowDownRightIcon, ArrowUpRightIcon, ChevronRightIcon } from "lucide-react"
 
 import { BalanceCard } from "@/components/overview/balance-card"
 import { FlowChartCard } from "@/components/overview/flow-chart-card"
 import { Money } from "@/components/overview/hide-values"
-import { overviewChartClassName, overviewGridClassName } from "@/components/overview/layout"
+import {
+  overviewBalanceClassName,
+  overviewChartClassName,
+  overviewGridClassName,
+} from "@/components/overview/layout"
 import type { LancamentoBucketKey, ResumoLancamentos } from "@/modules/dashboard/domain"
 import type { OverviewData } from "@/modules/dashboard/service"
 import { useOrgPath } from "@/hooks/use-org-path"
 
 const RED = "var(--negative)"
 const AMBER = "var(--warning)"
-const BLUE = "var(--info)"
-const GREEN = "var(--positive)"
 const GRAY = "var(--muted-foreground)"
 
 // Each link spells out its whole query, so the accounts screen opens clean:
@@ -24,96 +26,11 @@ const OVERDUE_QUERY = "card=OVERDUE&period=all"
 const DUE_TODAY_QUERY = "card=DUE_TODAY&period=today"
 const UPCOMING_QUERY = "card=UPCOMING&period=all"
 
-function plural(count: number, singular: string, pluralForm: string) {
-  return `${count} ${count === 1 ? singular : pluralForm}`
-}
-
-interface AttentionItem {
-  color: string
-  text: string
-  href: string
-}
-
-function attentionItems(data: OverviewData): AttentionItem[] {
-  const items: (AttentionItem & { count: number })[] = [
-    {
-      count: data.receivables.buckets.vencido.count,
-      color: RED,
-      text: plural(data.receivables.buckets.vencido.count, "conta a receber vencida", "contas a receber vencidas"),
-      href: `/receivables?${OVERDUE_QUERY}`,
-    },
-    {
-      count: data.payables.buckets.vencido.count,
-      color: RED,
-      text: plural(data.payables.buckets.vencido.count, "conta a pagar vencida", "contas a pagar vencidas"),
-      href: `/payables?${OVERDUE_QUERY}`,
-    },
-    {
-      count: data.receivables.buckets.venceHoje.count,
-      color: AMBER,
-      text: plural(data.receivables.buckets.venceHoje.count, "recebimento vence hoje", "recebimentos vencem hoje"),
-      href: `/receivables?${DUE_TODAY_QUERY}`,
-    },
-    {
-      count: data.payables.buckets.venceHoje.count,
-      color: AMBER,
-      text: plural(data.payables.buckets.venceHoje.count, "pagamento vence hoje", "pagamentos vencem hoje"),
-      href: `/payables?${DUE_TODAY_QUERY}`,
-    },
-    {
-      count: data.pendingReconciliationCount,
-      color: BLUE,
-      text: plural(
-        data.pendingReconciliationCount,
-        "transação aguardando conciliação",
-        "transações aguardando conciliação",
-      ),
-      href: "/accounts",
-    },
-    {
-      count: data.beneficiariesWithBalanceCount,
-      color: GREEN,
-      text: plural(
-        data.beneficiariesWithBalanceCount,
-        "Favorecido possui saldo para repasse",
-        "Favorecidos possuem saldo para repasse",
-      ),
-      href: "/payout?saldo=com-saldo",
-    },
-  ]
-  return items.filter((item) => item.count > 0)
-}
-
 const rowClassName =
   "-mx-2 grid min-h-10 items-center gap-2.5 border-t px-2 text-[13px] transition-colors outline-none hover:bg-muted focus-visible:bg-muted"
 
 function Dot({ color }: { color: string }) {
   return <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
-}
-
-function AttentionCard({ data }: { data: OverviewData }) {
-  const toOrg = useOrgPath()
-  const items = attentionItems(data)
-
-  return (
-    <div className="rounded-xl border bg-card px-4 pt-3.5 pb-2">
-      <h2 className="mb-2 text-sm font-semibold">Pontos de atenção</h2>
-      {items.length === 0 ? (
-        <p className="flex min-h-[120px] items-center justify-center gap-2 border-t text-sm text-muted-foreground">
-          <CircleCheckIcon className="size-4" />
-          Tudo em dia
-        </p>
-      ) : (
-        items.map((item) => (
-          <Link key={item.href} href={toOrg(item.href)} className={`${rowClassName} grid-cols-[8px_1fr_16px]`}>
-            <Dot color={item.color} />
-            <span className="truncate">{item.text}</span>
-            <ChevronRightIcon className="size-3.5 text-muted-foreground" />
-          </Link>
-        ))
-      )}
-    </div>
-  )
 }
 
 const bands: { key: LancamentoBucketKey; label: string; dot: string; valueColor?: string; query: string }[] = [
@@ -141,6 +58,9 @@ function AccountsBucketCard({
       <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
         {icon}
         {title}
+        <span className="ml-auto tabular-nums whitespace-nowrap">
+          <Money cents={summary.total} />
+        </span>
       </h2>
       {bands.map((band) => {
         const bucket = summary.buckets[band.key]
@@ -152,8 +72,8 @@ function AccountsBucketCard({
           >
             <Dot color={band.dot} />
             <span className="truncate">{band.label}</span>
-            <span className="rounded-full bg-muted px-[7px] py-px text-[11.5px] text-muted-foreground tabular-nums">
-              {bucket.count}
+            <span className="text-[12.5px] whitespace-nowrap text-muted-foreground tabular-nums">
+              {bucket.count} {bucket.count === 1 ? "conta" : "contas"}
             </span>
             <span
               className="min-w-24 text-right font-medium tabular-nums whitespace-nowrap"
@@ -170,38 +90,14 @@ function AccountsBucketCard({
 }
 
 export function OverviewView({ data }: { data: OverviewData }) {
-  const sideRef = React.useRef<HTMLDivElement>(null)
-  const [sideHeight, setSideHeight] = React.useState<number>()
-
-  // Stacked layout only (side by side it's pure CSS, see layout.ts): the chart
-  // takes the side column's height. The accounts popover is portaled, so
-  // opening it never changes this measurement.
-  React.useLayoutEffect(() => {
-    const element = sideRef.current
-    if (!element) return
-    const measure = () => setSideHeight(element.offsetHeight)
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(element)
-    window.addEventListener("resize", measure)
-    return () => {
-      observer.disconnect()
-      window.removeEventListener("resize", measure)
-    }
-  }, [])
-
   const currentBalance = data.accounts.reduce((sum, account) => sum + account.balance, 0)
 
   return (
     <div className={overviewGridClassName}>
-      <div ref={sideRef} className="flex flex-col gap-4 [grid-area:side]">
-        <BalanceCard accounts={data.accounts} />
-        <AttentionCard data={data} />
-      </div>
+      <BalanceCard className={overviewBalanceClassName} accounts={data.accounts} />
 
       <FlowChartCard
         className={overviewChartClassName}
-        sideHeight={sideHeight}
         currentBalance={currentBalance}
         realizedByDay={data.realizedByDay}
         forecastByDay={data.forecastByDay}

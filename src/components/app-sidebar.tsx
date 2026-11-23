@@ -106,7 +106,8 @@ export function AppSidebar({
       <SidebarFooter>
         <NavUser user={{ name: userName, email: userEmail, avatar: "" }} />
       </SidebarFooter>
-      <SidebarRail />
+      {/* Keeps the click-to-toggle edge, without the line it paints on hover. */}
+      <SidebarRail className="hover:after:bg-transparent" />
     </Sidebar>
   )
 }
