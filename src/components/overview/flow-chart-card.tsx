@@ -34,15 +34,11 @@ interface FlowChartCardProps {
   currentBalance: number
   realizedByDay: DailyAmount[]
   forecastByDay: DailyAmount[]
-  sideHeight: number | undefined
   className?: string
 }
 
-function cardProps(className: string | undefined, sideHeight: number | undefined) {
-  return {
-    className: `flex flex-col gap-2.5 rounded-xl border bg-card px-4 py-3.5 ${className ?? ""}`,
-    style: { "--side-h": sideHeight ? `${sideHeight}px` : undefined } as React.CSSProperties,
-  }
+function cardClassName(className: string | undefined) {
+  return `flex flex-col gap-2.5 rounded-xl border bg-card px-4 py-3.5 ${className ?? ""}`
 }
 
 const noopSubscribe = () => () => {}
@@ -57,7 +53,7 @@ export function FlowChartCard(props: FlowChartCardProps) {
 
   if (!todayKey) {
     return (
-      <div {...cardProps(props.className, props.sideHeight)} aria-busy="true">
+      <div className={cardClassName(props.className)} aria-busy="true">
         <FlowChartCardSkeletonBody />
       </div>
     )
@@ -70,7 +66,6 @@ function FlowChart({
   currentBalance,
   realizedByDay,
   forecastByDay,
-  sideHeight,
   className,
   todayKey,
 }: FlowChartCardProps & { todayKey: string }) {
@@ -112,7 +107,7 @@ function FlowChart({
   const yScale = React.useMemo(() => balanceAxisScale(series.map((point) => point.balance)), [series])
 
   return (
-    <div {...cardProps(className, sideHeight)}>
+    <div className={cardClassName(className)}>
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <h2 className="text-sm font-semibold">Fluxo de caixa</h2>
         <div className="ml-auto">
