@@ -4,12 +4,13 @@
 // topo, painel lilás com os saldos, cores fixas e claras. As linhas saem em
 // ordem cronológica (mais antiga em cima), como num extrato bancário.
 import { Document, Font, Page, StyleSheet, Text, View } from "@react-pdf/renderer"
-import { addDays, format, isSameMonth, isSameYear, lastDayOfMonth, startOfMonth } from "date-fns"
+import { addDays, format, isSameMonth, isSameYear } from "date-fns"
 import { ptBR } from "date-fns/locale"
 
 import { formatDocument, onlyDigits } from "@/lib/document"
 import { formatBRL, formatDate } from "@/lib/format"
 import { capiHex, markerPrintHex, printNeutral } from "@/lib/print-palette"
+import { formatBusinessDateTime } from "@/lib/today"
 import type { StatementSlice } from "@/modules/payouts/statement"
 import type { BeneficiaryStatement, BeneficiaryStatementLine } from "@/modules/payouts/types"
 
@@ -26,6 +27,8 @@ const styles = StyleSheet.create({
   accent: { height: 5, backgroundColor: capiHex.purpleDark, marginHorizontal: -40, marginBottom: 26 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  headerLeft: { flex: 1, paddingRight: 16 },
+  headerRight: { maxWidth: 260, alignItems: "flex-end" },
   orgName: { fontSize: 13, fontFamily: "Helvetica-Bold" },
   orgLine: { fontSize: 8.5, color: soft, marginTop: 3 },
   label: { fontFamily: "Helvetica-Bold", color: capiHex.purple },
@@ -34,8 +37,7 @@ const styles = StyleSheet.create({
 
   beneficiaryRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginTop: 20,
     paddingVertical: 8,
     borderTopWidth: 0.75,
@@ -44,7 +46,8 @@ const styles = StyleSheet.create({
     borderBottomColor: line,
     fontSize: 8.5,
   },
-  beneficiaryName: { fontSize: 12, fontFamily: "Helvetica-Bold" },
+  beneficiaryLabel: { fontFamily: "Helvetica-Bold", color: capiHex.purple, width: 62, paddingTop: 3 },
+  beneficiaryName: { flex: 1, fontSize: 12, fontFamily: "Helvetica-Bold" },
 
   panel: {
     flexDirection: "row",
@@ -88,7 +91,6 @@ const styles = StyleSheet.create({
   sub: { fontSize: 7.5, color: soft, marginTop: 2 },
   bold: { fontFamily: "Helvetica-Bold" },
   empty: { marginTop: 24, textAlign: "center", color: soft },
-  legend: { marginTop: 8, fontSize: 7.5, color: soft },
 
   footer: {
     position: "absolute",
@@ -125,15 +127,6 @@ function periodText(from: Date, to: Date): string {
   return `${formatDate(from)} a ${formatDate(to)}`
 }
 
-/** O mês por extenso quando o período é exatamente um mês fechado; senão, nada. */
-function wholeMonth(from: Date, to: Date): string | null {
-  const isWholeMonth =
-    isSameMonth(from, to) &&
-    from.getDate() === startOfMonth(from).getDate() &&
-    to.getDate() === lastDayOfMonth(to).getDate()
-  return isWholeMonth ? format(from, "MMMM 'de' yyyy", { locale: ptBR }) : null
-}
-
 function isScheduled(entry: BeneficiaryStatementLine): boolean {
   return entry.kind === "DEBIT" && entry.status === "PENDING"
 }
@@ -162,7 +155,6 @@ export function BeneficiaryStatementPdf({
   // para o cabeçalho e os rótulos dos saldos sempre dizerem de quando são.
   const periodFrom = from ?? lines[0]?.date ?? generatedAt
   const periodTo = to ?? lines.at(-1)?.date ?? generatedAt
-  const month = wholeMonth(periodFrom, periodTo)
   const openingDate = from ? addDays(from, -1) : null
   const openingLabel = openingDate ? `Saldo em ${format(openingDate, "dd/MM")}` : "Saldo inicial"
 
@@ -172,7 +164,7 @@ export function BeneficiaryStatementPdf({
         <View style={styles.accent} fixed />
 
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={styles.orgName}>{organizationName}</Text>
             {organizationDocument ? (
               <Text style={styles.orgLine}>
@@ -181,24 +173,23 @@ export function BeneficiaryStatementPdf({
               </Text>
             ) : null}
           </View>
-          <View>
+          <View style={styles.headerRight}>
             <Text style={styles.kind}>Extrato do favorecido</Text>
-            {month ? <Text style={styles.kindSub}>{month}</Text> : null}
+            <Text style={styles.kindSub}>
+              <Text style={styles.label}>Período </Text>
+              {periodText(periodFrom, periodTo)}
+            </Text>
+            <Text style={styles.kindSub}>
+              <Text style={styles.label}>Gerado em </Text>
+              {formatBusinessDateTime(generatedAt)}
+            </Text>
           </View>
         </View>
 
+        {/* Linha só do favorecido: nome longo quebra em mais linhas sem cobrir nada. */}
         <View style={styles.beneficiaryRow}>
-          <Text>
-            <Text style={styles.label}>Favorecido </Text>
-            <Text style={styles.beneficiaryName}>{statement.name}</Text>
-          </Text>
-          <Text>
-            <Text style={styles.label}>Período </Text>
-            {periodText(periodFrom, periodTo)}
-            {"   ·   "}
-            <Text style={styles.label}>Gerado em </Text>
-            {format(generatedAt, "dd/MM/yyyy 'às' HH:mm")}
-          </Text>
+          <Text style={styles.beneficiaryLabel}>Favorecido</Text>
+          <Text style={styles.beneficiaryName}>{statement.name}</Text>
         </View>
 
         <View style={styles.panel}>
@@ -282,13 +273,6 @@ export function BeneficiaryStatementPdf({
             </View>
           )}
         </View>
-
-        {lines.length > 0 && (
-          <Text style={styles.legend}>
-            Valores com + são recebimentos (sua parte do valor pago pelo cliente); com -, repasses ou pagamentos feitos
-            por sua conta. Fundo amarelo: repasse agendado, ainda não pago.
-          </Text>
-        )}
 
         <View style={styles.footer} fixed>
           <Text>

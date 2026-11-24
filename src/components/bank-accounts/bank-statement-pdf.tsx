@@ -11,6 +11,7 @@ import { statementLineText, statementSeriesLabel, type BankStatementExport } fro
 import { formatDocument, onlyDigits } from "@/lib/document"
 import { formatBankAccountNumbers, formatBRL, formatDate } from "@/lib/format"
 import { capiHex, printNeutral } from "@/lib/print-palette"
+import { formatBusinessDateTime } from "@/lib/today"
 
 // Sem hifenização: o react-pdf quebra em inglês e partia nomes próprios no meio.
 Font.registerHyphenationCallback((word) => [word])
@@ -149,7 +150,7 @@ export function BankStatementPdf({
           </Text>
           <Text>
             <Text style={styles.label}>Gerado em </Text>
-            {format(generatedAt, "dd/MM/yyyy 'às' HH:mm")}
+            {formatBusinessDateTime(generatedAt)}
           </Text>
         </View>
 
