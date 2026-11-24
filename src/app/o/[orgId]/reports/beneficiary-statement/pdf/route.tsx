@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
   const pdf = await renderToBuffer(
     <BeneficiaryStatementPdf
       organizationName={session.organizationName}
+      organizationDocument={session.organizationDocument || null}
       statement={statement}
       slice={slice}
       from={from}
