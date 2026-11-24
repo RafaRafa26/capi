@@ -22,3 +22,29 @@ export function businessToday(now: Date = new Date()): Date {
     .map(Number)
   return new Date(year, month - 1, day, 12)
 }
+
+/** "23/11/2026" — o dia em Brasília, para "emitido em" e "gerado em" sem hora. */
+export function formatBusinessDate(date: Date): string {
+  return businessToday(date).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+}
+
+/**
+ * "23/11/2026 às 22:55" no horário de Brasília — para o "gerado em" dos
+ * relatórios, que o servidor monta em UTC.
+ */
+export function formatBusinessDateTime(date: Date): string {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("pt-BR", {
+      timeZone: BUSINESS_TIME_ZONE,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value]),
+  )
+  return `${parts.day}/${parts.month}/${parts.year} às ${parts.hour}:${parts.minute}`
+}

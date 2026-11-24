@@ -3,6 +3,7 @@
 import ExcelJS from "exceljs"
 
 import { formatBankAccountNumbers, formatMonthYear } from "@/lib/format"
+import { formatBusinessDateTime } from "@/lib/today"
 import { statementLineText, statementSeriesLabel, type BankStatementExport } from "./statement"
 
 const MONEY = '"R$" #,##0.00'
@@ -42,7 +43,7 @@ export async function buildBankStatementXlsx(data: BankStatementExport): Promise
       .filter(Boolean)
       .join(" · "),
   ])
-  sheet.addRow([`Gerado em ${data.generatedAt.toLocaleDateString("pt-BR")}`]).font = { color: { argb: "FF4B5563" } }
+  sheet.addRow([`Gerado em ${formatBusinessDateTime(data.generatedAt)}`]).font = { color: { argb: "FF4B5563" } }
   sheet.addRow([])
 
   const header = sheet.addRow(columns.map((column) => column.header))
