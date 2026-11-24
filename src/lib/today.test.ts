@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { businessToday, formatBusinessDateTime } from "./today"
+import { businessToday, formatBusinessDate, formatBusinessDateTime } from "./today"
 
 const dayOf = (date: Date) => [date.getFullYear(), date.getMonth() + 1, date.getDate()]
 
@@ -19,5 +19,11 @@ describe("formatBusinessDateTime", () => {
   it("writes the time in Brasília, not the server's UTC", () => {
     // 2026-11-24 01:55 UTC = 2026-11-23 22:55 in São Paulo.
     expect(formatBusinessDateTime(new Date("2026-11-24T01:55:00Z"))).toBe("23/11/2026 às 22:55")
+  })
+})
+
+describe("formatBusinessDate", () => {
+  it("is still today in São Paulo after 21h", () => {
+    expect(formatBusinessDate(new Date("2026-11-24T01:55:00Z"))).toBe("23/11/2026")
   })
 })

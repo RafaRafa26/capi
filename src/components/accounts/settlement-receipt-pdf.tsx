@@ -11,6 +11,7 @@ import { amountInWords } from "@/lib/amount-in-words"
 import { formatDocument, onlyDigits } from "@/lib/document"
 import { formatBRL, formatDate } from "@/lib/format"
 import { capiHex, printNeutral } from "@/lib/print-palette"
+import { formatBusinessDate } from "@/lib/today"
 import { netSettledAmount } from "@/modules/settlements/domain"
 import type { SettlementReceipt } from "@/modules/settlements/types"
 
@@ -162,7 +163,7 @@ export function SettlementReceiptPdf({
 
         <View style={styles.footer} fixed>
           <Text>Recibo Nº {number}</Text>
-          <Text>Emitido em {formatDate(generatedAt)} pelo Capi</Text>
+          <Text>Emitido em {formatBusinessDate(generatedAt)} pelo Capi</Text>
         </View>
       </Page>
     </Document>
