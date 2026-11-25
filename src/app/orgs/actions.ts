@@ -1,5 +1,6 @@
 "use server";
 
+import { track } from "@/lib/analytics/server";
 import { requireUser } from "@/modules/auth/session";
 import { organizationInputSchema } from "@/modules/organizations/schema";
 import { createOrganization } from "@/modules/organizations/service";
@@ -19,6 +20,7 @@ export async function createOrganizationAction(form: FormData): Promise<Result<{
     }
 
     const organization = await createOrganization(user.userId, parsed.data);
+    track({ userId: user.userId, organizationId: organization.id }, "organization_created");
     return { ok: true, data: { id: organization.id } };
   } catch (error) {
     return failure(error);

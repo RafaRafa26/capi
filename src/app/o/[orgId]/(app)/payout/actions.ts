@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 
 import { getAccountEntryById } from "@/modules/accounts/service"
 import type { AccountEntry } from "@/modules/accounts/types"
+import { track } from "@/lib/analytics/server"
 import { orgPath } from "@/lib/org-path"
 import { requireSession } from "@/modules/auth/session"
 import { generatePayoutInputSchema } from "@/modules/payouts/schema"
@@ -68,6 +69,11 @@ export async function generatePayoutAction(input: unknown): Promise<Result> {
     }
 
     await generatePayout(session.organizationId, parsed.data)
+    track(session, "payout_generated", {
+      credit_count: parsed.data.credits.length,
+      custom_amount: parsed.data.amount !== undefined,
+      other_payee: parsed.data.payeeId !== undefined,
+    })
     // O repasse nasce como conta a pagar — some nas duas telas de uma vez.
     revalidatePath(orgPath(session.organizationId, "/payout"))
     revalidatePath(orgPath(session.organizationId, "/payables"))

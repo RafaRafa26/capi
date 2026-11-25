@@ -1,8 +1,10 @@
 "use client"
 
 import { useTheme } from "next-themes"
+import posthog from "posthog-js"
 
 import { signOutAction } from "@/app/(auth)/login/actions"
+import { POSTHOG_KEY } from "@/lib/analytics/config"
 import {
   Avatar,
   AvatarFallback,
@@ -111,7 +113,12 @@ export function NavUser({
               </DropdownMenuSub>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOutAction()}>
+            <DropdownMenuItem
+              onClick={() => {
+                if (POSTHOG_KEY) posthog.reset()
+                signOutAction()
+              }}
+            >
               <LogOutIcon
               />
               Sair

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { track } from "@/lib/analytics/server";
 import { orgPath } from "@/lib/org-path";
 import { requireSession } from "@/modules/auth/session";
 import { getBankAccountStatement } from "@/modules/bank-accounts/service";
@@ -64,6 +65,11 @@ export async function importStatementAction(form: FormData): Promise<Result<Impo
     }
 
     const result = await importStatement(session.organizationId, parsed.data);
+    track(session, "statement_imported", {
+      imported_count: result.importedCount,
+      duplicate_count: result.duplicateCount,
+      total_count: result.totalCount,
+    });
     return { ok: true, data: result };
   } catch (error) {
     return failure(error);
@@ -124,6 +130,7 @@ export async function createSettlementAction(input: unknown): Promise<Result> {
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await createSettlement(session.organizationId, parsed.data);
+    track(session, "reconciliation_confirmed", { kind: "existing_entry", entry_count: 1 });
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);
@@ -139,6 +146,7 @@ export async function createSettlementBatchAction(input: unknown): Promise<Resul
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await createSettlementBatch(session.organizationId, parsed.data);
+    track(session, "reconciliation_confirmed", { kind: "existing_entry", entry_count: parsed.data.items.length });
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);
@@ -166,6 +174,7 @@ export async function manualSettleEntryAction(input: unknown): Promise<Result> {
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await manualSettleEntry(session.organizationId, parsed.data);
+    track(session, "manual_settlement_confirmed");
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);
@@ -181,6 +190,7 @@ export async function createAndSettlePayableAction(input: unknown): Promise<Resu
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await createAndSettlePayable(session.organizationId, parsed.data);
+    track(session, "reconciliation_confirmed", { kind: "new_payable", entry_count: 1 });
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);
@@ -196,6 +206,7 @@ export async function createAndSettleReceivableAction(input: unknown): Promise<R
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await createAndSettleReceivable(session.organizationId, parsed.data);
+    track(session, "reconciliation_confirmed", { kind: "new_receivable", entry_count: 1 });
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);
@@ -211,6 +222,7 @@ export async function createAndSettleTransferAction(input: unknown): Promise<Res
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
     await createAndSettleTransfer(session.organizationId, parsed.data);
+    track(session, "reconciliation_confirmed", { kind: "transfer", entry_count: 1 });
     return { ok: true, data: undefined };
   } catch (error) {
     return failure(error);

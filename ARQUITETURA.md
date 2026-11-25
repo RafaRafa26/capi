@@ -240,6 +240,10 @@ Porquê: ponto ótimo de custo/benefício para desenvolvedor solo. A escolha exa
 AD-07 — Dinheiro em inteiros
 Escolhido: todo valor monetário armazenado em centavos (inteiro), nunca em ponto flutuante.
 Porquê: erro de arredondamento em rateio percentual é o defeito mais insidioso deste tipo de sistema. Também define a regra: o resíduo do rateio vai para a última destinação, garantindo que a soma feche exatamente.
+AD-08 — Analytics de produto com PostHog, sem dado financeiro
+Escolhido: PostHog (região UE) para eventos, funis, gravação de sessão e grupos por organização; Vercel Analytics continua para tráfego. Desligado sem `NEXT_PUBLIC_POSTHOG_KEY`.
+Alternativa descartada: Mixpanel/Amplitude (caros e pensados para volume muito maior), GA4 (marketing, ruim por usuário), Clarity (dados com terceiro, sem controle de mascaramento).
+Porquê: com dezenas de organizações, o que importa é ver onde cada uma trava no fluxo extrato → conciliação → repasse. Regras: (1) todo texto, atributo e campo é mascarado no autocapture e na gravação, e a gravação só roda dentro de /o/; (2) URLs perdem query string e o token de convite (`src/lib/analytics/sanitize.ts`); (3) eventos de servidor (`src/lib/analytics/server.ts`) levam só contagens, tipos e ids — nunca valores, nomes, descrições ou documentos; (4) o navegador envia via `/ingest` (rewrite no `next.config.ts`) para não ser bloqueado. Ao enviar qualquer propriedade nova, a pergunta é: isso revela dinheiro ou identidade de terceiro? Se sim, não vai.
 ---
 7. Stack
 Camada	Escolha

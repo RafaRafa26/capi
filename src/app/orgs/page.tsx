@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { ChevronRightIcon, PlusIcon } from "lucide-react"
 
 import { signOutAction } from "@/app/(auth)/login/actions"
+import { AnalyticsIdentify } from "@/components/analytics/analytics-identify"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { Button } from "@/components/ui/button"
 import { formatDocument } from "@/lib/document"
@@ -19,6 +20,7 @@ export default async function OrganizationsPage() {
 
   return (
     <AuthShell title="Escolha a empresa" description={`Conectado como ${user.email}.`}>
+      <AnalyticsIdentify userId={user.userId} name={user.name} email={user.email} />
       <div className="flex flex-col divide-y rounded-lg border">
         {organizations.map((organization) => (
           <Link

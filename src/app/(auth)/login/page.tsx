@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { AnalyticsReset } from "@/components/analytics/analytics-identify"
 import { LoginCover } from "@/components/auth/login-cover"
 import { LoginForm } from "@/components/auth/login-form"
 import { Logo } from "@/components/landing/primitives"
@@ -17,6 +18,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <div className="grid min-h-svh lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
+      <AnalyticsReset />
       {/* Cover: the cash-flow curve, with the logo on top and the promise at the bottom. */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-capi-purple-dark p-12 text-white lg:flex xl:p-16">
         <LoginCover />

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@/modules/auth/schema";
 import { authenticate, endSession, pruneExpiredSessions, signUp } from "@/modules/auth/service";
 import { clearSessionCookie, requestToken, setSessionCookie } from "@/modules/auth/session";
+import { track } from "@/lib/analytics/server";
 import { safeNextPath } from "@/lib/org-path";
 import { failure, type Result } from "@/shared/errors";
 
@@ -42,8 +43,9 @@ export async function signUpAction(form: FormData): Promise<Result> {
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
 
-    const { token, expiresAt } = await signUp(parsed.data);
+    const { token, expiresAt, userId } = await signUp(parsed.data);
     await setSessionCookie(token, expiresAt);
+    track({ userId }, "user_signed_up");
 
     return { ok: true, data: undefined };
   } catch (error) {

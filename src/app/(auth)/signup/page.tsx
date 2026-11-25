@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
+import { AnalyticsReset } from "@/components/analytics/analytics-identify"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { SignUpForm } from "@/components/auth/sign-up-form"
 import { safeNextPath } from "@/lib/org-path"
@@ -17,6 +18,7 @@ export default async function SignUpPage({ searchParams }: PageProps<"/signup">)
 
   return (
     <AuthShell title="Criar conta" description="Depois de criar a conta, você cadastra sua empresa ou entra na de quem te convidou.">
+      <AnalyticsReset />
       <SignUpForm next={next} defaultEmail={email} />
       <p className="text-center text-sm text-muted-foreground">
         Já tem conta?{" "}

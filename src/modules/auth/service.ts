@@ -55,14 +55,14 @@ async function openSession(userId: string): Promise<{ token: string; expiresAt: 
  * global, and a brand-new user isn't a member of any organization yet, so
  * RLS on `users` would hide the row it just inserted.
  */
-export async function signUp(input: SignUpInput): Promise<{ token: string; expiresAt: Date }> {
+export async function signUp(input: SignUpInput): Promise<{ token: string; expiresAt: Date; userId: string }> {
   const email = input.email.trim().toLowerCase();
 
   try {
     const user = await prismaAdmin.user.create({
       data: { name: input.name.trim(), email, passwordHash: await hashPassword(input.password) },
     });
-    return await openSession(user.id);
+    return { ...(await openSession(user.id)), userId: user.id };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       throw new BusinessError("Já existe uma conta com este e-mail.", "email");

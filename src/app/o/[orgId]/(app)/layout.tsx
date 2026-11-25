@@ -1,3 +1,4 @@
+import { AnalyticsIdentify } from "@/components/analytics/analytics-identify";
 import { AppSidebar } from "@/components/app-sidebar";
 import { EntrySheetProvider } from "@/components/entries/entry-sheet";
 import { HideValuesButton, HideValuesProvider } from "@/components/overview/hide-values";
@@ -23,6 +24,12 @@ export default async function AppLayout({ children }: LayoutProps<"/o/[orgId]">)
   return (
     <TooltipProvider>
       <RememberOrganization organizationId={session.organizationId} />
+      <AnalyticsIdentify
+        userId={session.userId}
+        name={session.name}
+        email={session.email}
+        organization={{ id: session.organizationId, name: session.organizationName, role: session.role }}
+      />
       {/* Sempre começa recolhida (só os ícones); o usuário expande quando quiser. */}
       <SidebarProvider defaultOpen={false} className="h-svh overflow-hidden">
         <AppSidebar
