@@ -181,6 +181,7 @@ model User {
   invitationsCreated Invitation[] @relation("InvitationInvitedBy")
   oauthCodes         OAuthAuthorizationCode[]
   oauthGrants        OAuthGrant[]
+  importsCreated     Import[]     @relation("ImportCreatedBy")
 
   @@map("users")
 }
@@ -575,20 +576,32 @@ model PayoutItem {
 
 // One uploaded OFX file. Its transactions land in BankTransaction, deduped
 // at the database level by (bankAccountId, bankReference) — see RN-16.
+// One row per OFX file uploaded — including a reimport that brought nothing
+// new, so the history shows every attempt. The counts are what the import
+// itself saw; they're null on rows from before they were recorded, where
+// the history falls back to counting the linked bank transactions.
 model Import {
   id             String    @id @default(uuid()) @db.Uuid
   organizationId String    @map("organization_id") @db.Uuid
   bankAccountId  String    @map("bank_account_id") @db.Uuid
+  // Null on older rows, and when the user is deleted.
+  createdById    String?   @map("created_by_id") @db.Uuid
   fileName       String    @map("file_name")
   periodStart    DateTime? @map("period_start") @db.Date
   periodEnd      DateTime? @map("period_end") @db.Date
+  // Transactions in the file / new ones / ones already imported (RN-16).
+  totalCount     Int?      @map("total_count")
+  importedCount  Int?      @map("imported_count")
+  duplicateCount Int?      @map("duplicate_count")
   createdAt      DateTime  @default(now()) @map("created_at")
 
   organization     Organization      @relation(fields: [organizationId], references: [id])
   bankAccount      BankAccount       @relation(fields: [bankAccountId], references: [id])
+  createdBy        User?             @relation("ImportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   bankTransactions BankTransaction[]
 
   @@index([organizationId])
+  @@index([bankAccountId, createdAt])
   @@map("imports")
 }
 

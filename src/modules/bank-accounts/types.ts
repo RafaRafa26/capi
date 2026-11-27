@@ -19,6 +19,10 @@ export interface BankAccountOverview extends BankAccount {
   // transferência ainda não conciliadas.
   currentBalance: number
   pendingCount: number
+  // Do histórico de importações: quando chegou o último OFX, e até que dia o
+  // extrato do banco já está no app. Nulos enquanto nada foi importado.
+  lastImportedAt: Date | null
+  statementCoveredUntil: Date | null
 }
 
 export interface BankAccountStatementEntry {

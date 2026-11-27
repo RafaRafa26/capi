@@ -29,8 +29,19 @@ import {
 } from "@/modules/settlements/service";
 import type { CandidateEntry, TransactionMatchInfo, TransferDetail } from "@/modules/settlements/types";
 import { importStatementInputSchema } from "@/modules/statements/schema";
-import { deleteBankTransaction, importStatement, listBankTransactions } from "@/modules/statements/service";
-import type { BankTransaction, ImportStatementResult } from "@/modules/statements/types";
+import {
+  deleteBankTransaction,
+  getImportSummary,
+  importStatement,
+  listBankTransactions,
+  listImports,
+} from "@/modules/statements/service";
+import type {
+  BankTransaction,
+  ImportStatementResult,
+  ImportSummary,
+  StatementImport,
+} from "@/modules/statements/types";
 import { failure, type Result } from "@/shared/errors";
 
 export async function getBankAccountStatementAction(bankAccountId: string): Promise<Result<BankAccountStatement>> {
@@ -63,8 +74,30 @@ export async function importStatementAction(form: FormData): Promise<Result<Impo
       return { ok: false, error: issue.message, field: String(issue.path[0]) };
     }
 
-    const result = await importStatement(session.organizationId, parsed.data);
+    const result = await importStatement(session.organizationId, session.userId, parsed.data);
+    // A lista de contas mostra "Extrato até" e as conciliações pendentes.
+    revalidatePath(orgPath(session.organizationId, "/accounts"));
     return { ok: true, data: result };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function listImportsAction(bankAccountId: string): Promise<Result<StatementImport[]>> {
+  try {
+    const session = await requireSession();
+    const imports = await listImports(session.organizationId, bankAccountId);
+    return { ok: true, data: imports };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function getImportSummaryAction(bankAccountId: string): Promise<Result<ImportSummary>> {
+  try {
+    const session = await requireSession();
+    const summary = await getImportSummary(session.organizationId, bankAccountId);
+    return { ok: true, data: summary };
   } catch (error) {
     return failure(error);
   }
