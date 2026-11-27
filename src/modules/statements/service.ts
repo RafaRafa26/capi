@@ -4,7 +4,7 @@ import { fromDbDate, withOrganization, type Tx } from "@/db/client"
 import { BusinessError, NotFound } from "@/shared/errors"
 import { parseOfx } from "./ofx"
 import type { ImportStatementInput } from "./schema"
-import type { BankTransaction, ImportStatementResult } from "./types"
+import type { BankTransaction, ImportStatementResult, ImportSummary, StatementImport } from "./types"
 
 async function loadBankAccount(tx: Tx, bankAccountId: string) {
   const bankAccount = await tx.bankAccount.findUnique({ where: { id: bankAccountId } })
@@ -18,9 +18,13 @@ async function loadBankAccount(tx: Tx, bankAccountId: string) {
  * index, not only by this function, so `createMany`'s `skipDuplicates` is
  * what actually makes reimporting the same file a no-op rather than a
  * pre-check that a race could slip past.
+ *
+ * Every upload is recorded in the import history — a reimport that brings
+ * nothing new included — with who sent it and what it found.
  */
 export async function importStatement(
   organizationId: string,
+  importedById: string,
   input: ImportStatementInput,
 ): Promise<ImportStatementResult> {
   return withOrganization(organizationId, async (tx) => {
@@ -32,9 +36,11 @@ export async function importStatement(
       data: {
         organizationId,
         bankAccountId: input.bankAccountId,
+        createdById: importedById,
         fileName: input.fileName,
         periodStart: statement.periodStart,
         periodEnd: statement.periodEnd,
+        totalCount: statement.transactions.length,
       },
     })
 
@@ -50,14 +56,98 @@ export async function importStatement(
       })),
       skipDuplicates: true,
     })
+    const duplicateCount = statement.transactions.length - importedCount
+
+    // Only known once the rows are in — skipDuplicates is what tells them apart.
+    await tx.import.update({ where: { id: bankImport.id }, data: { importedCount, duplicateCount } })
 
     return {
       importId: bankImport.id,
       periodStart: statement.periodStart,
       periodEnd: statement.periodEnd,
       importedCount,
-      duplicateCount: statement.transactions.length - importedCount,
+      duplicateCount,
       totalCount: statement.transactions.length,
+    }
+  })
+}
+
+/**
+ * Every OFX file imported into `bankAccountId`, newest first — the whole
+ * history, not just the recent ones.
+ */
+export async function listImports(organizationId: string, bankAccountId: string): Promise<StatementImport[]> {
+  return withOrganization(organizationId, async (tx) => {
+    await loadBankAccount(tx, bankAccountId)
+
+    const imports = await tx.import.findMany({
+      where: { bankAccountId },
+      include: { createdBy: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    })
+    if (imports.length === 0) return []
+
+    // One pass over the account's transactions, split by import and status:
+    // the reconciled share of each statement, plus the date range of what it
+    // brought in, for files that have no DTSTART/DTEND.
+    const groups = await tx.bankTransaction.groupBy({
+      by: ["importId", "status"],
+      where: { bankAccountId },
+      _count: { _all: true },
+      _min: { date: true },
+      _max: { date: true },
+    })
+
+    const linked = new Map<string, { count: number; reconciled: number; first: Date | null; last: Date | null }>()
+    for (const group of groups) {
+      const current = linked.get(group.importId) ?? { count: 0, reconciled: 0, first: null, last: null }
+      current.count += group._count._all
+      if (group.status === "RECONCILED") current.reconciled += group._count._all
+      if (group._min.date && (!current.first || group._min.date < current.first)) current.first = group._min.date
+      if (group._max.date && (!current.last || group._max.date > current.last)) current.last = group._max.date
+      linked.set(group.importId, current)
+    }
+
+    return imports.map((bankImport) => {
+      const transactions = linked.get(bankImport.id)
+      const periodStart = bankImport.periodStart ?? transactions?.first ?? null
+      const periodEnd = bankImport.periodEnd ?? transactions?.last ?? null
+      return {
+        id: bankImport.id,
+        fileName: bankImport.fileName,
+        importedAt: bankImport.createdAt,
+        importedByName: bankImport.createdBy?.name ?? null,
+        periodStart: periodStart && fromDbDate(periodStart),
+        periodEnd: periodEnd && fromDbDate(periodEnd),
+        totalCount: bankImport.totalCount,
+        duplicateCount: bankImport.duplicateCount,
+        importedCount: bankImport.importedCount ?? transactions?.count ?? 0,
+        linkedCount: transactions?.count ?? 0,
+        reconciledCount: transactions?.reconciled ?? 0,
+      }
+    })
+  })
+}
+
+/**
+ * When the account last got a statement, and up to which day the bank's
+ * statement is already in the app. "Extrato até" takes the later of the
+ * files' DTEND and the latest transaction date, so a file without DTEND —
+ * or one whose DTEND stops short of its own transactions — still counts.
+ */
+export async function getImportSummary(organizationId: string, bankAccountId: string): Promise<ImportSummary> {
+  return withOrganization(organizationId, async (tx) => {
+    const [imports, transactions] = await Promise.all([
+      tx.import.aggregate({ where: { bankAccountId }, _max: { createdAt: true, periodEnd: true } }),
+      tx.bankTransaction.aggregate({ where: { bankAccountId }, _max: { date: true } }),
+    ])
+    if (!imports._max.createdAt) return { lastImportedAt: null, coveredUntil: null }
+
+    const candidates = [imports._max.periodEnd, transactions._max.date].filter((date): date is Date => date != null)
+    const coveredUntil = candidates.length > 0 ? new Date(Math.max(...candidates.map((d) => d.getTime()))) : null
+    return {
+      lastImportedAt: imports._max.createdAt,
+      coveredUntil: coveredUntil && fromDbDate(coveredUntil),
     }
   })
 }

@@ -7,6 +7,7 @@ import {
   ArrowUpRightIcon,
   ArrowLeftIcon,
   CheckIcon,
+  HistoryIcon,
   LandmarkIcon,
   Loader2Icon,
   FileTextIcon,
@@ -20,23 +21,27 @@ import {
   createAndSettleTransferAction,
   createSettlementAction,
   deleteBankTransactionAction,
+  getImportSummaryAction,
   getMatchInfoForTransactionsAction,
   listBankTransactionsAction,
 } from "@/app/o/[orgId]/(app)/reconciliation/actions"
 import { ReconciliationCategoryPicker, ReconciliationContactPicker } from "@/components/reconciliation/entry-pickers"
+import { ImportHistorySheet } from "@/components/reconciliation/import-history-sheet"
 import { ImportOfxButton } from "@/components/reconciliation/import-ofx-button"
 import { ReconciliationMatchModal } from "@/components/reconciliation/reconciliation-match-modal"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { formatBankAccountLabel, formatBankAccountNumbers, formatBRL, formatDate } from "@/lib/format"
+import { formatBusinessDateTime } from "@/lib/today"
 import { cn } from "@/lib/utils"
 import type { BankAccount } from "@/modules/bank-accounts/types"
 import type { Category } from "@/modules/categories/types"
 import type { Contact } from "@/modules/contacts/types"
 import { directionForTransactionAmount } from "@/modules/settlements/domain"
 import type { TransactionMatchInfo } from "@/modules/settlements/types"
-import type { BankTransaction } from "@/modules/statements/types"
+import type { BankTransaction, ImportSummary } from "@/modules/statements/types"
 import { useOrgPath } from "@/hooks/use-org-path"
 import { toast } from "sonner"
 
@@ -58,11 +63,13 @@ export function ReconciliationView({
   bankAccounts,
   contacts: initialContacts,
   categories: initialCategories,
+  importSummary: initialImportSummary,
 }: {
   bankAccount: BankAccount
   bankAccounts: BankAccount[]
   contacts: Contact[]
   categories: Category[]
+  importSummary: ImportSummary
 }) {
   const toOrg = useOrgPath()
   const bankAccountId = bankAccount.id
@@ -73,6 +80,8 @@ export function ReconciliationView({
   const [busca, setBusca] = React.useState("")
   const [modalTransactionId, setModalTransactionId] = React.useState<string | null>(null)
   const [refreshKey, setRefreshKey] = React.useState(0)
+  const [importSummary, setImportSummary] = React.useState(initialImportSummary)
+  const [historyOpen, setHistoryOpen] = React.useState(false)
 
   // Locais para que contato/categoria criados aqui entrem na hora nas listas.
   const [contacts, setContacts] = React.useState(initialContacts)
@@ -99,6 +108,9 @@ export function ReconciliationView({
   function handleImported() {
     setCarregando(true)
     setRefreshKey((key) => key + 1)
+    getImportSummaryAction(bankAccountId).then((response) => {
+      if (response.ok) setImportSummary(response.data)
+    })
   }
 
   React.useEffect(() => {
@@ -186,8 +198,17 @@ export function ReconciliationView({
             </p>
           </div>
         </div>
-        <ImportOfxButton bankAccountId={bankAccountId} onImported={handleImported} />
+        <div className="flex flex-wrap items-center gap-3">
+          <ImportSummaryText summary={importSummary} />
+          <Button type="button" variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+            <HistoryIcon />
+            Histórico
+          </Button>
+          <ImportOfxButton bankAccountId={bankAccountId} onImported={handleImported} />
+        </div>
       </div>
+
+      <ImportHistorySheet bankAccountId={bankAccountId} open={historyOpen} onOpenChange={setHistoryOpen} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -571,3 +592,26 @@ const ReconciliationRow = React.memo(function ReconciliationRow({
     </div>
   )
 })
+
+/**
+ * "Última importação" é quando alguém enviou um OFX; "Extrato até" é até que
+ * dia o extrato do banco já está no app — o que importa para saber se falta
+ * importar alguma coisa antes de conciliar.
+ */
+function ImportSummaryText({ summary }: { summary: ImportSummary }) {
+  if (!summary.lastImportedAt) {
+    return <p className="text-xs text-muted-foreground">Nenhum extrato importado ainda</p>
+  }
+  return (
+    <div className="text-right text-xs text-muted-foreground">
+      <p>
+        Última importação: <span className="text-foreground">{formatBusinessDateTime(summary.lastImportedAt)}</span>
+      </p>
+      {summary.coveredUntil && (
+        <p>
+          Extrato até <span className="text-foreground">{formatDate(summary.coveredUntil)}</span>
+        </p>
+      )}
+    </div>
+  )
+}

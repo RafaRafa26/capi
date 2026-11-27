@@ -251,6 +251,7 @@ export function BankAccountsWorkspace({
                   {account.pendingCount} {account.pendingCount === 1 ? "conciliação pendente" : "conciliações pendentes"}
                 </span>
               )}
+
             </button>
           ))}
           {accounts.length === 0 && (
