@@ -130,49 +130,25 @@ export async function listImports(organizationId: string, bankAccountId: string)
 }
 
 /**
- * When each account last got a statement, and up to which day the bank's
+ * When the account last got a statement, and up to which day the bank's
  * statement is already in the app. "Extrato até" takes the later of the
  * files' DTEND and the latest transaction date, so a file without DTEND —
  * or one whose DTEND stops short of its own transactions — still counts.
  */
-export async function getImportSummaries(
-  tx: Tx,
-  bankAccountIds: string[],
-): Promise<Map<string, ImportSummary>> {
-  const summaries = new Map<string, ImportSummary>()
-  if (bankAccountIds.length === 0) return summaries
-
-  const [imports, transactions] = await Promise.all([
-    tx.import.groupBy({
-      by: ["bankAccountId"],
-      where: { bankAccountId: { in: bankAccountIds } },
-      _max: { createdAt: true, periodEnd: true },
-    }),
-    tx.bankTransaction.groupBy({
-      by: ["bankAccountId"],
-      where: { bankAccountId: { in: bankAccountIds } },
-      _max: { date: true },
-    }),
-  ])
-
-  const lastTransactionDate = new Map(transactions.map((row) => [row.bankAccountId, row._max.date]))
-  for (const row of imports) {
-    const candidates = [row._max.periodEnd, lastTransactionDate.get(row.bankAccountId)].filter(
-      (date): date is Date => date != null,
-    )
-    const coveredUntil = candidates.length > 0 ? new Date(Math.max(...candidates.map((d) => d.getTime()))) : null
-    summaries.set(row.bankAccountId, {
-      lastImportedAt: row._max.createdAt,
-      coveredUntil: coveredUntil && fromDbDate(coveredUntil),
-    })
-  }
-  return summaries
-}
-
 export async function getImportSummary(organizationId: string, bankAccountId: string): Promise<ImportSummary> {
   return withOrganization(organizationId, async (tx) => {
-    const summaries = await getImportSummaries(tx, [bankAccountId])
-    return summaries.get(bankAccountId) ?? { lastImportedAt: null, coveredUntil: null }
+    const [imports, transactions] = await Promise.all([
+      tx.import.aggregate({ where: { bankAccountId }, _max: { createdAt: true, periodEnd: true } }),
+      tx.bankTransaction.aggregate({ where: { bankAccountId }, _max: { date: true } }),
+    ])
+    if (!imports._max.createdAt) return { lastImportedAt: null, coveredUntil: null }
+
+    const candidates = [imports._max.periodEnd, transactions._max.date].filter((date): date is Date => date != null)
+    const coveredUntil = candidates.length > 0 ? new Date(Math.max(...candidates.map((d) => d.getTime()))) : null
+    return {
+      lastImportedAt: imports._max.createdAt,
+      coveredUntil: coveredUntil && fromDbDate(coveredUntil),
+    }
   })
 }
 

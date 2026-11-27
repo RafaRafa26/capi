@@ -3,7 +3,6 @@ import "server-only";
 import { fromDbDate, withOrganization, type Tx } from "@/db/client";
 import { NotFound } from "@/shared/errors";
 import { netSettledAmount } from "@/modules/settlements/domain";
-import { getImportSummaries } from "@/modules/statements/service";
 import type { BankAccountInput } from "./schema";
 import type { BankAccount, BankAccountOverview, BankAccountStatement } from "./types";
 
@@ -73,7 +72,7 @@ export async function getBankAccountsOverview(organizationId: string): Promise<B
     const accounts = await tx.bankAccount.findMany({ where: { active: true }, select: FIELDS, orderBy: { name: "asc" } });
     if (accounts.length === 0) return [];
 
-    const [reconciledSums, pendingCounts, pendingLegs, importSummaries] = await Promise.all([
+    const [reconciledSums, pendingCounts, pendingLegs] = await Promise.all([
       tx.bankTransaction.groupBy({
         by: ["bankAccountId"],
         where: { bankAccountId: { in: accounts.map((a) => a.id) }, status: "RECONCILED" },
@@ -85,7 +84,6 @@ export async function getBankAccountsOverview(organizationId: string): Promise<B
         _count: { _all: true },
       }),
       findPendingTransferLegs(tx, accounts.map((a) => a.id)),
-      getImportSummaries(tx, accounts.map((a) => a.id)),
     ]);
 
     const sumByAccount = new Map(reconciledSums.map((row) => [row.bankAccountId, row._sum.amount ?? 0]));
@@ -98,8 +96,6 @@ export async function getBankAccountsOverview(organizationId: string): Promise<B
       ...fromDatabase(account),
       currentBalance: account.initialBalance + (sumByAccount.get(account.id) ?? 0),
       pendingCount: pendingByAccount.get(account.id) ?? 0,
-      lastImportedAt: importSummaries.get(account.id)?.lastImportedAt ?? null,
-      statementCoveredUntil: importSummaries.get(account.id)?.coveredUntil ?? null,
     }));
   });
 }

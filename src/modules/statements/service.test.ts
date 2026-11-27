@@ -2,7 +2,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest"
 
 import { prismaAdmin } from "@/db/client"
 import { createTestOrganization, removeTestOrganizations, type TestOrg } from "@/db/__tests__/environment"
-import { getBankAccountsOverview } from "@/modules/bank-accounts/service"
 import { NotFound } from "@/shared/errors"
 import {
   deleteBankTransaction,
@@ -269,17 +268,4 @@ describe("getImportSummary", () => {
     expect(day(summary.coveredUntil)).toBe("2026-09-05")
   })
 
-  it("shows up in the bank accounts overview", async () => {
-    const bankAccountId = await freshBankAccount()
-    await importStatement(org.id, org.userId, {
-      bankAccountId,
-      fileName: "agosto.ofx",
-      content: ofxWithReferences([`overview-${Date.now()}`]),
-    })
-
-    const account = (await getBankAccountsOverview(org.id)).find((a) => a.id === bankAccountId)
-
-    expect(account?.lastImportedAt).toBeInstanceOf(Date)
-    expect(day(account?.statementCoveredUntil ?? null)).toBe("2026-08-31")
-  })
 })

@@ -39,7 +39,6 @@ import { statementMonth, toParamMonth } from "@/lib/bank-accounts/statement"
 import { balanceAxisScale } from "@/lib/chart-scale"
 import { cn } from "@/lib/utils"
 import { formatBankAccountNumbers, formatBRL, formatCompactBRL, formatDate, formatDayMonth, formatMonthYear } from "@/lib/format"
-import { formatBusinessDateTime } from "@/lib/today"
 import type { AccountEntry } from "@/modules/accounts/types"
 import type {
   BankAccountOverview,
@@ -252,20 +251,7 @@ export function BankAccountsWorkspace({
                   {account.pendingCount} {account.pendingCount === 1 ? "conciliação pendente" : "conciliações pendentes"}
                 </span>
               )}
-              <span
-                className="text-xs text-muted-foreground"
-                title={
-                  account.lastImportedAt
-                    ? `Última importação: ${formatBusinessDateTime(account.lastImportedAt)}`
-                    : undefined
-                }
-              >
-                {account.statementCoveredUntil
-                  ? `Extrato até ${formatDate(account.statementCoveredUntil)}`
-                  : account.lastImportedAt
-                    ? `Importado em ${formatBusinessDateTime(account.lastImportedAt)}`
-                    : "Nenhum extrato importado"}
-              </span>
+
             </button>
           ))}
           {accounts.length === 0 && (

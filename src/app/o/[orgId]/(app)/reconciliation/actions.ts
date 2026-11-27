@@ -75,7 +75,7 @@ export async function importStatementAction(form: FormData): Promise<Result<Impo
     }
 
     const result = await importStatement(session.organizationId, session.userId, parsed.data);
-    // A lista de contas mostra "Extrato até" e as conciliações pendentes.
+    // A lista de contas mostra as conciliações pendentes.
     revalidatePath(orgPath(session.organizationId, "/accounts"));
     return { ok: true, data: result };
   } catch (error) {
